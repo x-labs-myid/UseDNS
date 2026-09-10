@@ -1,121 +1,153 @@
-# UseDNS
+<p align="center">
+  <img src=".assets/UseDNS.png" alt="UseDNS logo" width="180">
+</p>
 
-**UseDNS** is a simple DNS changer and DNS recommendation app that helps you quickly switch between popular DNS providers or use your own custom DNS configuration.
+<h1 align="center">UseDNS</h1>
 
-The app is designed to make DNS management easier without requiring users to manually configure network settings.
+<p align="center"><strong>Choose. Switch. Connect.</strong></p>
 
-## Features
+UseDNS is a lightweight desktop utility for discovering, comparing, and applying DNS resolvers without manually editing Windows network settings. It is built with [Rust](https://www.rust-lang.org/) and [Slint](https://slint.dev/).
 
-- Quickly switch between DNS providers
-- Curated recommendations for popular DNS services
-- Support for privacy-focused and security-focused DNS
-- Custom DNS configuration
-- Simple and lightweight interface
-- Easy-to-understand DNS information
-- Designed for everyday users and advanced users
+> [!NOTE]
+> UseDNS is currently an MVP. DNS changes are supported on Windows; additional platform backends are planned.
 
-## DNS Providers
+## Highlights
 
-UseDNS can provide recommendations for popular DNS services such as:
+- Detect active network adapters and their current DNS configuration
+- Compare curated public DNS providers with clear benefits and trade-offs
+- Apply IPv4, IPv6, or both address families
+- Create, update, and remove custom DNS profiles
+- Restore automatic DNS configuration from DHCP
+- Monitor resolver reachability and approximate latency
+- Switch between English and Indonesian, with English as the default
+- Choose a glass-inspired light or dark appearance, or follow the Windows theme
+- Keep preferences and custom profiles on the local device
 
-- Cloudflare DNS
-- Google Public DNS
-- Quad9
-- AdGuard DNS
-- NextDNS
-- Control D
-- Other supported DNS providers
+## Included DNS Providers
 
-Availability may depend on the platform and application version.
+| Provider          | Primary benefit                     | IPv4 | IPv6 |
+| ----------------- | ----------------------------------- | :--: | :--: |
+| Cloudflare        | Performance and privacy             | Yes  | Yes  |
+| Google Public DNS | Reliability and global availability | Yes  | Yes  |
+| Quad9             | Malware and phishing protection     | Yes  | Yes  |
+| AdGuard DNS       | Ad and tracker filtering            | Yes  | Yes  |
 
-## Why UseDNS?
+Built-in profiles are read-only to protect their verified configuration. User-created profiles remain fully editable.
 
-Changing DNS manually can be inconvenient, especially when testing or switching between multiple DNS providers.
+## Requirements
 
-UseDNS provides one place to discover, compare, and switch DNS configurations more easily.
+- Windows 10 or Windows 11
+- PowerShell with the `DnsClient` module
+- Administrator privileges when applying or resetting DNS
+- Rust 1.92 or newer when building from source
 
-Different DNS providers may offer different benefits, including:
+Reading network status does not require elevation. Windows only requires Administrator privileges when UseDNS writes DNS settings.
 
-- Better privacy
-- Malware or phishing protection
-- Content filtering
-- Parental filtering
-- Faster DNS resolution
-- Custom filtering and configuration
+## Getting Started
 
-Actual performance may vary depending on your ISP, location, network condition, and selected DNS provider.
+Clone the repository and enter its directory:
 
-## Custom DNS
+```sh
+git clone https://github.com/x-labs-myid/UseDNS.git
+cd UseDNS
+```
 
-In addition to recommended providers, UseDNS allows users to configure their own DNS addresses.
-
-This is useful for:
-
-- Self-hosted DNS
-- Pi-hole
-- AdGuard Home
-- Private DNS servers
-- Internal network DNS
-- Custom resolver services
-
-## Privacy
-
-UseDNS itself does not operate a public DNS resolver.
-
-DNS queries are handled by the DNS provider selected by the user. Each provider may have its own privacy policy, logging policy, filtering rules, and data retention practices.
-
-Users are encouraged to review the policy of their selected DNS provider before using it.
-
-## Disclaimer
-
-UseDNS is an independent utility application and is not affiliated with, endorsed by, or sponsored by any DNS provider listed in the application.
-
-Names, trademarks, and logos belong to their respective owners.
-
-Changing DNS does not automatically make an internet connection anonymous or completely private.
-
-## MVP Features
-
-The current desktop MVP is built with Rust and [Slint](https://slint.dev/) and includes:
-
-- Active Windows network-adapter and DNS detection
-- Connection reachability and latency status
-- Built-in Cloudflare, Google, Quad9, and AdGuard recommendations
-- IPv4-only, IPv6-only, or combined DNS application
-- Custom DNS creation, editing, deletion, and local persistence
-- English and Indonesian interfaces (English by default)
-- Privacy and application-policy information
-- One-click restoration of automatic DNS (DHCP)
-
-Built-in providers are read-only. Custom provider settings and the selected language are stored locally in the operating system's application configuration directory.
-
-## Run Locally
-
-Install a current stable Rust toolchain, then run:
+Run the development build:
 
 ```sh
 cargo run
 ```
 
-Reading network status does not require elevated privileges. Applying or resetting DNS on Windows requires running the terminal or executable as **Administrator**. The application reports the PowerShell error if Windows denies the operation.
+To apply or reset DNS, launch the terminal as **Administrator** before running the command.
+
+Create an optimized executable:
 
 ```sh
+cargo build --release
+```
+
+The resulting executable is written to `target/release/usedns.exe`.
+
+## Usage
+
+1. Open **Home** and select an active network adapter.
+2. Review its effective DNS addresses and connection status.
+3. Open **DNS providers** and select IPv4, IPv6, or the combined mode.
+4. Review a provider's purpose, advantages, and limitations.
+5. Select **Use DNS** to apply it.
+6. If connectivity is affected, return to **Home** and select **Use automatic DNS**.
+
+Custom resolvers such as Pi-hole, AdGuard Home, private DNS servers, and internal network resolvers can be managed from **Custom DNS**.
+
+## Architecture
+
+```text
+UseDNS/
+├── .assets/             # Application artwork
+├── src/
+│   ├── main.rs          # Application state and UI callbacks
+│   ├── models.rs        # DNS provider model and validation
+│   ├── storage.rs       # Local settings persistence
+│   └── system.rs        # Windows adapter and DNS operations
+├── ui/
+│   ├── components/
+│   │   ├── common.slint  # Shared cards, titles, tags, and theme controls
+│   │   └── sidebar.slint # Application navigation
+│   ├── pages/
+│   │   ├── home.slint
+│   │   ├── providers.slint
+│   │   ├── custom-dns.slint
+│   │   ├── policy.slint
+│   │   └── settings.slint
+│   ├── app-window.slint  # Composition root and Rust callback surface
+│   ├── theme.slint       # Shared light/dark design tokens
+│   └── types.slint       # UI-facing data structures
+├── build.rs             # UI compilation and Windows resources
+└── Cargo.toml
+```
+
+UseDNS calls the Windows `Set-DnsClientServerAddress` PowerShell command to apply and reset DNS settings. Platform-specific operations are kept separate from the provider model and UI.
+
+## Data and Privacy
+
+UseDNS does not operate a DNS resolver and does not inspect, record, or sell DNS queries. Queries are handled directly by the provider selected by the user. Each provider has independent logging, filtering, privacy, and retention policies.
+
+Custom DNS profiles and language preferences are serialized to the operating system's local application configuration directory. UseDNS does not upload this data.
+
+The connection indicator checks resolver reachability and approximate ping latency. It is not a bandwidth test and does not send test files to a third-party speed-testing service.
+
+## Documentation
+
+The complete MVP product specification, implementation inventory, known limitations, acceptance checklist, and roadmap are available in [`docs/spec/MVP_SPECIFICATION.md`](docs/spec/MVP_SPECIFICATION.md).
+
+## Development
+
+Format the project and run its tests before submitting a change:
+
+```sh
+cargo fmt --all -- --check
 cargo test
 ```
 
-The connection indicator measures resolver reachability and approximate ping latency. It is intentionally not a bandwidth speed test, which would consume substantially more data and require a third-party test service.
+The current tests cover validation of bundled DNS profiles and rejection of addresses with an incorrect IP version.
 
-## Platform Status
+## Roadmap
 
-DNS changes currently use the Windows `Set-DnsClientServerAddress` PowerShell command. The interface can run on other Slint-supported platforms, but DNS changes are reported as unsupported there until a platform-specific backend is added.
+Potential follow-up work includes:
 
-Features, supported DNS providers, and platform compatibility may change as development progresses.
+- Native elevation flow for DNS operations
+- Linux and macOS DNS backends
+- DNS response benchmarking and recommendation ranking
+- Confirmation and rollback of the previous adapter configuration
+- Search and filtering for larger provider catalogs
+- Signed Windows installers and release automation
+
+## Disclaimer
+
+UseDNS is an independent utility and is not affiliated with, endorsed by, or sponsored by any listed DNS provider. Provider names and trademarks belong to their respective owners.
+
+Changing DNS does not make a connection anonymous or completely private. Availability and performance vary by ISP, location, selected provider, and network conditions.
 
 ## License
 
-License information will be added according to the project's distribution model.
-
----
-
-**UseDNS**
-_Choose. Switch. Connect._
+UseDNS is available under the [MIT License](LICENSE).

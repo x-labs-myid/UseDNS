@@ -7,12 +7,24 @@ use std::{fs, io, path::PathBuf};
 pub struct Settings {
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    #[serde(default = "default_speed_unit")]
+    pub speed_unit: String,
     #[serde(default)]
     pub custom_providers: Vec<DnsProvider>,
 }
 
 fn default_language() -> String {
     "en".into()
+}
+
+fn default_theme() -> String {
+    "system".into()
+}
+
+fn default_speed_unit() -> String {
+    "kbps".into()
 }
 
 fn settings_path() -> Option<PathBuf> {

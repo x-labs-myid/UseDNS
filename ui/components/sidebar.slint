@@ -1,0 +1,192 @@
+import { Button } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { NavButton } from "common.slint";
+import { IconDisplay, IconSet } from "@lucide";
+
+export component Sidebar inherits Rectangle {
+    in property <string> language;
+    in property <int> page;
+    callback navigate(int);
+
+    width: 220px;
+    background: Theme.sidebar;
+    border-width: 1px;
+    border-color: Theme.border;
+
+    VerticalLayout {
+        padding: 22px;
+        spacing: 8px;
+        HorizontalLayout {
+            height: 52px;
+            spacing: 12px;
+            alignment: start;
+            Image {
+                width: 44px;
+                height: 44px;
+                source: @image-url("../../.assets/UseDNS.png");
+                image-fit: contain;
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                Text { text: "UseDNS"; color: Theme.text; font-size: 20px; font-weight: 800; }
+                Text { text: "DNS made simple"; color: Theme.muted-text; font-size: 10px; }
+            }
+        }
+        
+        Rectangle { height: 16px; }
+
+        NavButton {
+            label: language == "id" ? "Beranda" : "Home";
+            selected: page == 0;
+            clicked => { root.navigate(0); }
+            IconDisplay {
+                icon: IconSet.House;
+                size: 18px;
+                stroke: page == 0 ? white : Theme.secondary-text;
+            }
+        }
+        NavButton {
+            label: language == "id" ? "Daftar DNS" : "DNS providers";
+            selected: page == 1;
+            clicked => { root.navigate(1); }
+            IconDisplay {
+                icon: IconSet.List;
+                size: 18px;
+                stroke: page == 1 ? white : Theme.secondary-text;
+            }
+        }
+        NavButton {
+            label: language == "id" ? "DNS kustom" : "Custom DNS";
+            selected: page == 2;
+            clicked => { root.navigate(2); }
+            IconDisplay {
+                icon: IconSet.Database;
+                size: 18px;
+                stroke: page == 2 ? white : Theme.secondary-text;
+            }
+        }
+        NavButton {
+            label: language == "id" ? "Kebijakan" : "Policy";
+            selected: page == 3;
+            clicked => { root.navigate(3); }
+            IconDisplay {
+                icon: IconSet.Shield;
+                size: 18px;
+                stroke: page == 3 ? white : Theme.secondary-text;
+            }
+        }
+        NavButton {
+            label: language == "id" ? "Pengaturan" : "Settings";
+            selected: page == 4;
+            clicked => { root.navigate(4); }
+            IconDisplay {
+                icon: IconSet.Settings;
+                size: 18px;
+                stroke: page == 4 ? white : Theme.secondary-text;
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; }
+
+        // Slogan and decorative text from mockup
+        VerticalLayout {
+            spacing: 2px;
+            padding-bottom: 12px;
+            Text {
+                text: "Simple DNS";
+                color: Theme.muted-text;
+                font-size: 11px;
+                font-italic: true;
+            }
+            Text {
+                text: "A Better Internet";
+                color: Theme.muted-text;
+                font-size: 11px;
+                font-italic: true;
+            }
+        }
+
+        // Theme switch pill button from mockup
+        Rectangle {
+            height: 42px;
+            border-radius: 12px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 10px;
+                alignment: center;
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        HorizontalLayout {
+                            alignment: center;
+                            VerticalLayout {
+                                alignment: center;
+                                if Theme.dark: IconDisplay {
+                                    icon: IconSet.Moon;
+                                    size: 16px;
+                                    stroke: Theme.secondary-text;
+                                }
+                                if !Theme.dark: IconDisplay {
+                                    icon: IconSet.Sun;
+                                    size: 16px;
+                                    stroke: Theme.secondary-text;
+                                }
+                            }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: Theme.dark ? (language == "id" ? "Mode gelap" : "Dark mode") : (language == "id" ? "Mode terang" : "Light mode");
+                        color: Theme.text;
+                        font-size: 12px;
+                        font-weight: 500;
+                        horizontal-stretch: 1;
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 16px;
+                        height: 16px;
+                        HorizontalLayout {
+                            alignment: center;
+                            VerticalLayout {
+                                alignment: center;
+                                IconDisplay {
+                                    icon: IconSet.ChevronDown;
+                                    size: 14px;
+                                    stroke: Theme.muted-text;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.navigate(4); }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            padding-top: 4px;
+            Text { text: "v0.1.0 MVP"; color: Theme.muted-text; font-size: 10px; }
+            Text {
+                text: language == "id" ? "Koneksi lebih baik untuk internet yang lebih bebas." : "Better connection for a freer internet.";
+                color: Theme.muted-text.with-alpha(0.8);
+                font-size: 9.5px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

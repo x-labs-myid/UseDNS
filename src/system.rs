@@ -7,6 +7,27 @@ pub struct AdapterInfo {
 }
 
 #[cfg(windows)]
+pub fn prefers_dark_mode() -> bool {
+    Command::new("reg.exe")
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "/v",
+            "AppsUseLightTheme",
+        ])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).contains("0x0"))
+        .unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+pub fn prefers_dark_mode() -> bool {
+    false
+}
+
+#[cfg(windows)]
 fn powershell(script: &str) -> Result<String, String> {
     let output = Command::new("powershell.exe")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -26,7 +47,7 @@ fn powershell(script: &str) -> Result<String, String> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = "Get-NetAdapter | Where-Object Status -eq 'Up' | ForEach-Object { $n=$_.Name; $d=(Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex).ServerAddresses -join ', '; Write-Output ($n + [char]9 + $d) }";
+    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $d=(Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex).ServerAddresses -join ', '; Write-Output ($n + [char]9 + $d) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
@@ -51,6 +72,31 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
         name: "Default network".into(),
         dns: "System managed".into(),
     }])
+}
+
+#[cfg(windows)]
+pub fn network_counters(adapter: &str) -> Result<(u64, u64), String> {
+    let escaped_adapter = adapter.replace('\'', "''");
+    let output = powershell(&format!(
+        "$s=Get-NetAdapterStatistics -Name '{escaped_adapter}'; Write-Output ($s.ReceivedBytes.ToString() + [char]9 + $s.SentBytes.ToString())"
+    ))?;
+    let (received, sent) = output
+        .split_once('\t')
+        .ok_or_else(|| "Windows returned invalid network statistics.".to_string())?;
+    Ok((
+        received
+            .trim()
+            .parse()
+            .map_err(|_| "Invalid received-byte counter.".to_string())?,
+        sent.trim()
+            .parse()
+            .map_err(|_| "Invalid sent-byte counter.".to_string())?,
+    ))
+}
+
+#[cfg(not(windows))]
+pub fn network_counters(_adapter: &str) -> Result<(u64, u64), String> {
+    Err("Real-time network activity is currently supported on Windows only.".into())
 }
 
 #[cfg(windows)]

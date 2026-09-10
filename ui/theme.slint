@@ -1,0 +1,26 @@
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    in-out property <string> mode: "system";
+    in-out property <bool> system-dark: false;
+    out property <bool> dark: mode == "dark" || (mode == "system" && system-dark);
+
+    out property <color> background: dark ? #030a1c : #f0f6fc;
+    out property <color> sidebar: dark ? #07122aee : #f8fbffee;
+    out property <color> surface: dark ? #0c1b3bee : #ffffff;
+    out property <color> surface-strong: dark ? #11264fee : #f0f7ff;
+    out property <color> surface-subtle: dark ? #0a173499 : #f6faff;
+    out property <color> border: dark ? #1f376488 : #d8e5f3;
+    out property <color> border-subtle: dark ? #192d5266 : #e8f0f8;
+    out property <color> text: dark ? #ffffff : #0d213f;
+    out property <color> secondary-text: dark ? #9bc2e8 : #426084;
+    out property <color> muted-text: dark ? #6282a8 : #7e9bb9;
+    out property <color> accent: #0076f5;
+    out property <color> accent-gradient-start: #0084ff;
+    out property <color> accent-gradient-end: #00d2ff;
+    out property <color> cyan: dark ? #00d2ff : #00a6e8;
+    out property <color> green: #10b981;
+    out property <color> purple: #7c3aed;
+    out property <color> orange: #f59e0b;
+    out property <color> overlay: dark ? #020817cc : #d8eff7bb;
+}

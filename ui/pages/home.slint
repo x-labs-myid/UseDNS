@@ -1,0 +1,938 @@
+import { Button, ComboBox } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { IconDisplay, IconSet } from "@lucide";
+
+export component HomePage inherits VerticalLayout {
+    in property <string> language;
+    in property <[string]> adapters;
+    in-out property <int> adapter-index;
+    in property <string> active-provider: "System / DHCP";
+    in property <string> current-dns: "—";
+    in property <string> connection-state: "Stable";
+    in property <string> latency: "—";
+    in property <string> download-speed: "0.0 Kbps";
+    in property <string> upload-speed: "0.0 Kbps";
+    in property <string> total-speed: "0.0";
+    in property <string> speed-unit: "kbps";
+    in property <float> download-level: 0;
+    in property <float> upload-level: 0;
+    in property <float> total-level: 0;
+    in property <bool> connection-error: false;
+    in property <bool> busy: false;
+    
+    callback refresh;
+    callback reset-dns(int);
+    callback navigate-providers;
+
+    spacing: 16px;
+
+    // -------------------------------------------------------------
+    // TOP HEADER (Greeting, Status, Adapter Dropdown, Refresh)
+    // -------------------------------------------------------------
+    HorizontalLayout {
+        height: 56px;
+        spacing: 12px;
+        alignment: center;
+
+        // Greeting title
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Text {
+                text: language == "id" ? "Selamat menggunakan," : "Welcome to,";
+                color: Theme.muted-text;
+                font-size: 11px;
+            }
+            Text {
+                text: "UseDNS";
+                color: #0076f5;
+                font-size: 26px;
+                font-weight: 800;
+            }
+            Text {
+                text: language == "id" ? "Pantau DNS dan kualitas koneksi aktif Anda." : "Monitor your DNS and active connection quality.";
+                color: Theme.secondary-text;
+                font-size: 11px;
+                wrap: word-wrap;
+            }
+        }
+
+        // Top right adapter selector, refresh button, and status badge
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: center;
+
+            // Adapter Selector Container
+            Rectangle {
+                height: 38px;
+                border-radius: 12px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 4px;
+                    spacing: 8px;
+                    alignment: center;
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        IconDisplay {
+                                icon: IconSet.Network;
+                                size: 16px;
+                                stroke: Theme.secondary-text;
+                                x: (parent.width - 16px) / 2;
+                            y: (parent.height - 16px) / 2;
+                        }
+                    }
+                    ComboBox {
+                        width: 190px;
+                        model: root.adapters;
+                        current-index <=> root.adapter-index;
+                    }
+                }
+            }
+
+            // Refresh Button with Icon perfectly centered
+            Rectangle {
+                height: 38px;
+                border-radius: 12px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 16px;
+                    spacing: 8px;
+                    alignment: center;
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        IconDisplay {
+                                icon: IconSet.RefreshCw;
+                                size: 15px;
+                                stroke: Theme.secondary-text;
+                                x: (parent.width - 15px) / 2;
+                            y: (parent.height - 15px) / 2;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: language == "id" ? "Periksa ulang" : "Refresh";
+                            color: Theme.text;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                    }
+                }
+                TouchArea {
+                    mouse-cursor: root.busy ? default : pointer;
+                    clicked => {
+                        if (!root.busy) { root.refresh(); }
+                    }
+                }
+            }
+
+            // Connection Badge Status
+            VerticalLayout {
+                alignment: center;
+                spacing: 3px;
+                padding-left: 6px;
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: end;
+                    Rectangle {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 4px;
+                        background: root.connection-error ? #ef4444 : #10b981;
+                        y: (parent.height - self.height) / 2;
+                    }
+                    Text {
+                        text: root.connection-error ? 
+                            (language == "id" ? "Koneksi terganggu" : "Disconnected") : 
+                            (language == "id" ? "Terhubung ke internet" : "Connected to internet");
+                        color: root.connection-error ? #ef4444 : Theme.secondary-text;
+                        font-size: 11px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                Text {
+                    text: language == "id" ? "Aman  •  Cepat  •  Terkendali" : "Secure  •  Fast  •  Controlled";
+                    color: Theme.muted-text;
+                    font-size: 9.5px;
+                    horizontal-alignment: right;
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ROW 1: 3 STATUS CARDS (DNS AKTIF, KONEKSI, LATENSI)
+    // -------------------------------------------------------------
+    HorizontalLayout {
+        height: 98px;
+        spacing: 14px;
+
+        // Card 1: DNS AKTIF
+        Rectangle {
+            horizontal-stretch: 1;
+            border-radius: 18px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 14px;
+                alignment: center;
+
+                // Green DNS badge circle with Icon
+                Rectangle {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 24px;
+                    background: @linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    IconDisplay {
+                            icon: IconSet.Server;
+                            size: 22px;
+                            stroke: white;
+                            x: (parent.width - 22px) / 2;
+                        y: (parent.height - 22px) / 2;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 3px;
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: center;
+                        Text {
+                            text: language == "id" ? "DNS AKTIF" : "ACTIVE DNS";
+                            color: Theme.secondary-text;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        // Status pill "Aktif"
+                        HorizontalLayout {
+                            spacing: 4px;
+                            alignment: center;
+                            Rectangle {
+                                width: 6px;
+                                height: 6px;
+                                border-radius: 3px;
+                                background: #10b981;
+                                y: (parent.height - self.height) / 2;
+                            }
+                            Text {
+                                text: language == "id" ? "Aktif" : "Active";
+                                color: #10b981;
+                                font-size: 10px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    Text {
+                        text: root.active-provider;
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: root.current-dns;
+                        color: Theme.muted-text;
+                        font-size: 10.5px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        // Card 2: KONEKSI (Wifi)
+        Rectangle {
+            horizontal-stretch: 1;
+            border-radius: 18px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 14px;
+                alignment: center;
+
+                // Blue circle with Wifi icon
+                Rectangle {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 24px;
+                    background: @linear-gradient(135deg, #0099ff 0%, #0076f5 100%);
+                    IconDisplay {
+                            icon: IconSet.Wifi;
+                            size: 22px;
+                            stroke: white;
+                            x: (parent.width - 22px) / 2;
+                        y: (parent.height - 22px) / 2;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 3px;
+                    horizontal-stretch: 1;
+                    Text {
+                        text: language == "id" ? "KONEKSI" : "CONNECTION";
+                        color: Theme.secondary-text;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: root.connection-state;
+                        color: root.connection-error ? #ef4444 : (root.connection-state == "Unstable" ? #f59e0b : #10b981);
+                        font-size: 18px;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: language == "id" ? "Berdasarkan latensi DNS" : "Based on DNS latency";
+                        color: Theme.muted-text;
+                        font-size: 10.5px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        // Card 3: LATENSI (Clock)
+        Rectangle {
+            horizontal-stretch: 1;
+            border-radius: 18px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 14px;
+                alignment: center;
+
+                // Purple gradient circle with Clock icon
+                Rectangle {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 24px;
+                    background: @linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+                    IconDisplay {
+                            icon: IconSet.Clock;
+                            size: 22px;
+                            stroke: white;
+                            x: (parent.width - 22px) / 2;
+                        y: (parent.height - 22px) / 2;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 3px;
+                    horizontal-stretch: 1;
+                    Text {
+                        text: language == "id" ? "LATENSI" : "LATENCY";
+                        color: Theme.secondary-text;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: root.latency;
+                        color: #6366f1;
+                        font-size: 18px;
+                        font-weight: 700;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: language == "id" ? "Waktu respons rata-rata" : "Average response time";
+                        color: Theme.muted-text;
+                        font-size: 10.5px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ROW 2: MAIN SPEED METER & REAL-TIME ACTIVITY
+    // -------------------------------------------------------------
+    Rectangle {
+        vertical-stretch: 1;
+        border-radius: 22px;
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.border;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 14px;
+
+            // Section Title Inside Card
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: center;
+
+                Rectangle {
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 19px;
+                    background: #0076f5.with-alpha(0.12);
+                    IconDisplay {
+                            icon: IconSet.Gauge;
+                            size: 20px;
+                            stroke: #0076f5;
+                            x: (parent.width - 20px) / 2;
+                        y: (parent.height - 20px) / 2;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: language == "id" ? "Kecepatan Internet (Real-time)" : "Internet Speed (Real-time)";
+                        color: Theme.text;
+                        font-size: 15px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: language == "id" ? "Pantau kecepatan koneksi Anda saat ini." : "Monitor your current connection speed.";
+                        color: Theme.muted-text;
+                        font-size: 11px;
+                    }
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: center;
+                    Rectangle {
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: #10b981;
+                        y: (parent.height - self.height) / 2;
+                    }
+                    Text {
+                        text: language == "id" ? "Diperbarui setiap 1 detik" : "Updated every 1 second";
+                        color: Theme.muted-text;
+                        font-size: 10.5px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Main Content: Gauge Meter on Left, Download & Upload & Chart on Right
+            HorizontalLayout {
+                spacing: 18px;
+
+                // LEFT: Real-Time Speedometer Arc Gauge
+                Rectangle {
+                    width: 310px;
+                    border-radius: 18px;
+                    background: Theme.surface-subtle;
+                    border-width: 1px;
+                    border-color: Theme.border-subtle;
+
+                    VerticalLayout {
+                        alignment: center;
+                        padding: 16px;
+
+                        // Arc meter visualization (Clean & Minimalist)
+                        Rectangle {
+                            height: 170px;
+                            width: 170px;
+                            x: (parent.width - self.width) / 2;
+
+                            // Outer background track ring
+                            Rectangle {
+                                width: 170px;
+                                height: 170px;
+                                border-radius: 85px;
+                                border-width: 13px;
+                                border-color: Theme.border-subtle;
+                                background: transparent;
+                            }
+
+                            // Active dynamic progress ring
+                            Rectangle {
+                                width: 170px;
+                                height: 170px * min(1.0, max(0.02, root.total-level));
+                                y: 170px * (1.0 - min(1.0, max(0.02, root.total-level)));
+                                clip: true;
+
+                                Rectangle {
+                                    width: 170px;
+                                    height: 170px;
+                                    y: -170px * (1.0 - min(1.0, max(0.02, root.total-level)));
+                                    border-radius: 85px;
+                                    border-width: 13px;
+                                    border-color: @linear-gradient(135deg, #0076f5 0%, #00d2ff 100%);
+                                    background: transparent;
+                                }
+                            }
+
+                            // Center speed readout
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                width: 140px;
+                                height: 140px;
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+
+                                Text {
+                                    text: root.total-speed;
+                                    color: Theme.text;
+                                    font-size: 32px;
+                                    font-weight: 800;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
+                                    color: #0076f5;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: language == "id" ? "Kecepatan Saat Ini" : "Current Speed";
+                                    color: Theme.muted-text;
+                                    font-size: 10px;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // RIGHT: Download, Upload cards & 60s Speed Graph
+                VerticalLayout {
+                    spacing: 12px;
+                    horizontal-stretch: 1;
+
+                    // Row of Download & Upload cards
+                    HorizontalLayout {
+                        height: 68px;
+                        spacing: 12px;
+
+                        // Download Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            border-radius: 14px;
+                            background: Theme.surface-subtle;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 14px;
+                                spacing: 12px;
+                                alignment: center;
+
+                                Rectangle {
+                                    width: 36px;
+                                    height: 36px;
+                                    border-radius: 18px;
+                                    background: #0076f5.with-alpha(0.12);
+                                    IconDisplay {
+                                            icon: IconSet.ArrowDown;
+                                            size: 18px;
+                                            stroke: #0076f5;
+                                            x: (parent.width - 18px) / 2;
+                                        y: (parent.height - 18px) / 2;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 1px;
+                                    Text {
+                                        text: language == "id" ? "Download" : "Download";
+                                        color: Theme.secondary-text;
+                                        font-size: 11px;
+                                        font-weight: 600;
+                                    }
+                                    Text {
+                                        text: root.download-speed;
+                                        color: Theme.text;
+                                        font-size: 16px;
+                                        font-weight: 800;
+                                    }
+                                }
+
+                                Rectangle { horizontal-stretch: 1; }
+
+                                // Mini wave line decoration
+                                Rectangle {
+                                    width: 44px;
+                                    height: 12px;
+                                    background: @linear-gradient(90deg, #0076f511 0%, #0076f544 100%);
+                                    border-radius: 6px;
+                                }
+                            }
+                        }
+
+                        // Upload Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            border-radius: 14px;
+                            background: Theme.surface-subtle;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 14px;
+                                spacing: 12px;
+                                alignment: center;
+
+                                Rectangle {
+                                    width: 36px;
+                                    height: 36px;
+                                    border-radius: 18px;
+                                    background: #8b5cf6.with-alpha(0.12);
+                                    IconDisplay {
+                                            icon: IconSet.ArrowUp;
+                                            size: 18px;
+                                            stroke: #8b5cf6;
+                                            x: (parent.width - 18px) / 2;
+                                        y: (parent.height - 18px) / 2;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 1px;
+                                    Text {
+                                        text: language == "id" ? "Upload" : "Upload";
+                                        color: Theme.secondary-text;
+                                        font-size: 11px;
+                                        font-weight: 600;
+                                    }
+                                    Text {
+                                        text: root.upload-speed;
+                                        color: Theme.text;
+                                        font-size: 16px;
+                                        font-weight: 800;
+                                    }
+                                }
+
+                                Rectangle { horizontal-stretch: 1; }
+
+                                // Mini wave line decoration
+                                Rectangle {
+                                    width: 44px;
+                                    height: 12px;
+                                    background: @linear-gradient(90deg, #8b5cf611 0%, #8b5cf644 100%);
+                                    border-radius: 6px;
+                                }
+                            }
+                        }
+                    }
+
+                    // 60-Second Speed Graph Card
+                    Rectangle {
+                        vertical-stretch: 1;
+                        border-radius: 14px;
+                        background: Theme.surface-subtle;
+                        border-width: 1px;
+                        border-color: Theme.border-subtle;
+
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: language == "id" ? "Grafik Kecepatan (60 detik terakhir)" : "Speed Graph (Last 60 seconds)";
+                                    color: Theme.secondary-text;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+
+                                // Legend
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    alignment: center;
+                                    HorizontalLayout {
+                                        spacing: 5px;
+                                        alignment: center;
+                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #0076f5; y: (parent.height - self.height) / 2; }
+                                        Text { text: "Download"; color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 5px;
+                                        alignment: center;
+                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #8b5cf6; y: (parent.height - self.height) / 2; }
+                                        Text { text: "Upload"; color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+
+                            // Chart Grid Area
+                            Rectangle {
+                                vertical-stretch: 1;
+                                background: transparent;
+                                
+                                // Grid Lines and Y-Axis scale
+                                VerticalLayout {
+                                    alignment: space-between;
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Text { text: "500"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Text { text: "250"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Text { text: "0"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                    }
+                                }
+
+                                // Dynamic Waveform / Bar Chart representation
+                                HorizontalLayout {
+                                    padding-left: 28px;
+                                    padding-right: 8px;
+                                    alignment: space-between;
+                                    y: 10px;
+                                    height: parent.height - 16px;
+
+                                    // Dynamic simulated activity bars based on current speed levels
+                                    Rectangle { width: 4px; height: max(6px, parent.height * root.download-level * 0.4); border-radius: 2px; background: #0076f566; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(8px, parent.height * root.download-level * 0.7); border-radius: 2px; background: #0076f599; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(6px, parent.height * root.download-level * 0.5); border-radius: 2px; background: #0076f577; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(5px, parent.height * root.upload-level * 0.3); border-radius: 2px; background: #8b5cf666; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(10px, parent.height * root.download-level * 0.85); border-radius: 2px; background: #0076f5aa; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(7px, parent.height * root.download-level * 0.6); border-radius: 2px; background: #0076f588; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(8px, parent.height * root.upload-level * 0.4); border-radius: 2px; background: #8b5cf688; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(12px, parent.height * root.download-level * 0.95); border-radius: 2px; background: #0076f5cc; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(9px, parent.height * root.download-level * 0.75); border-radius: 2px; background: #0076f599; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(6px, parent.height * root.upload-level * 0.35); border-radius: 2px; background: #8b5cf677; y: parent.height - self.height; }
+                                    Rectangle { width: 4px; height: max(11px, parent.height * root.download-level * 0.9); border-radius: 2px; background: #0076f5bb; y: parent.height - self.height; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ROW 3: KONTROL DNS (Lihat daftar DNS, Gunakan DNS otomatis)
+    // -------------------------------------------------------------
+    Rectangle {
+        border-radius: 18px;
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.border;
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 16px;
+            alignment: center;
+
+            // Database Icon circle
+            Rectangle {
+                width: 42px;
+                height: 42px;
+                border-radius: 21px;
+                background: #0076f5.with-alpha(0.12);
+                IconDisplay {
+                        icon: IconSet.Database;
+                        size: 20px;
+                        stroke: #0076f5;
+                        x: (parent.width - 20px) / 2;
+                    y: (parent.height - 20px) / 2;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+                Text {
+                    text: language == "id" ? "Kontrol DNS" : "DNS Controls";
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                }
+                Text {
+                    text: language == "id" ? 
+                        "Pilih penyedia dari halaman Daftar DNS, atau kembalikan adapter ke DNS otomatis dari DHCP." : 
+                        "Choose a provider from the DNS list, or restore adapter to automatic DNS via DHCP.";
+                    color: Theme.muted-text;
+                    font-size: 11px;
+                    wrap: word-wrap;
+                }
+            }
+
+            // Action 1: "Lihat daftar DNS" button
+            Rectangle {
+                height: 40px;
+                border-radius: 12px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 18px;
+                    spacing: 8px;
+                    // No alignment: center, rely on intrinsic size
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 18px;
+                            height: 18px;
+                            IconDisplay {
+                                icon: IconSet.List;
+                                size: 16px;
+                                stroke: Theme.text;
+                                x: (parent.width - 16px) / 2;
+                                y: (parent.height - 16px) / 2;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: language == "id" ? "Lihat daftar DNS" : "Browse DNS list";
+                            color: Theme.text;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                    }
+                }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.navigate-providers(); }
+                }
+            }
+
+            // Action 2: "Gunakan DNS otomatis" button (Primary Blue)
+            Rectangle {
+                height: 40px;
+                border-radius: 12px;
+                background: (root.busy || root.adapters.length == 0) ? 
+                    #93c5fd : 
+                    @linear-gradient(90deg, #0076f5 0%, #0099ff 100%);
+                HorizontalLayout {
+                    padding-left: 18px;
+                    padding-right: 20px;
+                    spacing: 8px;
+                    // No alignment: center, rely on intrinsic size
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 18px;
+                            height: 18px;
+                            IconDisplay {
+                                icon: IconSet.RefreshCw;
+                                size: 15px;
+                                stroke: white;
+                                x: (parent.width - 15px) / 2;
+                                y: (parent.height - 15px) / 2;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS";
+                            color: white;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                    }
+                }
+                TouchArea {
+                    mouse-cursor: (root.busy || root.adapters.length == 0) ? default : pointer;
+                    clicked => {
+                        if (!root.busy && root.adapters.length > 0) {
+                            root.reset-dns(root.adapter-index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // BOTTOM FOOTER / HINT
+    // -------------------------------------------------------------
+    HorizontalLayout {
+        height: 20px;
+        spacing: 8px;
+        alignment: center;
+
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            IconDisplay {
+                    icon: IconSet.Info;
+                    size: 14px;
+                    stroke: #0076f5;
+                    x: (parent.width - 14px) / 2;
+                y: (parent.height - 14px) / 2;
+            }
+        }
+
+        Text {
+            text: language == "id" ? 
+                "Tips: Gunakan DNS publik yang cepat dan aman untuk pengalaman internet yang lebih baik." : 
+                "Tips: Use fast and secure public DNS for a better and safer browsing experience.";
+            color: Theme.muted-text;
+            font-size: 10.5px;
+            vertical-alignment: center;
+        }
+
+        Rectangle { horizontal-stretch: 1; }
+
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: center;
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                IconDisplay {
+                        icon: IconSet.Shield;
+                        size: 13px;
+                        stroke: #0076f5;
+                        x: (parent.width - 13px) / 2;
+                    y: (parent.height - 13px) / 2;
+                }
+            }
+            Text {
+                text: language == "id" ? "Privasi  •  Kecepatan  •  Kebebasan" : "Privacy  •  Speed  •  Freedom";
+                color: Theme.muted-text;
+                font-size: 10.5px;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

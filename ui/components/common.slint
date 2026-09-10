@@ -1,0 +1,117 @@
+import { Theme } from "../theme.slint";
+
+export component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 48px;
+    border-radius: 12px;
+    background: selected ? @linear-gradient(90deg, #0076f5 0%, #0099ff 100%) : transparent;
+    border-width: 0px;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                HorizontalLayout {
+                    alignment: center;
+                    VerticalLayout {
+                        alignment: center;
+                        @children
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: root.label;
+                color: root.selected ? white : Theme.secondary-text;
+                font-size: 13.5px;
+                font-weight: root.selected ? 600 : 500;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component StatCard inherits Rectangle {
+    in property <string> title;
+    in property <string> value;
+    in property <string> hint;
+    in property <color> accent: Theme.cyan;
+
+    border-radius: 18px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 7px;
+        Text { text: root.title; color: Theme.secondary-text; font-size: 12px; font-weight: 600; }
+        Text { text: root.value; color: root.accent; font-size: 23px; font-weight: 700; overflow: elide; }
+        Text { text: root.hint; color: Theme.muted-text; font-size: 12px; overflow: elide; }
+    }
+}
+
+export component SectionTitle inherits VerticalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+
+    spacing: 5px;
+    Text { text: root.title; color: Theme.text; font-size: 26px; font-weight: 700; }
+    Text { text: root.subtitle; color: Theme.secondary-text; font-size: 14px; wrap: word-wrap; }
+}
+
+export component Tag inherits Rectangle {
+    in property <string> text;
+    in property <color> tint: Theme.cyan;
+
+    height: 25px;
+    width: tag-text.preferred-width + 18px;
+    border-radius: 12px;
+    background: root.tint.with-alpha(0.16);
+    tag-text := Text {
+        text: root.text;
+        color: root.tint;
+        font-size: 11px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component ThemeOption inherits Rectangle {
+    in property <string> symbol;
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 116px;
+    border-radius: 20px;
+    background: selected ? Theme.surface-strong : Theme.surface;
+    border-width: selected ? 2px : 1px;
+    border-color: selected ? Theme.cyan : Theme.border;
+
+    VerticalLayout {
+        padding: 17px;
+        spacing: 5px;
+        Text { text: root.symbol; color: root.selected ? Theme.cyan : Theme.accent; font-size: 22px; }
+        Text { text: root.title; color: Theme.text; font-size: 15px; font-weight: 700; }
+        Text { text: root.detail; color: Theme.muted-text; font-size: 11px; wrap: word-wrap; }
+    }
+    TouchArea { clicked => { root.clicked(); } }
+}

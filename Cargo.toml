@@ -13,4 +13,10 @@ serde_json = "1.0"
 slint = "1.17.1"
 
 [build-dependencies]
+lucide-slint = "1.43.0"
 slint-build = "1.17.1"
+
+[target.'cfg(windows)'.build-dependencies]
+ico = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+winresource = "0.1"

@@ -1,0 +1,178 @@
+import { Button, ComboBox } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+
+component PolicyPoint inherits HorizontalLayout {
+    in property <string> text;
+
+    height: 58px;
+    spacing: 11px;
+    Rectangle {
+        width: 28px;
+        height: 28px;
+        border-radius: 14px;
+        background: Theme.accent;
+        Text { text: "✓"; color: white; font-size: 13px; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    Text { text: root.text; color: Theme.secondary-text; font-size: 11px; wrap: word-wrap; vertical-alignment: center; }
+}
+
+component PolicyCard inherits Rectangle {
+    in property <string> symbol;
+    in property <string> decoration;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> first-point;
+    in property <string> second-point;
+
+    border-radius: 20px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 8px;
+        HorizontalLayout {
+            height: 56px;
+            spacing: 12px;
+            Rectangle {
+                width: 52px;
+                height: 52px;
+                border-radius: 26px;
+                background: Theme.accent.with-alpha(0.12);
+                border-width: 2px;
+                border-color: Theme.cyan.with-alpha(0.25);
+                Text { text: root.symbol; color: Theme.accent; font-size: 23px; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text { text: root.title; color: Theme.text; font-size: 16px; font-weight: 800; }
+                Text { text: root.subtitle; color: Theme.secondary-text; font-size: 11px; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: root.decoration; color: Theme.accent.with-alpha(0.48); font-size: 31px; vertical-alignment: center; }
+        }
+        Rectangle {
+            border-radius: 14px;
+            background: Theme.background.with-alpha(0.32);
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                PolicyPoint { text: root.first-point; }
+                Rectangle { height: 1px; background: Theme.border; }
+                PolicyPoint { text: root.second-point; }
+            }
+        }
+    }
+}
+
+export component PolicyPage inherits VerticalLayout {
+    in property <string> language;
+    in property <[string]> adapters;
+    in-out property <int> adapter-index;
+    in property <bool> busy;
+    callback navigate-providers;
+    callback reset-dns(int);
+
+    spacing: 13px;
+    HorizontalLayout {
+        height: 78px;
+        spacing: 12px;
+        Rectangle { width: 5px; height: 48px; border-radius: 3px; background: Theme.cyan; }
+        VerticalLayout {
+            alignment: center;
+            Text { text: language == "id" ? "Privasi & kebijakan" : "Privacy & policy"; color: Theme.text; font-size: 28px; font-weight: 800; }
+            Text { text: language == "id" ? "Cara UseDNS menangani pengaturan jaringan dan data Anda." : "How UseDNS handles your network settings and data."; color: Theme.secondary-text; font-size: 13px; }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        Rectangle {
+            width: 265px;
+            height: 56px;
+            border-radius: 15px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 9px;
+                spacing: 9px;
+                Text { text: "⌘"; color: Theme.accent; font-size: 20px; vertical-alignment: center; }
+                Text { text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : "—"; color: Theme.text; font-size: 11px; vertical-alignment: center; overflow: elide; }
+                ComboBox { width: 34px; model: root.adapters; current-index <=> root.adapter-index; }
+            }
+        }
+        Rectangle {
+            width: 180px;
+            height: 56px;
+            border-radius: 15px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                alignment: center;
+                Text { text: adapters.length > 0 ? "●  " + (language == "id" ? "Terhubung ke internet" : "Connected to internet") : "●  Offline"; color: adapters.length > 0 ? Theme.cyan : Theme.muted-text; font-size: 10px; horizontal-alignment: center; }
+                Text { text: language == "id" ? "Aman dan terkendali" : "Secure and controlled"; color: Theme.muted-text; font-size: 9px; horizontal-alignment: center; }
+            }
+        }
+    }
+
+    GridLayout {
+        spacing: 12px;
+        Row {
+            PolicyCard {
+                title: language == "id" ? "Privasi aplikasi" : "Application privacy";
+                subtitle: language == "id" ? "Kami menghargai privasi Anda." : "Your privacy is respected.";
+                symbol: "◇";
+                decoration: "◆";
+                first-point: language == "id" ? "UseDNS tidak menjalankan resolver DNS dan tidak membaca, merekam, atau menjual kueri DNS Anda." : "UseDNS does not operate a resolver and does not read, record, or sell your DNS queries.";
+                second-point: language == "id" ? "DNS kustom, tema, dan bahasa disimpan secara lokal. Data tersebut tidak dikirim ke pihak lain." : "Custom DNS, theme, and language settings remain locally stored and are not uploaded.";
+            }
+            PolicyCard {
+                title: language == "id" ? "Saat DNS diterapkan" : "When DNS is applied";
+                subtitle: language == "id" ? "Perubahan dilakukan di perangkat Anda." : "Changes happen on your device.";
+                symbol: "⚙";
+                decoration: "▦";
+                first-point: language == "id" ? "Alamat yang dipilih ditulis ke adapter jaringan Windows yang aktif." : "Selected addresses are written to the active Windows network adapter.";
+                second-point: language == "id" ? "Tindakan menerapkan atau mereset DNS memerlukan hak Administrator." : "Applying or resetting DNS requires Administrator privileges.";
+            }
+        }
+        Row {
+            PolicyCard {
+                title: language == "id" ? "Penyedia DNS pihak ketiga" : "Third-party DNS providers";
+                subtitle: language == "id" ? "Setiap penyedia memiliki kebijakan sendiri." : "Each provider has its own policies.";
+                symbol: "◎";
+                decoration: "▤";
+                first-point: language == "id" ? "Kueri Anda diproses langsung oleh penyedia DNS yang dipilih." : "Your queries are processed directly by the selected DNS provider.";
+                second-point: language == "id" ? "Kebijakan privasi, pencatatan, pemfilteran, dan retensi data setiap penyedia berbeda." : "Privacy, logging, filtering, and retention policies differ by provider.";
+            }
+            PolicyCard {
+                title: language == "id" ? "Pemeriksaan & keamanan" : "Checks & security";
+                subtitle: language == "id" ? "Untuk pengalaman yang aman dan andal." : "For a safe and reliable experience.";
+                symbol: "◈";
+                decoration: "▥";
+                first-point: language == "id" ? "Pemeriksaan koneksi mengukur respons resolver dengan ping. Ini bukan tes bandwidth." : "Connection checks measure resolver response with ping. This is not a bandwidth test.";
+                second-point: language == "id" ? "Jika akses terganggu, gunakan DNS otomatis untuk kembali ke konfigurasi DHCP." : "If access is affected, restore automatic DNS to return to DHCP configuration.";
+            }
+        }
+    }
+
+    Rectangle {
+        height: 54px;
+        border-radius: 16px;
+        background: Theme.accent.with-alpha(0.07);
+        border-width: 1px;
+        border-color: Theme.accent.with-alpha(0.42);
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 11px;
+            Text { text: "♢"; color: Theme.accent; font-size: 20px; vertical-alignment: center; }
+            Text { text: language == "id" ? "Tips: Baca kebijakan masing-masing penyedia DNS sebelum menerapkannya." : "Tip: Review each DNS provider's policy before applying it."; color: Theme.secondary-text; font-size: 11px; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: language == "id" ? "☷  Lihat daftar DNS" : "☷  Browse DNS providers"; clicked => { root.navigate-providers(); } }
+            Button { text: language == "id" ? "↻  Gunakan DNS otomatis" : "↻  Use automatic DNS"; enabled: !busy && adapters.length > 0; clicked => { root.reset-dns(root.adapter-index); } }
+        }
+    }
+}

@@ -1,0 +1,180 @@
+import { Button, ComboBox, LineEdit, ListView } from "std-widgets.slint";
+import { Tag } from "../components/common.slint";
+import { Theme } from "../theme.slint";
+import { ProviderRow } from "../types.slint";
+
+component FilterButton inherits Rectangle {
+    in property <string> symbol;
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 38px;
+    width: filter-content.preferred-width + 26px;
+    border-radius: 11px;
+    background: selected ? Theme.accent : Theme.surface;
+    border-width: 1px;
+    border-color: selected ? Theme.cyan.with-alpha(0.5) : Theme.border;
+    filter-content := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 7px;
+        Text { text: root.symbol; color: root.selected ? white : Theme.accent; font-size: 14px; vertical-alignment: center; }
+        Text { text: root.label; color: root.selected ? white : Theme.secondary-text; font-size: 12px; vertical-alignment: center; }
+    }
+    TouchArea { clicked => { root.clicked(); } }
+}
+
+component AddressRow inherits HorizontalLayout {
+    in property <string> version;
+    in property <string> address;
+
+    height: 31px;
+    spacing: 9px;
+    Rectangle {
+        width: 43px;
+        height: 24px;
+        border-radius: 8px;
+        background: Theme.accent.with-alpha(0.10);
+        Text { text: root.version; color: Theme.accent; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    Text { text: root.address; color: Theme.secondary-text; font-size: 11px; font-family: "Consolas"; vertical-alignment: center; overflow: elide; }
+}
+
+export component ProvidersPage inherits VerticalLayout {
+    in property <string> language;
+    in property <[ProviderRow]> providers;
+    in property <[string]> adapters;
+    in-out property <int> adapter-index;
+    in-out property <int> ip-mode;
+    in-out property <string> search-text: "";
+    in-out property <string> category: "all";
+    in-out property <string> expanded-id: "";
+    in property <bool> busy;
+    callback add-provider;
+    callback apply-selected(string, int, int);
+    callback edit-provider(string);
+    callback delete-provider(string);
+    callback filter-request(string, string);
+
+    spacing: 13px;
+
+    HorizontalLayout {
+        height: 76px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text { text: language == "id" ? "Daftar DNS" : "DNS providers"; color: Theme.text; font-size: 28px; font-weight: 800; }
+            Text { text: language == "id" ? "Pilih penyedia DNS sesuai kebutuhan Anda." : "Choose a DNS provider that fits your needs."; color: Theme.secondary-text; font-size: 14px; }
+            Text { text: language == "id" ? "Setiap penyedia memiliki keunggulan dan fokus yang berbeda." : "Each provider offers a different focus and set of benefits."; color: Theme.muted-text; font-size: 11px; }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        Rectangle {
+            width: 280px;
+            height: 58px;
+            border-radius: 15px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 10px;
+                spacing: 10px;
+                Text { text: "⌘"; color: Theme.accent; font-size: 20px; vertical-alignment: center; }
+                VerticalLayout {
+                    alignment: center;
+                    Text { text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada adapter" : "No adapter"); color: Theme.text; font-size: 12px; overflow: elide; }
+                    Text { text: adapters.length > 0 ? "●  " + (language == "id" ? "Terhubung" : "Connected") : "●  Offline"; color: adapters.length > 0 ? Theme.cyan : Theme.muted-text; font-size: 10px; }
+                }
+                ComboBox { width: 34px; model: root.adapters; current-index <=> root.adapter-index; }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        height: 42px;
+        spacing: 7px;
+        FilterButton { symbol: "⌘"; label: language == "id" ? "Semua" : "All"; selected: root.category == "all"; clicked => { root.category = "all"; root.filter-request(root.search-text, root.category); } }
+        FilterButton { symbol: "◇"; label: language == "id" ? "Privasi" : "Privacy"; selected: root.category == "privacy"; clicked => { root.category = "privacy"; root.filter-request(root.search-text, root.category); } }
+        FilterButton { symbol: "ϟ"; label: language == "id" ? "Kecepatan" : "Speed"; selected: root.category == "speed"; clicked => { root.category = "speed"; root.filter-request(root.search-text, root.category); } }
+        FilterButton { symbol: "▣"; label: language == "id" ? "Keamanan" : "Security"; selected: root.category == "security"; clicked => { root.category = "security"; root.filter-request(root.search-text, root.category); } }
+        FilterButton { symbol: "⊘"; label: language == "id" ? "Bebas iklan" : "Ad blocking"; selected: root.category == "ads"; clicked => { root.category = "ads"; root.filter-request(root.search-text, root.category); } }
+        Rectangle { horizontal-stretch: 1; }
+        LineEdit {
+            width: 230px;
+            text <=> root.search-text;
+            placeholder-text: language == "id" ? "Cari penyedia DNS..." : "Search DNS providers...";
+            edited => { root.filter-request(root.search-text, root.category); }
+        }
+        Button { text: "+"; clicked => { root.add-provider(); } }
+    }
+
+    HorizontalLayout {
+        height: 36px;
+        spacing: 9px;
+        Text { text: language == "id" ? "Versi alamat" : "Address mode"; color: Theme.muted-text; font-size: 11px; vertical-alignment: center; }
+        Button { text: "IPv4"; enabled: root.ip-mode != 0; clicked => { root.ip-mode = 0; } }
+        Button { text: "IPv6"; enabled: root.ip-mode != 1; clicked => { root.ip-mode = 1; } }
+        Button { text: "IPv4 + IPv6"; enabled: root.ip-mode != 2; clicked => { root.ip-mode = 2; } }
+        Rectangle { horizontal-stretch: 1; }
+        Text { text: providers.length + (language == "id" ? " penyedia ditemukan" : " providers found"); color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+    }
+
+    ListView {
+        for provider in root.providers: Rectangle {
+            height: root.expanded-id == provider.id ? 184px : 132px;
+            border-radius: 18px;
+            background: provider.active ? Theme.surface-strong : Theme.surface;
+            border-width: 1px;
+            border-color: provider.active ? Theme.cyan : Theme.border;
+            VerticalLayout {
+                padding: 15px;
+                spacing: 8px;
+                HorizontalLayout {
+                    spacing: 15px;
+                    Rectangle {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 20px;
+                        background: provider.active ? Theme.cyan.with-alpha(0.16) : Theme.accent.with-alpha(0.11);
+                        Text { text: provider.symbol; color: provider.active ? Theme.cyan : Theme.accent; font-size: 31px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    VerticalLayout {
+                        spacing: 4px;
+                        Text { text: provider.name; color: Theme.text; font-size: 17px; font-weight: 800; }
+                        Text { text: provider.summary; color: Theme.secondary-text; font-size: 11px; wrap: word-wrap; }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            if provider.custom: Tag { text: language == "id" ? "KUSTOM" : "CUSTOM"; tint: Theme.accent; }
+                            if provider.active: Tag { text: language == "id" ? "AKTIF" : "ACTIVE"; tint: Theme.cyan; }
+                            Tag { text: provider.id == "quad9" ? (language == "id" ? "KEAMANAN" : "SECURITY") : provider.id == "adguard" ? (language == "id" ? "BEBAS IKLAN" : "AD BLOCKING") : provider.id == "cloudflare" ? (language == "id" ? "PRIVASI" : "PRIVACY") : (language == "id" ? "ANDAL" : "RELIABLE"); tint: Theme.cyan; }
+                        }
+                    }
+                    Rectangle { width: 1px; background: Theme.border; }
+                    VerticalLayout {
+                        width: 285px;
+                        alignment: center;
+                        AddressRow { version: "IPv4"; address: provider.ipv4; }
+                        AddressRow { version: "IPv6"; address: provider.ipv6; }
+                    }
+                    VerticalLayout {
+                        width: 142px;
+                        spacing: 7px;
+                        alignment: center;
+                        Button { text: (language == "id" ? "Gunakan" : "Use DNS") + "  →"; enabled: !busy; clicked => { root.apply-selected(provider.id, root.adapter-index, root.ip-mode); } }
+                        Button { text: root.expanded-id == provider.id ? (language == "id" ? "Tutup detail ⌃" : "Hide details ⌃") : (language == "id" ? "Detail ⌄" : "Details ⌄"); clicked => { root.expanded-id = root.expanded-id == provider.id ? "" : provider.id; } }
+                    }
+                }
+                if root.expanded-id == provider.id: HorizontalLayout {
+                    height: 40px;
+                    spacing: 15px;
+                    Text { text: "✓  " + provider.pros; color: Theme.cyan; font-size: 11px; vertical-alignment: center; overflow: elide; }
+                    Text { text: "△  " + provider.cons; color: Theme.secondary-text; font-size: 11px; vertical-alignment: center; overflow: elide; }
+                    Rectangle { horizontal-stretch: 1; }
+                    if provider.custom: Button { text: language == "id" ? "Ubah" : "Edit"; clicked => { root.edit-provider(provider.id); } }
+                    if provider.custom: Button { text: language == "id" ? "Hapus" : "Delete"; clicked => { root.delete-provider(provider.id); } }
+                }
+            }
+        }
+    }
+}
