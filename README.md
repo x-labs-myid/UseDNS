@@ -6,25 +6,25 @@ The app is designed to make DNS management easier without requiring users to man
 
 ## Features
 
-* Quickly switch between DNS providers
-* Curated recommendations for popular DNS services
-* Support for privacy-focused and security-focused DNS
-* Custom DNS configuration
-* Simple and lightweight interface
-* Easy-to-understand DNS information
-* Designed for everyday users and advanced users
+- Quickly switch between DNS providers
+- Curated recommendations for popular DNS services
+- Support for privacy-focused and security-focused DNS
+- Custom DNS configuration
+- Simple and lightweight interface
+- Easy-to-understand DNS information
+- Designed for everyday users and advanced users
 
 ## DNS Providers
 
 UseDNS can provide recommendations for popular DNS services such as:
 
-* Cloudflare DNS
-* Google Public DNS
-* Quad9
-* AdGuard DNS
-* NextDNS
-* Control D
-* Other supported DNS providers
+- Cloudflare DNS
+- Google Public DNS
+- Quad9
+- AdGuard DNS
+- NextDNS
+- Control D
+- Other supported DNS providers
 
 Availability may depend on the platform and application version.
 
@@ -36,12 +36,12 @@ UseDNS provides one place to discover, compare, and switch DNS configurations mo
 
 Different DNS providers may offer different benefits, including:
 
-* Better privacy
-* Malware or phishing protection
-* Content filtering
-* Parental filtering
-* Faster DNS resolution
-* Custom filtering and configuration
+- Better privacy
+- Malware or phishing protection
+- Content filtering
+- Parental filtering
+- Faster DNS resolution
+- Custom filtering and configuration
 
 Actual performance may vary depending on your ISP, location, network condition, and selected DNS provider.
 
@@ -51,12 +51,12 @@ In addition to recommended providers, UseDNS allows users to configure their own
 
 This is useful for:
 
-* Self-hosted DNS
-* Pi-hole
-* AdGuard Home
-* Private DNS servers
-* Internal network DNS
-* Custom resolver services
+- Self-hosted DNS
+- Pi-hole
+- AdGuard Home
+- Private DNS servers
+- Internal network DNS
+- Custom resolver services
 
 ## Privacy
 
@@ -74,11 +74,42 @@ Names, trademarks, and logos belong to their respective owners.
 
 Changing DNS does not automatically make an internet connection anonymous or completely private.
 
-## Project Status
+## MVP Features
 
-UseDNS is currently under development.
+The current desktop MVP is built with Rust and [Slint](https://slint.dev/) and includes:
 
-Features, supported DNS providers, UI, and platform compatibility may change as development progresses.
+- Active Windows network-adapter and DNS detection
+- Connection reachability and latency status
+- Built-in Cloudflare, Google, Quad9, and AdGuard recommendations
+- IPv4-only, IPv6-only, or combined DNS application
+- Custom DNS creation, editing, deletion, and local persistence
+- English and Indonesian interfaces (English by default)
+- Privacy and application-policy information
+- One-click restoration of automatic DNS (DHCP)
+
+Built-in providers are read-only. Custom provider settings and the selected language are stored locally in the operating system's application configuration directory.
+
+## Run Locally
+
+Install a current stable Rust toolchain, then run:
+
+```sh
+cargo run
+```
+
+Reading network status does not require elevated privileges. Applying or resetting DNS on Windows requires running the terminal or executable as **Administrator**. The application reports the PowerShell error if Windows denies the operation.
+
+```sh
+cargo test
+```
+
+The connection indicator measures resolver reachability and approximate ping latency. It is intentionally not a bandwidth speed test, which would consume substantially more data and require a third-party test service.
+
+## Platform Status
+
+DNS changes currently use the Windows `Set-DnsClientServerAddress` PowerShell command. The interface can run on other Slint-supported platforms, but DNS changes are reported as unsupported there until a platform-specific backend is added.
+
+Features, supported DNS providers, and platform compatibility may change as development progresses.
 
 ## License
 
@@ -87,4 +118,4 @@ License information will be added according to the project's distribution model.
 ---
 
 **UseDNS**
-*Choose. Switch. Connect.*
+_Choose. Switch. Connect._

@@ -1,0 +1,304 @@
+import { Button, ComboBox, LineEdit, ListView, ScrollView, Spinner } from "std-widgets.slint";
+
+export struct ProviderRow {
+    id: string,
+    name: string,
+    ipv4: string,
+    ipv6: string,
+    summary: string,
+    pros: string,
+    cons: string,
+    custom: bool,
+    active: bool,
+}
+
+component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+    height: 46px;
+    border-radius: 10px;
+    background: selected ? #246bfd : transparent;
+    Text { text: root.label; color: root.selected ? white : #b8c3d9; font-size: 15px; vertical-alignment: center; horizontal-alignment: center; }
+    TouchArea { clicked => { root.clicked(); } }
+}
+
+component StatCard inherits Rectangle {
+    in property <string> title;
+    in property <string> value;
+    in property <string> hint;
+    in property <color> accent: #52d3a2;
+    border-radius: 16px;
+    background: #172033;
+    border-width: 1px;
+    border-color: #26334c;
+    VerticalLayout {
+        padding: 18px;
+        spacing: 7px;
+        Text { text: root.title; color: #92a0ba; font-size: 13px; }
+        Text { text: root.value; color: root.accent; font-size: 23px; font-weight: 700; overflow: elide; }
+        Text { text: root.hint; color: #71809c; font-size: 12px; overflow: elide; }
+    }
+}
+
+component SectionTitle inherits VerticalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+    spacing: 5px;
+    Text { text: root.title; color: #f4f7ff; font-size: 27px; font-weight: 700; }
+    Text { text: root.subtitle; color: #8997b1; font-size: 14px; wrap: word-wrap; }
+}
+
+component Tag inherits Rectangle {
+    in property <string> text;
+    in property <color> tint: #246bfd;
+    height: 25px;
+    width: tag-text.preferred-width + 18px;
+    border-radius: 12px;
+    background: root.tint.with-alpha(0.16);
+    tag-text := Text { text: root.text; color: root.tint; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+}
+
+export component AppWindow inherits Window {
+    title: "UseDNS";
+    width: 1100px;
+    height: 720px;
+
+    background: #0d1422;
+
+    in-out property <string> language: "en";
+    in-out property <int> page: 0;
+    in-out property <[ProviderRow]> providers;
+    in-out property <[string]> adapters;
+    in-out property <int> adapter-index: 0;
+    in-out property <string> current-dns: "—";
+    in-out property <string> connection-state: "Checking...";
+    in-out property <string> latency: "—";
+    in-out property <string> active-provider: "System / DHCP";
+    in-out property <bool> busy: false;
+    in-out property <string> toast-message: "";
+    in-out property <bool> toast-error: false;
+    in-out property <string> selected-id: "";
+    in-out property <string> selected-name: "";
+    in-out property <int> ip-mode: 2;
+
+    in-out property <string> form-id: "";
+    in-out property <string> form-name: "";
+    in-out property <string> form-ipv4-primary: "";
+    in-out property <string> form-ipv4-secondary: "";
+    in-out property <string> form-ipv6-primary: "";
+    in-out property <string> form-ipv6-secondary: "";
+    in-out property <string> form-summary: "";
+
+    callback refresh;
+    callback language-changed(string);
+    callback provider-selected(string, string);
+    callback apply-selected(string, int, int);
+    callback reset-dns(int);
+    callback edit-provider(string);
+    callback delete-provider(string);
+    callback save-provider(string, string, string, string, string, string, string);
+    callback clear-form;
+
+    HorizontalLayout {
+        spacing: 0px;
+        Rectangle {
+            width: 218px;
+            background: #111a2a;
+            border-width: 1px;
+            border-color: #202d44;
+            VerticalLayout {
+                padding: 22px;
+                spacing: 10px;
+                HorizontalLayout {
+                    height: 54px;
+                    spacing: 11px;
+                    Rectangle { width: 38px; height: 38px; border-radius: 11px; background: #246bfd;
+                        Text { text: "U"; color: white; font-size: 21px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    VerticalLayout { alignment: center; spacing: 1px;
+                        Text { text: "UseDNS"; color: white; font-size: 19px; font-weight: 700; }
+                        Text { text: "DNS made simple"; color: #65738e; font-size: 10px; }
+                    }
+                }
+                Rectangle { height: 14px; }
+                NavButton { label: language == "id" ? "Beranda" : "Home"; selected: page == 0; clicked => { page = 0; } }
+                NavButton { label: language == "id" ? "Daftar DNS" : "DNS providers"; selected: page == 1; clicked => { page = 1; } }
+                NavButton { label: language == "id" ? "DNS kustom" : "Custom DNS"; selected: page == 2; clicked => { page = 2; root.clear-form(); } }
+                NavButton { label: language == "id" ? "Kebijakan" : "Policy"; selected: page == 3; clicked => { page = 3; } }
+                Rectangle { vertical-stretch: 1; }
+                Text { text: language == "id" ? "BAHASA" : "LANGUAGE"; color: #61708b; font-size: 10px; font-weight: 700; }
+                HorizontalLayout {
+                    spacing: 7px;
+                    Button { text: "EN"; enabled: language != "en"; clicked => { language = "en"; root.language-changed("en"); } }
+                    Button { text: "ID"; enabled: language != "id"; clicked => { language = "id"; root.language-changed("id"); } }
+                }
+                Text { text: "v0.1.0 MVP"; color: #526079; font-size: 10px; horizontal-alignment: center; }
+            }
+        }
+
+        Rectangle {
+            background: #0d1422;
+            VerticalLayout {
+                padding: 26px;
+                spacing: 18px;
+
+                if page == 0: VerticalLayout {
+                    spacing: 18px;
+                    HorizontalLayout {
+                        SectionTitle { title: language == "id" ? "Status jaringan" : "Network status"; subtitle: language == "id" ? "Pantau DNS dan kualitas koneksi aktif Anda." : "Monitor your active DNS and connection quality."; }
+                        Rectangle { horizontal-stretch: 1; }
+                        ComboBox { width: 230px; model: root.adapters; current-index <=> root.adapter-index; }
+                        Button { text: language == "id" ? "Periksa ulang" : "Refresh"; enabled: !busy; clicked => { root.refresh(); } }
+                    }
+                    GridLayout {
+                        spacing: 14px;
+                        Row {
+                            StatCard { title: language == "id" ? "DNS AKTIF" : "ACTIVE DNS"; value: root.active-provider; hint: root.current-dns; }
+                            StatCard { title: language == "id" ? "KONEKSI" : "CONNECTION"; value: root.connection-state; hint: language == "id" ? "Berdasarkan latensi DNS" : "Based on DNS latency"; accent: root.toast-error ? #ff7383 : #52d3a2; }
+                            StatCard { title: language == "id" ? "LATENSI" : "LATENCY"; value: root.latency; hint: language == "id" ? "Waktu respons rata-rata" : "Average response time"; accent: #58b9ff; }
+                        }
+                    }
+                    Rectangle {
+                        border-radius: 16px; background: #172033; border-width: 1px; border-color: #26334c;
+                        VerticalLayout {
+                            padding: 22px; spacing: 14px;
+                            Text { text: language == "id" ? "Kontrol DNS" : "DNS controls"; color: white; font-size: 18px; font-weight: 700; }
+                            Text { text: language == "id" ? "Pilih penyedia dari halaman Daftar DNS, atau kembalikan adapter ke DNS otomatis dari DHCP." : "Choose a provider from DNS providers, or return the adapter to automatic DNS from DHCP."; color: #8997b1; font-size: 14px; wrap: word-wrap; }
+                            HorizontalLayout { spacing: 10px;
+                                Button { text: language == "id" ? "Lihat daftar DNS" : "Browse DNS providers"; clicked => { page = 1; } }
+                                Button { text: language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS"; enabled: !busy && adapters.length > 0; clicked => { root.reset-dns(root.adapter-index); } }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                        }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                }
+
+                if page == 1: VerticalLayout {
+                    spacing: 16px;
+                    HorizontalLayout {
+                        SectionTitle { title: language == "id" ? "Pilih DNS" : "Choose a DNS provider"; subtitle: language == "id" ? "Bandingkan manfaat dan alamat sebelum menerapkannya." : "Compare benefits and addresses before applying one."; }
+                        Rectangle { horizontal-stretch: 1; }
+                        ComboBox { width: 220px; model: root.adapters; current-index <=> root.adapter-index; }
+                    }
+                    HorizontalLayout { spacing: 10px;
+                        Text { text: language == "id" ? "Mode alamat:" : "Address mode:"; color: #a9b5ca; vertical-alignment: center; }
+                        Button { text: "IPv4"; enabled: root.ip-mode != 0; clicked => { root.ip-mode = 0; } }
+                        Button { text: "IPv6"; enabled: root.ip-mode != 1; clicked => { root.ip-mode = 1; } }
+                        Button { text: "IPv4 + IPv6"; enabled: root.ip-mode != 2; clicked => { root.ip-mode = 2; } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: language == "id" ? "+ Tambah DNS" : "+ Add DNS"; clicked => { page = 2; root.clear-form(); } }
+                    }
+                    ListView {
+                        for provider in root.providers: Rectangle {
+                            height: 164px;
+                            border-radius: 15px;
+                            background: provider.active ? #172c40 : #172033;
+                            border-width: 1px;
+                            border-color: provider.active ? #3b9ddd : #26334c;
+                            HorizontalLayout {
+                                padding: 18px; spacing: 18px;
+                                VerticalLayout {
+                                    spacing: 7px;
+                                    HorizontalLayout { spacing: 8px;
+                                        Text { text: provider.name; color: white; font-size: 18px; font-weight: 700; }
+                                        if provider.custom: Tag { text: language == "id" ? "KUSTOM" : "CUSTOM"; tint: #c28cff; }
+                                        if provider.active: Tag { text: language == "id" ? "AKTIF" : "ACTIVE"; tint: #52d3a2; }
+                                    }
+                                    Text { text: provider.summary; color: #8e9bb4; font-size: 13px; wrap: word-wrap; }
+                                    Text { text: "IPv4  " + provider.ipv4; color: #c8d1e2; font-size: 12px; font-family: "Consolas"; }
+                                    Text { text: "IPv6  " + provider.ipv6; color: #c8d1e2; font-size: 12px; font-family: "Consolas"; overflow: elide; }
+                                    HorizontalLayout { spacing: 14px;
+                                        Text { text: "✓ " + provider.pros; color: #6bdcaf; font-size: 11px; overflow: elide; }
+                                        Text { text: "△ " + provider.cons; color: #e8b66e; font-size: 11px; overflow: elide; }
+                                    }
+                                }
+                                VerticalLayout {
+                                    width: 145px; spacing: 8px; alignment: center;
+                                    Button { text: language == "id" ? "Gunakan" : "Use DNS"; enabled: !busy; clicked => { root.provider-selected(provider.id, provider.name); root.apply-selected(provider.id, root.adapter-index, root.ip-mode); } }
+                                    if provider.custom: Button { text: language == "id" ? "Ubah" : "Edit"; clicked => { root.edit-provider(provider.id); page = 2; } }
+                                    if provider.custom: Button { text: language == "id" ? "Hapus" : "Delete"; clicked => { root.delete-provider(provider.id); } }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if page == 2: VerticalLayout {
+                    spacing: 16px;
+                    SectionTitle { title: form-id == "" ? (language == "id" ? "Tambah DNS kustom" : "Add custom DNS") : (language == "id" ? "Ubah DNS kustom" : "Edit custom DNS"); subtitle: language == "id" ? "Alamat divalidasi sebelum disimpan. DNS bawaan tidak dapat diubah." : "Addresses are validated before saving. Built-in DNS entries cannot be edited."; }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 12px;
+                            Text { text: language == "id" ? "Nama DNS" : "DNS name"; color: #aab5c9; }
+                            LineEdit { text <=> root.form-name; placeholder-text: "My DNS"; }
+                            Text { text: language == "id" ? "Deskripsi singkat" : "Short description"; color: #aab5c9; }
+                            LineEdit { text <=> root.form-summary; placeholder-text: language == "id" ? "Contoh: DNS lokal untuk Pi-hole" : "Example: Local DNS for Pi-hole"; }
+                            Text { text: "IPv4"; color: white; font-size: 16px; font-weight: 700; }
+                            HorizontalLayout { spacing: 12px;
+                                VerticalLayout { spacing: 5px; Text { text: language == "id" ? "Utama" : "Primary"; color: #8492aa; } LineEdit { text <=> root.form-ipv4-primary; placeholder-text: "1.1.1.1"; } }
+                                VerticalLayout { spacing: 5px; Text { text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)"; color: #8492aa; } LineEdit { text <=> root.form-ipv4-secondary; placeholder-text: "1.0.0.1"; } }
+                            }
+                            Text { text: "IPv6"; color: white; font-size: 16px; font-weight: 700; }
+                            HorizontalLayout { spacing: 12px;
+                                VerticalLayout { spacing: 5px; Text { text: language == "id" ? "Utama" : "Primary"; color: #8492aa; } LineEdit { text <=> root.form-ipv6-primary; placeholder-text: "2606:4700:4700::1111"; } }
+                                VerticalLayout { spacing: 5px; Text { text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)"; color: #8492aa; } LineEdit { text <=> root.form-ipv6-secondary; placeholder-text: "2606:4700:4700::1001"; } }
+                            }
+                            HorizontalLayout { spacing: 10px;
+                                Button { text: language == "id" ? "Simpan DNS" : "Save DNS"; clicked => { root.save-provider(root.form-id, root.form-name, root.form-ipv4-primary, root.form-ipv4-secondary, root.form-ipv6-primary, root.form-ipv6-secondary, root.form-summary); } }
+                                Button { text: language == "id" ? "Bersihkan" : "Clear"; clicked => { root.clear-form(); } }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                        }
+                    }
+                }
+
+                if page == 3: VerticalLayout {
+                    spacing: 16px;
+                    SectionTitle { title: language == "id" ? "Privasi & kebijakan" : "Privacy & policy"; subtitle: language == "id" ? "Cara UseDNS menangani pengaturan jaringan dan data Anda." : "How UseDNS handles your network settings and data."; }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 14px;
+                            for item in language == "id" ? [
+                                "UseDNS tidak menjalankan resolver DNS dan tidak membaca, merekam, atau menjual kueri DNS Anda.",
+                                "Saat DNS diterapkan, alamat yang dipilih ditulis ke adapter jaringan Windows. Tindakan ini memerlukan hak Administrator.",
+                                "Kueri Anda diproses oleh penyedia DNS yang dipilih. Kebijakan privasi, pencatatan, pemfilteran, dan retensi data setiap penyedia berbeda.",
+                                "Pemeriksaan koneksi mengukur waktu respons dengan ping ke resolver aktif. Ini bukan tes bandwidth dan hasil dapat dipengaruhi kondisi jaringan.",
+                                "DNS kustom dan pilihan bahasa disimpan secara lokal pada perangkat. Data tersebut tidak dikirim ke UseDNS atau pihak lain.",
+                                "UseDNS adalah utilitas independen dan tidak berafiliasi, didukung, atau disponsori oleh penyedia DNS yang tercantum.",
+                                "Mengubah DNS dapat memengaruhi akses internet atau layanan internal. Gunakan tombol DNS otomatis untuk kembali ke konfigurasi DHCP jika terjadi masalah."
+                            ] : [
+                                "UseDNS does not operate a DNS resolver and does not read, record, or sell your DNS queries.",
+                                "When DNS is applied, the selected addresses are written to the Windows network adapter. This action requires Administrator privileges.",
+                                "Your queries are processed by the selected DNS provider. Each provider has its own privacy, logging, filtering, and retention policies.",
+                                "The connection check measures response time by pinging the active resolver. It is not a bandwidth test and results may be affected by network conditions.",
+                                "Custom DNS entries and your language choice are stored locally on your device. They are not sent to UseDNS or another party.",
+                                "UseDNS is an independent utility and is not affiliated with, endorsed by, or sponsored by any listed DNS provider.",
+                                "Changing DNS can affect internet or internal service access. Use automatic DNS to return to DHCP configuration if a problem occurs."
+                            ]: Rectangle {
+                                height: policy-text.preferred-height + 30px;
+                                border-radius: 12px; background: #172033; border-width: 1px; border-color: #26334c;
+                                policy-text := Text { x: 16px; y: 15px; width: parent.width - 32px; text: item; color: #b5c0d3; font-size: 14px; wrap: word-wrap; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if busy: Rectangle {
+        background: #07101caa;
+        Spinner { width: 52px; height: 52px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+    }
+
+    if toast-message != "": Rectangle {
+        x: 242px; y: parent.height - 78px; width: parent.width - 270px; height: 52px;
+        border-radius: 12px;
+        background: toast-error ? #562735 : #174435;
+        border-width: 1px;
+        border-color: toast-error ? #ff7383 : #52d3a2;
+        Text { x: 16px; width: parent.width - 32px; text: root.toast-message; color: white; vertical-alignment: center; wrap: word-wrap; }
+    }
+}

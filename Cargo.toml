@@ -1,0 +1,16 @@
+[package]
+name = "usedns"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+description = "A simple DNS changer and recommendation app"
+license = "MIT"
+
+[dependencies]
+directories = "6.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+slint = "1.17.1"
+
+[build-dependencies]
+slint-build = "1.17.1"
