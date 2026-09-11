@@ -1,19 +1,22 @@
 import { Palette, ProgressIndicator } from "std-widgets.slint";
-import { Sidebar } from "components/sidebar.slint";
+import { Titlebar, NavDropdownItem } from "components/titlebar.slint";
 import { HomePage } from "pages/home.slint";
 import { ProvidersPage } from "pages/providers.slint";
 import { CustomDnsPage } from "pages/custom-dns.slint";
 import { PolicyPage } from "pages/policy.slint";
 import { SettingsPage } from "pages/settings.slint";
 import { Theme } from "theme.slint";
-import { ProviderRow } from "types.slint";
+import { ProviderRow, SpeedSample, DnsProfileRow } from "types.slint";
+import { IconDisplay, IconSet } from "@lucide";
+export { ProviderRow, SpeedSample, DnsProfileRow }
 
 export component AppWindow inherits Window {
     title: "UseDNS";
     icon: @image-url("../.assets/UseDNS.png");
+    no-frame: true;
     width: 1180px;
     height: 800px;
-    background: Theme.background;
+    background: transparent;
 
     in-out property <string> theme-mode <=> Theme.mode;
     in-out property <bool> system-dark <=> Theme.system-dark;
@@ -26,6 +29,7 @@ export component AppWindow inherits Window {
         }
     }
 
+    in-out property <bool> nav-menu-open: false;
     in-out property <string> language: "en";
     in-out property <int> page: 0;
     in-out property <[ProviderRow]> providers;
@@ -41,11 +45,20 @@ export component AppWindow inherits Window {
     in-out property <float> download-level: 0;
     in-out property <float> upload-level: 0;
     in-out property <float> total-level: 0;
+    in-out property <[SpeedSample]> speed-history: [];
+    in-out property <string> graph-max-speed: "1.0 Mbps";
+    in-out property <string> graph-mid-speed: "500 Kbps";
     in-out property <string> active-provider: "System / DHCP";
     in-out property <bool> busy: false;
     in-out property <string> toast-message: "";
     in-out property <bool> toast-error: false;
     in-out property <int> ip-mode: 2;
+
+    in-out property <bool> profile-popup-open: false;
+    in-out property <string> popup-provider-id: "";
+    in-out property <string> popup-provider-name: "";
+    in-out property <[DnsProfileRow]> popup-profiles: [];
+    in-out property <int> selected-profile-index: 0;
 
     in-out property <string> form-id: "";
     in-out property <string> form-name: "";
@@ -61,6 +74,8 @@ export component AppWindow inherits Window {
     callback theme-changed(string);
     callback speed-unit-changed(string);
     callback apply-selected(string, int, int);
+    callback request-use-provider(string);
+    callback confirm-apply-profile(string, int, int, int);
     callback filter-providers(string, string);
     callback reset-dns(int);
     callback edit-provider(string);
@@ -68,25 +83,49 @@ export component AppWindow inherits Window {
     callback save-provider(string, string, string, string, string, string, string, string);
     callback test-resolver(string, string);
     callback clear-form;
+    callback window-drag;
+    callback window-minimize;
+    callback window-close;
 
-    HorizontalLayout {
-        spacing: 0px;
-        Sidebar {
-            language: root.language;
-            page: root.page;
-            navigate(index) => {
-                root.page = index;
-                if (index == 2) { root.clear-form(); }
+    window-frame := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 12px;
+        background: Theme.background;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        VerticalLayout {
+            spacing: 0px;
+
+            Titlebar {
+                language: root.language;
+                page: root.page;
+                menu-open <=> root.nav-menu-open;
+                navigate(index) => {
+                    root.page = index;
+                    if (index == 2) { root.clear-form(); }
+                }
+                toggle-theme() => {
+                    root.theme-mode = root.theme-mode == "dark" ? "light" : "dark";
+                    root.theme-changed(root.theme-mode);
+                }
+                window-drag => { root.window-drag(); }
+                window-minimize => { root.window-minimize(); }
+                window-close => { root.window-close(); }
             }
-        }
 
-        Rectangle {
-            background: @linear-gradient(145deg, Theme.background 0%, Theme.surface-strong 160%);
-            VerticalLayout {
-                padding: 26px;
-                spacing: 18px;
+            content-area := Rectangle {
+                vertical-stretch: 1;
+                background: @linear-gradient(145deg, Theme.background 0%, Theme.surface-strong 160%);
 
-                if root.page == 0: HomePage {
+                home-page := HomePage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 0;
                     language: root.language;
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
@@ -101,6 +140,9 @@ export component AppWindow inherits Window {
                     download-level: root.download-level;
                     upload-level: root.upload-level;
                     total-level: root.total-level;
+                    speed-history: root.speed-history;
+                    graph-max-speed: root.graph-max-speed;
+                    graph-mid-speed: root.graph-mid-speed;
                     connection-error: root.toast-error;
                     busy: root.busy;
                     refresh => { root.refresh(); }
@@ -108,21 +150,39 @@ export component AppWindow inherits Window {
                     navigate-providers => { root.page = 1; }
                 }
 
-                if root.page == 1: ProvidersPage {
+                providers-page := ProvidersPage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 1;
                     language: root.language;
                     providers: root.providers;
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     ip-mode <=> root.ip-mode;
                     busy: root.busy;
+                    profile-popup-open <=> root.profile-popup-open;
+                    popup-provider-id <=> root.popup-provider-id;
+                    popup-provider-name <=> root.popup-provider-name;
+                    popup-profiles <=> root.popup-profiles;
+                    selected-profile-index <=> root.selected-profile-index;
                     add-provider => { root.page = 2; root.clear-form(); }
-                    apply-selected(id, adapter, mode) => { root.apply-selected(id, adapter, mode); }
+                    request-use-provider(id) => { root.request-use-provider(id); }
+                    confirm-apply-profile(id, profile-index, adapter, mode) => {
+                        root.confirm-apply-profile(id, profile-index, adapter, mode);
+                    }
                     edit-provider(id) => { root.edit-provider(id); root.page = 2; }
                     delete-provider(id) => { root.delete-provider(id); }
                     filter-request(query, category) => { root.filter-providers(query, category); }
                 }
 
-                if root.page == 2: CustomDnsPage {
+                custom-dns-page := CustomDnsPage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 2;
                     language: root.language;
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
@@ -141,7 +201,12 @@ export component AppWindow inherits Window {
                     clear-form => { root.clear-form(); }
                 }
 
-                if root.page == 3: PolicyPage {
+                policy-page := PolicyPage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 3;
                     language: root.language;
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
@@ -150,7 +215,12 @@ export component AppWindow inherits Window {
                     reset-dns(index) => { root.reset-dns(index); }
                 }
 
-                if root.page == 4: SettingsPage {
+                settings-page := SettingsPage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 4;
                     language <=> root.language;
                     theme-mode <=> root.theme-mode;
                     speed-unit <=> root.speed-unit;
@@ -203,9 +273,9 @@ export component AppWindow inherits Window {
     }
 
     if root.toast-message != "": Rectangle {
-        x: 242px;
+        x: (parent.width - self.width) / 2;
         y: parent.height - 78px;
-        width: parent.width - 270px;
+        width: min(720px, parent.width - 48px);
         height: 52px;
         border-radius: 12px;
         background: Theme.surface-strong;
@@ -218,6 +288,93 @@ export component AppWindow inherits Window {
             color: Theme.text;
             vertical-alignment: center;
             wrap: word-wrap;
+        }
+    }
+
+    // Navigation Dropdown Overlay
+    if root.nav-menu-open: TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => { root.nav-menu-open = false; }
+
+        Rectangle {
+            x: 50px;
+            y: 44px;
+            width: 216px;
+            height: dropdown-layout.preferred-height;
+            border-radius: 10px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.border;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000044;
+            clip: true;
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+            }
+
+            dropdown-layout := VerticalLayout {
+                padding: 6px;
+                spacing: 3px;
+
+                NavDropdownItem {
+                    label: root.language == "id" ? "Beranda" : "Home";
+                    selected: root.page == 0;
+                    clicked => {
+                        root.nav-menu-open = false;
+                        root.page = 0;
+                    }
+                    IconDisplay { icon: IconSet.House; size: 16px; stroke: root.page == 0 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                }
+
+                NavDropdownItem {
+                    label: root.language == "id" ? "Daftar DNS" : "DNS Providers";
+                    selected: root.page == 1;
+                    clicked => {
+                        root.nav-menu-open = false;
+                        root.page = 1;
+                    }
+                    IconDisplay { icon: IconSet.List; size: 16px; stroke: root.page == 1 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                }
+
+                NavDropdownItem {
+                    label: root.language == "id" ? "DNS kustom" : "Custom DNS";
+                    selected: root.page == 2;
+                    clicked => {
+                        root.nav-menu-open = false;
+                        root.page = 2;
+                        root.clear-form();
+                    }
+                    IconDisplay { icon: IconSet.Database; size: 16px; stroke: root.page == 2 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                }
+
+                NavDropdownItem {
+                    label: root.language == "id" ? "Kebijakan" : "Policy";
+                    selected: root.page == 3;
+                    clicked => {
+                        root.nav-menu-open = false;
+                        root.page = 3;
+                    }
+                    IconDisplay { icon: IconSet.Shield; size: 16px; stroke: root.page == 3 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.border;
+                }
+
+                NavDropdownItem {
+                    label: root.language == "id" ? "Pengaturan" : "Settings";
+                    selected: root.page == 4;
+                    clicked => {
+                        root.nav-menu-open = false;
+                        root.page = 4;
+                    }
+                    IconDisplay { icon: IconSet.Settings; size: 16px; stroke: root.page == 4 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                }
+            }
         }
     }
 }

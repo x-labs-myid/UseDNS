@@ -1,0 +1,286 @@
+import { Theme } from "../theme.slint";
+import { IconDisplay, IconSet } from "@lucide";
+
+export component NavDropdownItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback clicked;
+
+    height: 38px;
+    border-radius: 7px;
+    background: selected ? #0076f5.with-alpha(0.12) : (touch.has-hover ? Theme.surface-strong : transparent);
+    animate background { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
+
+        // Container ikon item - tepat di tengah vertikal
+        Rectangle {
+            width: 18px;
+            height: 18px;
+            y: (parent.height - self.height) / 2;
+
+            @children
+        }
+
+        // Teks label - tepat di tengah vertikal
+        Text {
+            horizontal-stretch: 1;
+            text: root.label;
+            color: root.selected ? #0076f5 : Theme.text;
+            font-size: 13px;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+        }
+
+        // Checkmark aktif - tepat di tengah vertikal
+        if root.selected: Rectangle {
+            width: 14px;
+            height: 14px;
+            y: (parent.height - self.height) / 2;
+
+            IconDisplay {
+                icon: IconSet.Check;
+                size: 14px;
+                stroke: #0076f5;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Titlebar inherits Rectangle {
+    in property <string> language: "id";
+    in property <int> page: 0;
+    in-out property <bool> menu-open: false;
+    callback navigate(int);
+    callback toggle-theme();
+    callback window-drag();
+    callback window-minimize();
+    callback window-close();
+
+    // Label menu yang sedang aktif
+    property <string> current-label: 
+        page == 0 ? (language == "id" ? "Beranda" : "Home") :
+        page == 1 ? (language == "id" ? "Daftar DNS" : "DNS Providers") :
+        page == 2 ? (language == "id" ? "DNS kustom" : "Custom DNS") :
+        page == 3 ? (language == "id" ? "Kebijakan" : "Policy") :
+        (language == "id" ? "Pengaturan" : "Settings");
+
+    height: 48px;
+    vertical-stretch: 0;
+    background: Theme.surface;
+    z: 100;
+
+    // Bottom border line
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.border;
+    }
+
+    // MAIN FULL-WIDTH BAR
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 14px;
+        padding-right: 0px;
+        spacing: 12px;
+
+        // 1. Logo Aplikasi (Tepat di tengah vertikal)
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            Image {
+                width: 24px;
+                height: 24px;
+                source: @image-url("../../.assets/UseDNS.png");
+                image-fit: contain;
+            }
+        }
+
+        // 2. Tombol Trigger Dropdown Navigasi (Tepat di tengah vertikal)
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            nav-trigger := Rectangle {
+                height: 34px;
+                border-radius: 8px;
+                background: nav-trigger-touch.has-hover || root.menu-open ? Theme.surface-strong : Theme.surface;
+                border-width: 1px;
+                border-color: root.menu-open ? #0076f5 : Theme.border;
+                animate background { duration: 120ms; }
+                animate border-color { duration: 120ms; }
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+
+                    // Active page icon (16x16)
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+
+                            if page == 0: IconDisplay { icon: IconSet.House; size: 16px; stroke: #0076f5; }
+                            if page == 1: IconDisplay { icon: IconSet.List; size: 16px; stroke: #0076f5; }
+                            if page == 2: IconDisplay { icon: IconSet.Database; size: 16px; stroke: #0076f5; }
+                            if page == 3: IconDisplay { icon: IconSet.Shield; size: 16px; stroke: #0076f5; }
+                            if page == 4: IconDisplay { icon: IconSet.Settings; size: 16px; stroke: #0076f5; }
+                        }
+                    }
+
+                    // Active page label text
+                    Text {
+                        text: root.current-label;
+                        color: Theme.text;
+                        font-size: 13px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    // Chevron down icon (12x12)
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 12px;
+                            height: 12px;
+
+                            IconDisplay {
+                                icon: IconSet.ChevronDown;
+                                size: 12px;
+                                stroke: Theme.secondary-text;
+                            }
+                        }
+                    }
+                }
+
+                nav-trigger-touch := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.menu-open = !root.menu-open;
+                    }
+                }
+            }
+        }
+
+        // 3. Middle draggable space with application subtitle
+        drag-area := Rectangle {
+            horizontal-stretch: 1;
+            height: 100%;
+
+            Text {
+                text: "UseDNS";
+                color: Theme.muted-text;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%;
+                height: 100%;
+            }
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                        root.window-drag();
+                    }
+                }
+            }
+        }
+
+        // 4. Right Controls: Theme toggle, Minimize, Close
+        HorizontalLayout {
+            horizontal-stretch: 0;
+            height: 100%;
+            spacing: 0px;
+
+            // Theme toggle button
+            theme-btn := Rectangle {
+                width: 38px;
+                height: 100%;
+                background: theme-touch.has-hover ? Theme.surface-strong : transparent;
+
+                if Theme.dark: IconDisplay {
+                    icon: IconSet.Moon;
+                    size: 14px;
+                    stroke: Theme.secondary-text;
+                    x: (parent.width - 14px) / 2;
+                    y: (parent.height - 14px) / 2;
+                }
+                if !Theme.dark: IconDisplay {
+                    icon: IconSet.Sun;
+                    size: 14px;
+                    stroke: Theme.secondary-text;
+                    x: (parent.width - 14px) / 2;
+                    y: (parent.height - 14px) / 2;
+                }
+
+                theme-touch := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.toggle-theme(); }
+                }
+            }
+
+            // Minimize Button
+            min-btn := Rectangle {
+                width: 48px;
+                height: 100%;
+                background: min-touch.has-hover ? Theme.surface-strong : transparent;
+
+                IconDisplay {
+                    icon: IconSet.Minus;
+                    size: 14px;
+                    stroke: min-touch.has-hover ? Theme.text : Theme.secondary-text;
+                    x: (parent.width - 14px) / 2;
+                    y: (parent.height - 14px) / 2;
+                }
+
+                min-touch := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.window-minimize(); }
+                }
+            }
+
+            // Close Button
+            close-btn := Rectangle {
+                width: 48px;
+                height: 100%;
+                background: close-touch.has-hover ? #e81123 : transparent;
+
+                IconDisplay {
+                    icon: IconSet.X;
+                    size: 14px;
+                    stroke: close-touch.has-hover ? white : Theme.secondary-text;
+                    x: (parent.width - 14px) / 2;
+                    y: (parent.height - 14px) / 2;
+                }
+
+                close-touch := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.window-close(); }
+                }
+            }
+        }
+    }
+
+}

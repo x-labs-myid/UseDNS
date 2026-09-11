@@ -1,47 +1,311 @@
-import { Button, ComboBox, LineEdit, ListView } from "std-widgets.slint";
+import { Button, LineEdit, ListView } from "std-widgets.slint";
 import { Tag } from "../components/common.slint";
 import { Theme } from "../theme.slint";
-import { ProviderRow } from "../types.slint";
+import { ProviderRow, DnsProfileRow } from "../types.slint";
+import { IconDisplay, IconSet } from "@lucide";
 
 component FilterButton inherits Rectangle {
-    in property <string> symbol;
+    in property <int> icon-index;
     in property <string> label;
     in property <bool> selected;
     callback clicked;
 
     height: 38px;
-    width: filter-content.preferred-width + 26px;
+    width: filter-content.preferred-width + 24px;
     border-radius: 11px;
-    background: selected ? Theme.accent : Theme.surface;
+    background: selected ? @linear-gradient(90deg, #0076f5 0%, #0099ff 100%) : (filter-touch.has-hover ? Theme.surface-strong : Theme.surface);
     border-width: 1px;
     border-color: selected ? Theme.cyan.with-alpha(0.5) : Theme.border;
+
     filter-content := HorizontalLayout {
         padding-left: 12px;
         padding-right: 12px;
-        spacing: 7px;
-        Text { text: root.symbol; color: root.selected ? white : Theme.accent; font-size: 14px; vertical-alignment: center; }
-        Text { text: root.label; color: root.selected ? white : Theme.secondary-text; font-size: 12px; vertical-alignment: center; }
+        spacing: 8px;
+        alignment: center;
+
+        VerticalLayout {
+            alignment: center;
+            if root.icon-index == 0: IconDisplay { icon: IconSet.LayoutGrid; size: 14px; stroke: root.selected ? white : Theme.accent; }
+            if root.icon-index == 1: IconDisplay { icon: IconSet.Lock; size: 14px; stroke: root.selected ? white : Theme.accent; }
+            if root.icon-index == 2: IconDisplay { icon: IconSet.Zap; size: 14px; stroke: root.selected ? white : Theme.accent; }
+            if root.icon-index == 3: IconDisplay { icon: IconSet.Shield; size: 14px; stroke: root.selected ? white : Theme.accent; }
+            if root.icon-index == 4: IconDisplay { icon: IconSet.Ban; size: 14px; stroke: root.selected ? white : Theme.accent; }
+        }
+        Text {
+            text: root.label;
+            color: root.selected ? white : Theme.secondary-text;
+            font-size: 12px;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+        }
     }
-    TouchArea { clicked => { root.clicked(); } }
+    filter-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component AddButton inherits Rectangle {
+    callback clicked;
+
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: add-touch.has-hover ? Theme.accent.with-alpha(0.16) : Theme.surface;
+    border-width: 1px;
+    border-color: add-touch.has-hover ? Theme.accent : Theme.border;
+
+    IconDisplay {
+        icon: IconSet.Plus;
+        size: 18px;
+        stroke: Theme.accent;
+        x: (parent.width - 18px) / 2;
+        y: (parent.height - 18px) / 2;
+    }
+
+    add-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component IpModeButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 28px;
+    width: ip-mode-text.preferred-width + 22px;
+    border-radius: 8px;
+    background: selected ? @linear-gradient(90deg, #0076f5 0%, #0099ff 100%) : (ip-touch.has-hover ? Theme.surface-strong : Theme.surface);
+    border-width: 1px;
+    border-color: selected ? Theme.cyan.with-alpha(0.6) : Theme.border;
+
+    ip-mode-text := Text {
+        text: root.label;
+        color: root.selected ? white : Theme.secondary-text;
+        font-size: 11px;
+        font-weight: root.selected ? 700 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    ip-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
 }
 
 component AddressRow inherits HorizontalLayout {
     in property <string> version;
     in property <string> address;
 
-    height: 31px;
+    height: 28px;
     spacing: 9px;
+    alignment: start;
+
     Rectangle {
-        width: 43px;
-        height: 24px;
-        border-radius: 8px;
-        background: Theme.accent.with-alpha(0.10);
-        Text { text: root.version; color: Theme.accent; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; }
+        width: 46px;
+        height: 22px;
+        border-radius: 7px;
+        background: root.version == "IPv4" ? Theme.accent.with-alpha(0.12) : Theme.purple.with-alpha(0.12);
+        Text {
+            text: root.version;
+            color: root.version == "IPv4" ? Theme.accent : Theme.purple;
+            font-size: 10px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
-    Text { text: root.address; color: Theme.secondary-text; font-size: 11px; font-family: "Consolas"; vertical-alignment: center; overflow: elide; }
+    Text {
+        text: root.address;
+        color: Theme.secondary-text;
+        font-size: 11px;
+        font-family: "Consolas";
+        font-weight: 500;
+        vertical-alignment: center;
+        overflow: elide;
+    }
 }
 
-export component ProvidersPage inherits VerticalLayout {
+component ProviderIcon inherits Rectangle {
+    in property <string> provider-id;
+    in property <string> symbol;
+    in property <bool> active;
+
+    width: 68px;
+    height: 68px;
+    border-radius: 18px;
+    background: provider-id == "control-d" ? (Theme.dark ? #0b1528 : #0f172a) : (Theme.dark ? #0e1b34 : #ffffff);
+    border-width: active ? 2px : 1px;
+    border-color: active ? Theme.cyan : (Theme.dark ? #1e355c : #e2e8f0);
+    drop-shadow-blur: 10px;
+    drop-shadow-color: Theme.dark ? #00000055 : #00000010;
+    drop-shadow-offset-y: 2px;
+    clip: true;
+
+    // 8 Provider Official Logos
+    if provider-id == "cloudflare": Image {
+        width: 44px;
+        height: 44px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/cloudflare.svg");
+    }
+    if provider-id == "google": Image {
+        width: 42px;
+        height: 42px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/google.svg");
+    }
+    if provider-id == "quad9": Image {
+        width: 42px;
+        height: 42px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/quad9.svg");
+    }
+    if provider-id == "adguard": Image {
+        width: 42px;
+        height: 42px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/adguard.svg");
+    }
+    if provider-id == "cleanbrowsing": Image {
+        width: 44px;
+        height: 44px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/cleanbrowsing.svg");
+    }
+    if provider-id == "control-d": Image {
+        width: 44px;
+        height: 44px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/control-d.svg");
+    }
+    if provider-id == "nextdns": Image {
+        width: 42px;
+        height: 42px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/nextdns.svg");
+    }
+    if provider-id == "opendns": Image {
+        width: 42px;
+        height: 42px;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/opendns.svg");
+    }
+
+    // Fallback for custom or unrecognized providers
+    if provider-id != "cloudflare" && provider-id != "google" && provider-id != "quad9" && provider-id != "adguard" && provider-id != "cleanbrowsing" && provider-id != "control-d" && provider-id != "nextdns" && provider-id != "opendns": Text {
+        text: symbol != "" ? symbol : "DNS";
+        color: active ? Theme.cyan : Theme.accent;
+        font-size: 22px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ProfileCard inherits Rectangle {
+    in property <string> name;
+    in property <string> tag;
+    in property <string> description;
+    in property <string> ipv4;
+    in property <string> ipv6;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 70px;
+    border-radius: 12px;
+    background: selected ? (Theme.dark ? #11284d : #e8f3ff) : (touch.has-hover ? Theme.surface-subtle : Theme.surface);
+    border-width: selected ? 1.5px : 1px;
+    border-color: selected ? Theme.cyan : (touch.has-hover ? Theme.cyan.with-alpha(0.3) : Theme.border);
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+
+        // Radio indicator
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                border-width: 2px;
+                border-color: root.selected ? Theme.cyan : Theme.border;
+                background: root.selected ? Theme.cyan.with-alpha(0.12) : transparent;
+
+                if root.selected: Rectangle {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    background: Theme.cyan;
+                    x: (parent.width - 10px) / 2;
+                    y: (parent.height - 10px) / 2;
+                }
+            }
+        }
+
+        // Details
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+
+                Text {
+                    text: root.name;
+                    color: Theme.text;
+                    font-size: 13.5px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Tag {
+                    text: root.tag;
+                    tint: root.selected ? Theme.cyan : Theme.accent;
+                }
+            }
+
+            Text {
+                text: root.description;
+                color: Theme.secondary-text;
+                font-size: 11px;
+                overflow: elide;
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                Text {
+                    text: "IPv4: " + root.ipv4;
+                    color: Theme.muted-text;
+                    font-size: 10px;
+                    font-family: "Consolas";
+                    vertical-alignment: center;
+                }
+                if root.ipv6 != "—" && root.ipv6 != "": Text {
+                    text: "IPv6: " + root.ipv6;
+                    color: Theme.muted-text;
+                    font-size: 10px;
+                    font-family: "Consolas";
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component ProvidersPage inherits Rectangle {
     in property <string> language;
     in property <[ProviderRow]> providers;
     in property <[string]> adapters;
@@ -49,130 +313,475 @@ export component ProvidersPage inherits VerticalLayout {
     in-out property <int> ip-mode;
     in-out property <string> search-text: "";
     in-out property <string> category: "all";
-    in-out property <string> expanded-id: "";
     in property <bool> busy;
+    in-out property <bool> profile-popup-open: false;
+    in-out property <string> popup-provider-id: "";
+    in-out property <string> popup-provider-name: "";
+    in-out property <[DnsProfileRow]> popup-profiles: [];
+    in-out property <int> selected-profile-index: 0;
+
     callback add-provider;
-    callback apply-selected(string, int, int);
+    callback request-use-provider(string);
+    callback confirm-apply-profile(string, int, int, int);
     callback edit-provider(string);
     callback delete-provider(string);
     callback filter-request(string, string);
 
-    spacing: 13px;
+    VerticalLayout {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        spacing: 14px;
 
-    HorizontalLayout {
-        height: 76px;
-        VerticalLayout {
-            alignment: center;
-            spacing: 2px;
-            Text { text: language == "id" ? "Daftar DNS" : "DNS providers"; color: Theme.text; font-size: 28px; font-weight: 800; }
-            Text { text: language == "id" ? "Pilih penyedia DNS sesuai kebutuhan Anda." : "Choose a DNS provider that fits your needs."; color: Theme.secondary-text; font-size: 14px; }
-            Text { text: language == "id" ? "Setiap penyedia memiliki keunggulan dan fokus yang berbeda." : "Each provider offers a different focus and set of benefits."; color: Theme.muted-text; font-size: 11px; }
-        }
-        Rectangle { horizontal-stretch: 1; }
-        Rectangle {
-            width: 280px;
-            height: 58px;
-            border-radius: 15px;
-            background: Theme.surface;
-            border-width: 1px;
-            border-color: Theme.border;
-            HorizontalLayout {
-                padding-left: 14px;
-                padding-right: 10px;
-                spacing: 10px;
-                Text { text: "⌘"; color: Theme.accent; font-size: 20px; vertical-alignment: center; }
-                VerticalLayout {
-                    alignment: center;
-                    Text { text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada adapter" : "No adapter"); color: Theme.text; font-size: 12px; overflow: elide; }
-                    Text { text: adapters.length > 0 ? "●  " + (language == "id" ? "Terhubung" : "Connected") : "●  Offline"; color: adapters.length > 0 ? Theme.cyan : Theme.muted-text; font-size: 10px; }
+        // Header with title and network adapter card
+        HorizontalLayout {
+            height: 64px;
+            VerticalLayout {
+                alignment: center;
+                spacing: 3px;
+                Text {
+                    text: language == "id" ? "Daftar DNS" : "DNS Providers";
+                    color: Theme.text;
+                    font-size: 26px;
+                    font-weight: 800;
                 }
-                ComboBox { width: 34px; model: root.adapters; current-index <=> root.adapter-index; }
+                Text {
+                    text: language == "id" ? "Pilih penyedia DNS terbaik sesuai kebutuhan privasi, kecepatan, atau keamanan Anda." : "Choose the best DNS provider tailored for your privacy, speed, or security.";
+                    color: Theme.secondary-text;
+                    font-size: 13px;
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+
+            // Current Connection Badge - hug content, perfectly centered
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+
+                Rectangle {
+                    height: 38px;
+                    width: connection-content.preferred-width + 24px;
+                    border-radius: 12px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+
+                    connection-content := HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 14px;
+                        spacing: 9px;
+                        alignment: center;
+
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 26px;
+                                height: 26px;
+                                border-radius: 8px;
+                                background: Theme.accent.with-alpha(0.12);
+
+                                IconDisplay {
+                                    icon: IconSet.Network;
+                                    size: 16px;
+                                    stroke: Theme.accent;
+                                    x: (parent.width - 16px) / 2;
+                                    y: (parent.height - 16px) / 2;
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
+                            color: Theme.text;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Filter bar, Search box, and Add Provider
+        HorizontalLayout {
+            height: 42px;
+            spacing: 8px;
+
+            FilterButton {
+                icon-index: 0;
+                label: language == "id" ? "Semua" : "All";
+                selected: root.category == "all";
+                clicked => { root.category = "all"; root.filter-request(root.search-text, root.category); }
+            }
+            FilterButton {
+                icon-index: 1;
+                label: language == "id" ? "Privasi" : "Privacy";
+                selected: root.category == "privacy";
+                clicked => { root.category = "privacy"; root.filter-request(root.search-text, root.category); }
+            }
+            FilterButton {
+                icon-index: 2;
+                label: language == "id" ? "Kecepatan" : "Speed";
+                selected: root.category == "speed";
+                clicked => { root.category = "speed"; root.filter-request(root.search-text, root.category); }
+            }
+            FilterButton {
+                icon-index: 3;
+                label: language == "id" ? "Keamanan" : "Security";
+                selected: root.category == "security";
+                clicked => { root.category = "security"; root.filter-request(root.search-text, root.category); }
+            }
+            FilterButton {
+                icon-index: 4;
+                label: language == "id" ? "Bebas iklan" : "Ad blocking";
+                selected: root.category == "ads";
+                clicked => { root.category = "ads"; root.filter-request(root.search-text, root.category); }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            LineEdit {
+                width: 240px;
+                height: 38px;
+                text <=> root.search-text;
+                placeholder-text: language == "id" ? "Cari penyedia DNS..." : "Search DNS providers...";
+                edited => { root.filter-request(root.search-text, root.category); }
+            }
+            AddButton {
+                clicked => { root.add-provider(); }
+            }
+        }
+
+        // Sub-bar: Address mode segmented buttons & count
+        HorizontalLayout {
+            height: 32px;
+            spacing: 8px;
+
+            Text {
+                text: language == "id" ? "Versi alamat:" : "Address mode:";
+                color: Theme.muted-text;
+                font-size: 11.5px;
+                vertical-alignment: center;
+            }
+            IpModeButton {
+                label: "IPv4";
+                selected: root.ip-mode == 0;
+                clicked => { root.ip-mode = 0; }
+            }
+            IpModeButton {
+                label: "IPv6";
+                selected: root.ip-mode == 1;
+                clicked => { root.ip-mode = 1; }
+            }
+            IpModeButton {
+                label: "IPv4 + IPv6";
+                selected: root.ip-mode == 2;
+                clicked => { root.ip-mode = 2; }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            Rectangle {
+                height: 26px;
+                border-radius: 8px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    Text {
+                        text: providers.length + (language == "id" ? " penyedia ditemukan" : " providers found");
+                        color: Theme.muted-text;
+                        font-size: 11px;
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // DNS Providers Card List
+        ListView {
+            for provider in root.providers: VerticalLayout {
+                padding-bottom: 14px;
+
+                Rectangle {
+                    height: 102px;
+                    border-radius: 16px;
+                background: provider.active ? (Theme.dark ? #0f223f : #f0f7ff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
+                border-width: provider.active ? 1.5px : 1px;
+                border-color: provider.active ? Theme.cyan : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
+                clip: true;
+
+                card-touch := TouchArea { }
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 16px;
+
+                    // Provider Official SVG Logo
+                    ProviderIcon {
+                        provider-id: provider.id;
+                        symbol: provider.symbol;
+                        active: provider.active;
+                    }
+
+                    // Provider Name, Summary & Tags
+                    VerticalLayout {
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+                        alignment: center;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            Text {
+                                text: provider.name;
+                                color: Theme.text;
+                                font-size: 16.5px;
+                                font-weight: 800;
+                                vertical-alignment: center;
+                            }
+                            if provider.active: Tag {
+                                text: language == "id" ? "AKTIF" : "ACTIVE";
+                                tint: Theme.cyan;
+                            }
+                            if provider.profile_count > 1: Rectangle {
+                                height: 20px;
+                                width: profile-badge-text.preferred-width + 14px;
+                                border-radius: 6px;
+                                background: Theme.cyan.with-alpha(0.12);
+
+                                profile-badge-text := Text {
+                                    text: provider.profile_count + (language == "id" ? " Profil" : " Profiles");
+                                    color: Theme.cyan;
+                                    font-size: 10.5px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: provider.summary;
+                            color: Theme.secondary-text;
+                            font-size: 11.5px;
+                            overflow: elide;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Tag {
+                                text: provider.tag;
+                                tint: provider.id == "quad9" || provider.id == "cleanbrowsing" ? #ec4899 :
+                                      provider.id == "adguard" || provider.id == "control-d" ? #10b981 :
+                                      provider.id == "google" || provider.id == "opendns" ? #f59e0b :
+                                      Theme.cyan;
+                            }
+                            if provider.custom: Tag {
+                                text: language == "id" ? "KUSTOM" : "CUSTOM";
+                                tint: Theme.purple;
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        width: 1px;
+                        height: 56px;
+                        background: Theme.border;
+                    }
+
+                    // IP Addresses Column
+                    VerticalLayout {
+                        width: 290px;
+                        alignment: center;
+                        spacing: 3px;
+                        AddressRow { version: "IPv4"; address: provider.ipv4; }
+                        AddressRow { version: "IPv6"; address: provider.ipv6; }
+                    }
+
+                    // Action Column
+                    VerticalLayout {
+                        width: provider.custom ? 140px : 124px;
+                        alignment: center;
+                        spacing: 6px;
+
+                        Button {
+                            text: provider.active ? (language == "id" ? "Aktif  ✓" : "Active  ✓") : ((language == "id" ? "Gunakan" : "Use DNS") + "  →");
+                            enabled: !busy && !provider.active;
+                            clicked => { root.request-use-provider(provider.id); }
+                        }
+
+                        if provider.custom: HorizontalLayout {
+                            spacing: 6px;
+                            alignment: center;
+                            Button {
+                                text: language == "id" ? "Ubah" : "Edit";
+                                clicked => { root.edit-provider(provider.id); }
+                            }
+                            Button {
+                                text: language == "id" ? "Hapus" : "Del";
+                                clicked => { root.delete-provider(provider.id); }
+                            }
+                        }
+                    }
+                }
+            }
             }
         }
     }
 
-    HorizontalLayout {
-        height: 42px;
-        spacing: 7px;
-        FilterButton { symbol: "⌘"; label: language == "id" ? "Semua" : "All"; selected: root.category == "all"; clicked => { root.category = "all"; root.filter-request(root.search-text, root.category); } }
-        FilterButton { symbol: "◇"; label: language == "id" ? "Privasi" : "Privacy"; selected: root.category == "privacy"; clicked => { root.category = "privacy"; root.filter-request(root.search-text, root.category); } }
-        FilterButton { symbol: "ϟ"; label: language == "id" ? "Kecepatan" : "Speed"; selected: root.category == "speed"; clicked => { root.category = "speed"; root.filter-request(root.search-text, root.category); } }
-        FilterButton { symbol: "▣"; label: language == "id" ? "Keamanan" : "Security"; selected: root.category == "security"; clicked => { root.category = "security"; root.filter-request(root.search-text, root.category); } }
-        FilterButton { symbol: "⊘"; label: language == "id" ? "Bebas iklan" : "Ad blocking"; selected: root.category == "ads"; clicked => { root.category = "ads"; root.filter-request(root.search-text, root.category); } }
-        Rectangle { horizontal-stretch: 1; }
-        LineEdit {
-            width: 230px;
-            text <=> root.search-text;
-            placeholder-text: language == "id" ? "Cari penyedia DNS..." : "Search DNS providers...";
-            edited => { root.filter-request(root.search-text, root.category); }
-        }
-        Button { text: "+"; clicked => { root.add-provider(); } }
-    }
+    // Profile Selection Modal Popup Overlay
+    if root.profile-popup-open: Rectangle {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        background: #00000080;
 
-    HorizontalLayout {
-        height: 36px;
-        spacing: 9px;
-        Text { text: language == "id" ? "Versi alamat" : "Address mode"; color: Theme.muted-text; font-size: 11px; vertical-alignment: center; }
-        Button { text: "IPv4"; enabled: root.ip-mode != 0; clicked => { root.ip-mode = 0; } }
-        Button { text: "IPv6"; enabled: root.ip-mode != 1; clicked => { root.ip-mode = 1; } }
-        Button { text: "IPv4 + IPv6"; enabled: root.ip-mode != 2; clicked => { root.ip-mode = 2; } }
-        Rectangle { horizontal-stretch: 1; }
-        Text { text: providers.length + (language == "id" ? " penyedia ditemukan" : " providers found"); color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
-    }
+        TouchArea { }
 
-    ListView {
-        for provider in root.providers: Rectangle {
-            height: root.expanded-id == provider.id ? 184px : 132px;
+        Rectangle {
+            width: 580px;
+            height: modal-layout.preferred-height;
             border-radius: 18px;
-            background: provider.active ? Theme.surface-strong : Theme.surface;
+            background: Theme.surface;
             border-width: 1px;
-            border-color: provider.active ? Theme.cyan : Theme.border;
-            VerticalLayout {
-                padding: 15px;
-                spacing: 8px;
+            border-color: Theme.border;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000055;
+            drop-shadow-offset-y: 6px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+
+            modal-layout := VerticalLayout {
+                padding: 24px;
+                spacing: 18px;
+
+                // Modal Header
                 HorizontalLayout {
-                    spacing: 15px;
-                    Rectangle {
-                        width: 72px;
-                        height: 72px;
-                        border-radius: 20px;
-                        background: provider.active ? Theme.cyan.with-alpha(0.16) : Theme.accent.with-alpha(0.11);
-                        Text { text: provider.symbol; color: provider.active ? Theme.cyan : Theme.accent; font-size: 31px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
-                    }
+                    spacing: 12px;
+
                     VerticalLayout {
-                        spacing: 4px;
-                        Text { text: provider.name; color: Theme.text; font-size: 17px; font-weight: 800; }
-                        Text { text: provider.summary; color: Theme.secondary-text; font-size: 11px; wrap: word-wrap; }
-                        HorizontalLayout {
-                            spacing: 6px;
-                            if provider.custom: Tag { text: language == "id" ? "KUSTOM" : "CUSTOM"; tint: Theme.accent; }
-                            if provider.active: Tag { text: language == "id" ? "AKTIF" : "ACTIVE"; tint: Theme.cyan; }
-                            Tag { text: provider.id == "quad9" ? (language == "id" ? "KEAMANAN" : "SECURITY") : provider.id == "adguard" ? (language == "id" ? "BEBAS IKLAN" : "AD BLOCKING") : provider.id == "cloudflare" ? (language == "id" ? "PRIVASI" : "PRIVACY") : (language == "id" ? "ANDAL" : "RELIABLE"); tint: Theme.cyan; }
+                        horizontal-stretch: 1;
+                        spacing: 3px;
+
+                        Text {
+                            text: language == "id" ? ("Pilih Profil: " + root.popup-provider-name) : ("Select Profile: " + root.popup-provider-name);
+                            color: Theme.text;
+                            font-size: 18px;
+                            font-weight: 800;
+                        }
+                        Text {
+                            text: language == "id" ? "Pilih varian atau jenis proteksi DNS yang ingin Anda gunakan:" : "Choose the DNS variant or protection profile you want to use:";
+                            color: Theme.secondary-text;
+                            font-size: 12px;
                         }
                     }
-                    Rectangle { width: 1px; background: Theme.border; }
-                    VerticalLayout {
-                        width: 285px;
-                        alignment: center;
-                        AddressRow { version: "IPv4"; address: provider.ipv4; }
-                        AddressRow { version: "IPv6"; address: provider.ipv6; }
-                    }
-                    VerticalLayout {
-                        width: 142px;
-                        spacing: 7px;
-                        alignment: center;
-                        Button { text: (language == "id" ? "Gunakan" : "Use DNS") + "  →"; enabled: !busy; clicked => { root.apply-selected(provider.id, root.adapter-index, root.ip-mode); } }
-                        Button { text: root.expanded-id == provider.id ? (language == "id" ? "Tutup detail ⌃" : "Hide details ⌃") : (language == "id" ? "Detail ⌄" : "Details ⌄"); clicked => { root.expanded-id = root.expanded-id == provider.id ? "" : provider.id; } }
+
+                    // Close (X) button
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 8px;
+                        background: close-touch.has-hover ? Theme.surface-subtle : transparent;
+
+                        IconDisplay {
+                            icon: IconSet.X;
+                            size: 18px;
+                            stroke: Theme.secondary-text;
+                            x: (parent.width - 18px) / 2;
+                            y: (parent.height - 18px) / 2;
+                        }
+
+                        close-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.profile-popup-open = false; }
+                        }
                     }
                 }
-                if root.expanded-id == provider.id: HorizontalLayout {
-                    height: 40px;
-                    spacing: 15px;
-                    Text { text: "✓  " + provider.pros; color: Theme.cyan; font-size: 11px; vertical-alignment: center; overflow: elide; }
-                    Text { text: "△  " + provider.cons; color: Theme.secondary-text; font-size: 11px; vertical-alignment: center; overflow: elide; }
+
+                // Divider
+                Rectangle {
+                    height: 1px;
+                    background: Theme.border;
+                }
+
+                // Profiles Cards
+                VerticalLayout {
+                    spacing: 8px;
+
+                    for profile[index] in root.popup-profiles: ProfileCard {
+                        name: profile.name;
+                        tag: profile.tag;
+                        description: profile.description;
+                        ipv4: profile.ipv4;
+                        ipv6: profile.ipv6;
+                        selected: root.selected-profile-index == index;
+                        clicked => {
+                            root.selected-profile-index = index;
+                        }
+                    }
+                }
+
+                // Divider
+                Rectangle {
+                    height: 1px;
+                    background: Theme.border;
+                }
+
+                // Modal Footer
+                HorizontalLayout {
+                    spacing: 12px;
+
+                    // Active connection indicator
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+
+                        VerticalLayout {
+                            alignment: center;
+                            IconDisplay {
+                                icon: IconSet.Network;
+                                size: 14px;
+                                stroke: Theme.accent;
+                            }
+                        }
+
+                        Text {
+                            text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Adapter Aktif" : "Active Adapter");
+                            color: Theme.muted-text;
+                            font-size: 11px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+
                     Rectangle { horizontal-stretch: 1; }
-                    if provider.custom: Button { text: language == "id" ? "Ubah" : "Edit"; clicked => { root.edit-provider(provider.id); } }
-                    if provider.custom: Button { text: language == "id" ? "Hapus" : "Delete"; clicked => { root.delete-provider(provider.id); } }
+
+                    Button {
+                        text: language == "id" ? "Batal" : "Cancel";
+                        clicked => {
+                            root.profile-popup-open = false;
+                        }
+                    }
+
+                    Button {
+                        text: language == "id" ? "Terapkan DNS  ✓" : "Apply DNS  ✓";
+                        primary: true;
+                        enabled: !root.busy;
+                        clicked => {
+                            root.profile-popup-open = false;
+                            root.confirm-apply-profile(root.popup-provider-id, root.selected-profile-index, root.adapter-index, root.ip-mode);
+                        }
+                    }
                 }
             }
         }

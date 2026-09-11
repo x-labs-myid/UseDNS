@@ -1,3 +1,12 @@
+export struct DnsProfileRow {
+    id: string,
+    name: string,
+    description: string,
+    tag: string,
+    ipv4: string,
+    ipv6: string,
+}
+
 export struct ProviderRow {
     id: string,
     name: string,
@@ -9,4 +18,11 @@ export struct ProviderRow {
     cons: string,
     custom: bool,
     active: bool,
+    tag: string,
+    profile_count: int,
+}
+
+export struct SpeedSample {
+    download: float,
+    upload: float,
 }

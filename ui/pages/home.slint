@@ -1,6 +1,7 @@
 import { Button, ComboBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
+import { SpeedSample } from "../types.slint";
 
 export component HomePage inherits VerticalLayout {
     in property <string> language;
@@ -17,6 +18,9 @@ export component HomePage inherits VerticalLayout {
     in property <float> download-level: 0;
     in property <float> upload-level: 0;
     in property <float> total-level: 0;
+    in property <[SpeedSample]> speed-history: [];
+    in property <string> graph-max-speed: "1.0 Mbps";
+    in property <string> graph-mid-speed: "500 Kbps";
     in property <bool> connection-error: false;
     in property <bool> busy: false;
     
@@ -30,141 +34,126 @@ export component HomePage inherits VerticalLayout {
     // TOP HEADER (Greeting, Status, Adapter Dropdown, Refresh)
     // -------------------------------------------------------------
     HorizontalLayout {
-        height: 56px;
-        spacing: 12px;
-        alignment: center;
+        height: 52px;
 
-        // Greeting title
+        // Title
         VerticalLayout {
+            horizontal-stretch: 0;
             alignment: center;
             spacing: 2px;
-            horizontal-stretch: 1;
             Text {
-                text: language == "id" ? "Selamat menggunakan," : "Welcome to,";
-                color: Theme.muted-text;
-                font-size: 11px;
-            }
-            Text {
-                text: "UseDNS";
-                color: #0076f5;
-                font-size: 26px;
+                text: language == "id" ? "Beranda" : "Dashboard";
+                color: Theme.text;
+                font-size: 24px;
                 font-weight: 800;
             }
             Text {
-                text: language == "id" ? "Pantau DNS dan kualitas koneksi aktif Anda." : "Monitor your DNS and active connection quality.";
+                text: language == "id" ? "Pantau DNS dan status koneksi aktif Anda." : "Monitor your active DNS and connection status.";
                 color: Theme.secondary-text;
-                font-size: 11px;
-                wrap: word-wrap;
+                font-size: 11.5px;
             }
         }
 
+        // Spacer to push right section all the way to the right
+        Rectangle { horizontal-stretch: 1; }
+
         // Top right adapter selector, refresh button, and status badge
         HorizontalLayout {
+            horizontal-stretch: 0;
+            alignment: end;
             spacing: 10px;
-            alignment: center;
 
-            // Adapter Selector Container
+            // Current Connection Badge (Clean & Symmetrical)
             Rectangle {
                 height: 38px;
+                width: home-connection-content.preferred-width + 24px;
                 border-radius: 12px;
                 background: Theme.surface;
                 border-width: 1px;
                 border-color: Theme.border;
-                HorizontalLayout {
+
+                home-connection-content := HorizontalLayout {
                     padding-left: 12px;
-                    padding-right: 4px;
-                    spacing: 8px;
+                    padding-right: 14px;
+                    spacing: 9px;
                     alignment: center;
-                    Rectangle {
-                        width: 18px;
-                        height: 18px;
-                        IconDisplay {
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 26px;
+                            height: 26px;
+                            border-radius: 8px;
+                            background: Theme.accent.with-alpha(0.12);
+
+                            IconDisplay {
                                 icon: IconSet.Network;
                                 size: 16px;
-                                stroke: Theme.secondary-text;
+                                stroke: Theme.accent;
                                 x: (parent.width - 16px) / 2;
-                            y: (parent.height - 16px) / 2;
+                                y: (parent.height - 16px) / 2;
+                            }
                         }
                     }
-                    ComboBox {
-                        width: 190px;
-                        model: root.adapters;
-                        current-index <=> root.adapter-index;
+
+                    Text {
+                        text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
+                        color: Theme.text;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
                     }
                 }
             }
 
-            // Refresh Button with Icon perfectly centered
-            Rectangle {
+            // Refresh Button with Icon and Label perfectly centered
+            refresh-btn := Rectangle {
                 height: 38px;
                 border-radius: 12px;
-                background: Theme.surface;
+                background: refresh-touch.has-hover ? Theme.surface-strong : Theme.surface;
                 border-width: 1px;
-                border-color: Theme.border;
+                border-color: refresh-touch.has-hover ? #0076f5.with-alpha(0.35) : Theme.border;
+                animate background { duration: 150ms; }
+                animate border-color { duration: 150ms; }
+
                 HorizontalLayout {
                     padding-left: 14px;
                     padding-right: 16px;
                     spacing: 8px;
                     alignment: center;
-                    Rectangle {
-                        width: 18px;
-                        height: 18px;
-                        IconDisplay {
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            IconDisplay {
                                 icon: IconSet.RefreshCw;
-                                size: 15px;
-                                stroke: Theme.secondary-text;
-                                x: (parent.width - 15px) / 2;
-                            y: (parent.height - 15px) / 2;
+                                size: 16px;
+                                stroke: refresh-touch.has-hover ? #0076f5 : Theme.secondary-text;
+                                x: (parent.width - 16px) / 2;
+                                y: (parent.height - 16px) / 2;
+                            }
                         }
                     }
+
                     VerticalLayout {
                         alignment: center;
                         Text {
                             text: language == "id" ? "Periksa ulang" : "Refresh";
-                            color: Theme.text;
+                            color: refresh-touch.has-hover ? #0076f5 : Theme.text;
                             font-size: 12px;
                             font-weight: 600;
+                            vertical-alignment: center;
                         }
                     }
                 }
-                TouchArea {
+
+                refresh-touch := TouchArea {
                     mouse-cursor: root.busy ? default : pointer;
                     clicked => {
                         if (!root.busy) { root.refresh(); }
                     }
-                }
-            }
-
-            // Connection Badge Status
-            VerticalLayout {
-                alignment: center;
-                spacing: 3px;
-                padding-left: 6px;
-                HorizontalLayout {
-                    spacing: 6px;
-                    alignment: end;
-                    Rectangle {
-                        width: 8px;
-                        height: 8px;
-                        border-radius: 4px;
-                        background: root.connection-error ? #ef4444 : #10b981;
-                        y: (parent.height - self.height) / 2;
-                    }
-                    Text {
-                        text: root.connection-error ? 
-                            (language == "id" ? "Koneksi terganggu" : "Disconnected") : 
-                            (language == "id" ? "Terhubung ke internet" : "Connected to internet");
-                        color: root.connection-error ? #ef4444 : Theme.secondary-text;
-                        font-size: 11px;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                    }
-                }
-                Text {
-                    text: language == "id" ? "Aman  •  Cepat  •  Terkendali" : "Secure  •  Fast  •  Controlled";
-                    color: Theme.muted-text;
-                    font-size: 9.5px;
-                    horizontal-alignment: right;
                 }
             }
         }
@@ -186,22 +175,25 @@ export component HomePage inherits VerticalLayout {
             border-color: Theme.border;
 
             HorizontalLayout {
-                padding: 16px;
+                padding-left: 20px;
+                padding-right: 20px;
                 spacing: 14px;
-                alignment: center;
 
-                // Green DNS badge circle with Icon
-                Rectangle {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 24px;
-                    background: @linear-gradient(135deg, #10b981 0%, #059669 100%);
-                    IconDisplay {
+                VerticalLayout {
+                    alignment: center;
+                    // Green DNS badge circle with Icon
+                    Rectangle {
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 24px;
+                        background: @linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        IconDisplay {
                             icon: IconSet.Server;
                             size: 22px;
                             stroke: white;
                             x: (parent.width - 22px) / 2;
-                        y: (parent.height - 22px) / 2;
+                            y: (parent.height - 22px) / 2;
+                        }
                     }
                 }
 
@@ -210,8 +202,6 @@ export component HomePage inherits VerticalLayout {
                     spacing: 3px;
                     horizontal-stretch: 1;
                     HorizontalLayout {
-                        spacing: 8px;
-                        alignment: center;
                         Text {
                             text: language == "id" ? "DNS AKTIF" : "ACTIVE DNS";
                             color: Theme.secondary-text;
@@ -266,22 +256,25 @@ export component HomePage inherits VerticalLayout {
             border-color: Theme.border;
 
             HorizontalLayout {
-                padding: 16px;
+                padding-left: 20px;
+                padding-right: 20px;
                 spacing: 14px;
-                alignment: center;
 
-                // Blue circle with Wifi icon
-                Rectangle {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 24px;
-                    background: @linear-gradient(135deg, #0099ff 0%, #0076f5 100%);
-                    IconDisplay {
+                VerticalLayout {
+                    alignment: center;
+                    // Blue circle with Wifi icon
+                    Rectangle {
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 24px;
+                        background: @linear-gradient(135deg, #0099ff 0%, #0076f5 100%);
+                        IconDisplay {
                             icon: IconSet.Wifi;
                             size: 22px;
                             stroke: white;
                             x: (parent.width - 22px) / 2;
-                        y: (parent.height - 22px) / 2;
+                            y: (parent.height - 22px) / 2;
+                        }
                     }
                 }
 
@@ -321,22 +314,25 @@ export component HomePage inherits VerticalLayout {
             border-color: Theme.border;
 
             HorizontalLayout {
-                padding: 16px;
+                padding-left: 20px;
+                padding-right: 20px;
                 spacing: 14px;
-                alignment: center;
 
-                // Purple gradient circle with Clock icon
-                Rectangle {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 24px;
-                    background: @linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-                    IconDisplay {
+                VerticalLayout {
+                    alignment: center;
+                    // Purple gradient circle with Clock icon
+                    Rectangle {
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 24px;
+                        background: @linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+                        IconDisplay {
                             icon: IconSet.Clock;
                             size: 22px;
                             stroke: white;
                             x: (parent.width - 22px) / 2;
-                        y: (parent.height - 22px) / 2;
+                            y: (parent.height - 22px) / 2;
+                        }
                     }
                 }
 
@@ -384,44 +380,53 @@ export component HomePage inherits VerticalLayout {
 
             // Section Title Inside Card
             HorizontalLayout {
-                spacing: 12px;
-                alignment: center;
+                // Left side: Icon + Title & Subtitle
+                HorizontalLayout {
+                    horizontal-stretch: 0;
+                    alignment: start;
+                    spacing: 12px;
 
-                Rectangle {
-                    width: 38px;
-                    height: 38px;
-                    border-radius: 19px;
-                    background: #0076f5.with-alpha(0.12);
-                    IconDisplay {
+                    Rectangle {
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 19px;
+                        background: #0076f5.with-alpha(0.12);
+                        y: (parent.height - self.height) / 2;
+                        IconDisplay {
                             icon: IconSet.Gauge;
                             size: 20px;
                             stroke: #0076f5;
                             x: (parent.width - 20px) / 2;
-                        y: (parent.height - 20px) / 2;
+                            y: (parent.height - 20px) / 2;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: language == "id" ? "Kecepatan Internet (Real-time)" : "Internet Speed (Real-time)";
+                            color: Theme.text;
+                            font-size: 15px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: language == "id" ? "Pantau kecepatan koneksi Anda saat ini." : "Monitor your current connection speed.";
+                            color: Theme.muted-text;
+                            font-size: 11px;
+                        }
                     }
                 }
 
-                VerticalLayout {
-                    alignment: center;
-                    spacing: 2px;
-                    Text {
-                        text: language == "id" ? "Kecepatan Internet (Real-time)" : "Internet Speed (Real-time)";
-                        color: Theme.text;
-                        font-size: 15px;
-                        font-weight: 700;
-                    }
-                    Text {
-                        text: language == "id" ? "Pantau kecepatan koneksi Anda saat ini." : "Monitor your current connection speed.";
-                        color: Theme.muted-text;
-                        font-size: 11px;
-                    }
-                }
-
+                // Spacer pushes right side to far right
                 Rectangle { horizontal-stretch: 1; }
 
+                // Right side: Realtime update indicator pushed all the way to right
                 HorizontalLayout {
+                    horizontal-stretch: 0;
+                    alignment: end;
                     spacing: 6px;
-                    alignment: center;
+                    y: (parent.height - self.height) / 2;
                     Rectangle {
                         width: 6px;
                         height: 6px;
@@ -450,73 +455,69 @@ export component HomePage inherits VerticalLayout {
                     border-width: 1px;
                     border-color: Theme.border-subtle;
 
-                    VerticalLayout {
-                        alignment: center;
-                        padding: 16px;
+                    // Arc meter visualization (Clean & Minimalist)
+                    Rectangle {
+                        height: 170px;
+                        width: 170px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
 
-                        // Arc meter visualization (Clean & Minimalist)
+                        // Outer background track ring
                         Rectangle {
-                            height: 170px;
                             width: 170px;
-                            x: (parent.width - self.width) / 2;
+                            height: 170px;
+                            border-radius: 85px;
+                            border-width: 13px;
+                            border-color: Theme.border-subtle;
+                            background: transparent;
+                        }
 
-                            // Outer background track ring
+                        // Active dynamic progress ring
+                        Rectangle {
+                            width: 170px;
+                            height: 170px * min(1.0, max(0.02, root.total-level));
+                            y: 170px * (1.0 - min(1.0, max(0.02, root.total-level)));
+                            clip: true;
+
                             Rectangle {
                                 width: 170px;
                                 height: 170px;
+                                y: -170px * (1.0 - min(1.0, max(0.02, root.total-level)));
                                 border-radius: 85px;
                                 border-width: 13px;
-                                border-color: Theme.border-subtle;
+                                border-color: @linear-gradient(135deg, #0076f5 0%, #00d2ff 100%);
                                 background: transparent;
                             }
+                        }
 
-                            // Active dynamic progress ring
-                            Rectangle {
-                                width: 170px;
-                                height: 170px * min(1.0, max(0.02, root.total-level));
-                                y: 170px * (1.0 - min(1.0, max(0.02, root.total-level)));
-                                clip: true;
+                        // Center speed readout
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            width: 140px;
+                            height: 140px;
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
 
-                                Rectangle {
-                                    width: 170px;
-                                    height: 170px;
-                                    y: -170px * (1.0 - min(1.0, max(0.02, root.total-level)));
-                                    border-radius: 85px;
-                                    border-width: 13px;
-                                    border-color: @linear-gradient(135deg, #0076f5 0%, #00d2ff 100%);
-                                    background: transparent;
-                                }
+                            Text {
+                                text: root.total-speed;
+                                color: Theme.text;
+                                font-size: 32px;
+                                font-weight: 800;
+                                horizontal-alignment: center;
                             }
-
-                            // Center speed readout
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 2px;
-                                width: 140px;
-                                height: 140px;
-                                x: (parent.width - self.width) / 2;
-                                y: (parent.height - self.height) / 2;
-
-                                Text {
-                                    text: root.total-speed;
-                                    color: Theme.text;
-                                    font-size: 32px;
-                                    font-weight: 800;
-                                    horizontal-alignment: center;
-                                }
-                                Text {
-                                    text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
-                                    color: #0076f5;
-                                    font-size: 13px;
-                                    font-weight: 700;
-                                    horizontal-alignment: center;
-                                }
-                                Text {
-                                    text: language == "id" ? "Kecepatan Saat Ini" : "Current Speed";
-                                    color: Theme.muted-text;
-                                    font-size: 10px;
-                                    horizontal-alignment: center;
-                                }
+                            Text {
+                                text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
+                                color: #0076f5;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: language == "id" ? "Kecepatan Saat Ini" : "Current Speed";
+                                color: Theme.muted-text;
+                                font-size: 10px;
+                                horizontal-alignment: center;
                             }
                         }
                     }
@@ -544,18 +545,18 @@ export component HomePage inherits VerticalLayout {
                                 padding-left: 14px;
                                 padding-right: 14px;
                                 spacing: 12px;
-                                alignment: center;
 
                                 Rectangle {
                                     width: 36px;
                                     height: 36px;
                                     border-radius: 18px;
                                     background: #0076f5.with-alpha(0.12);
+                                    y: (parent.height - self.height) / 2;
                                     IconDisplay {
-                                            icon: IconSet.ArrowDown;
-                                            size: 18px;
-                                            stroke: #0076f5;
-                                            x: (parent.width - 18px) / 2;
+                                        icon: IconSet.ArrowDown;
+                                        size: 18px;
+                                        stroke: #0076f5;
+                                        x: (parent.width - 18px) / 2;
                                         y: (parent.height - 18px) / 2;
                                     }
                                 }
@@ -585,6 +586,7 @@ export component HomePage inherits VerticalLayout {
                                     height: 12px;
                                     background: @linear-gradient(90deg, #0076f511 0%, #0076f544 100%);
                                     border-radius: 6px;
+                                    y: (parent.height - self.height) / 2;
                                 }
                             }
                         }
@@ -601,18 +603,18 @@ export component HomePage inherits VerticalLayout {
                                 padding-left: 14px;
                                 padding-right: 14px;
                                 spacing: 12px;
-                                alignment: center;
 
                                 Rectangle {
                                     width: 36px;
                                     height: 36px;
                                     border-radius: 18px;
                                     background: #8b5cf6.with-alpha(0.12);
+                                    y: (parent.height - self.height) / 2;
                                     IconDisplay {
-                                            icon: IconSet.ArrowUp;
-                                            size: 18px;
-                                            stroke: #8b5cf6;
-                                            x: (parent.width - 18px) / 2;
+                                        icon: IconSet.ArrowUp;
+                                        size: 18px;
+                                        stroke: #8b5cf6;
+                                        x: (parent.width - 18px) / 2;
                                         y: (parent.height - 18px) / 2;
                                     }
                                 }
@@ -642,12 +644,13 @@ export component HomePage inherits VerticalLayout {
                                     height: 12px;
                                     background: @linear-gradient(90deg, #8b5cf611 0%, #8b5cf644 100%);
                                     border-radius: 6px;
+                                    y: (parent.height - self.height) / 2;
                                 }
                             }
                         }
                     }
 
-                    // 60-Second Speed Graph Card
+                    // Real-Time Speed Activity Graph Card
                     Rectangle {
                         vertical-stretch: 1;
                         border-radius: 14px;
@@ -656,18 +659,19 @@ export component HomePage inherits VerticalLayout {
                         border-color: Theme.border-subtle;
 
                         VerticalLayout {
-                            padding: 12px;
-                            spacing: 8px;
+                            padding: 14px;
+                            spacing: 10px;
 
+                            // Title & Legend row
                             HorizontalLayout {
-                                alignment: center;
                                 Text {
-                                    text: language == "id" ? "Grafik Kecepatan (60 detik terakhir)" : "Speed Graph (Last 60 seconds)";
+                                    text: language == "id" ? "Grafik Aktivitas Kecepatan" : "Speed Activity Graph";
                                     color: Theme.secondary-text;
                                     font-size: 11px;
                                     font-weight: 600;
                                     vertical-alignment: center;
                                 }
+
                                 Rectangle { horizontal-stretch: 1; }
 
                                 // Legend
@@ -689,51 +693,87 @@ export component HomePage inherits VerticalLayout {
                                 }
                             }
 
-                            // Chart Grid Area
+                            // Chart Plot Area
                             Rectangle {
                                 vertical-stretch: 1;
                                 background: transparent;
-                                
-                                // Grid Lines and Y-Axis scale
+
+                                // Grid Lines & Y-Axis Scale
                                 VerticalLayout {
                                     alignment: space-between;
                                     HorizontalLayout {
-                                        alignment: center;
-                                        Text { text: "500"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                        spacing: 8px;
+                                        Text {
+                                            text: root.graph-max-speed;
+                                            font-size: 9px;
+                                            color: Theme.muted-text;
+                                            width: 50px;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
                                     }
                                     HorizontalLayout {
-                                        alignment: center;
-                                        Text { text: "250"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                        spacing: 8px;
+                                        Text {
+                                            text: root.graph-mid-speed;
+                                            font-size: 9px;
+                                            color: Theme.muted-text;
+                                            width: 50px;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
                                     }
                                     HorizontalLayout {
-                                        alignment: center;
-                                        Text { text: "0"; font-size: 9px; color: Theme.muted-text; width: 22px; vertical-alignment: center; }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; }
+                                        spacing: 8px;
+                                        Text {
+                                            text: "0";
+                                            font-size: 9px;
+                                            color: Theme.muted-text;
+                                            width: 50px;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
                                     }
                                 }
 
-                                // Dynamic Waveform / Bar Chart representation
+                                // Dynamic Bars corresponding to speed history
                                 HorizontalLayout {
-                                    padding-left: 28px;
-                                    padding-right: 8px;
-                                    alignment: space-between;
-                                    y: 10px;
-                                    height: parent.height - 16px;
+                                    x: 58px;
+                                    width: parent.width - 58px;
+                                    height: parent.height;
+                                    spacing: 4px;
 
-                                    // Dynamic simulated activity bars based on current speed levels
-                                    Rectangle { width: 4px; height: max(6px, parent.height * root.download-level * 0.4); border-radius: 2px; background: #0076f566; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(8px, parent.height * root.download-level * 0.7); border-radius: 2px; background: #0076f599; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(6px, parent.height * root.download-level * 0.5); border-radius: 2px; background: #0076f577; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(5px, parent.height * root.upload-level * 0.3); border-radius: 2px; background: #8b5cf666; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(10px, parent.height * root.download-level * 0.85); border-radius: 2px; background: #0076f5aa; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(7px, parent.height * root.download-level * 0.6); border-radius: 2px; background: #0076f588; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(8px, parent.height * root.upload-level * 0.4); border-radius: 2px; background: #8b5cf688; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(12px, parent.height * root.download-level * 0.95); border-radius: 2px; background: #0076f5cc; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(9px, parent.height * root.download-level * 0.75); border-radius: 2px; background: #0076f599; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(6px, parent.height * root.upload-level * 0.35); border-radius: 2px; background: #8b5cf677; y: parent.height - self.height; }
-                                    Rectangle { width: 4px; height: max(11px, parent.height * root.download-level * 0.9); border-radius: 2px; background: #0076f5bb; y: parent.height - self.height; }
+                                    for sample in root.speed-history: Rectangle {
+                                        horizontal-stretch: 1;
+                                        clip: true;
+
+                                        // Vertical track
+                                        Rectangle {
+                                            width: 6px;
+                                            height: parent.height;
+                                            border-radius: 3px;
+                                            background: Theme.surface.with-alpha(0.5);
+                                            x: (parent.width - self.width) / 2;
+
+                                            // Upload level (purple)
+                                            Rectangle {
+                                                width: 6px;
+                                                height: max(3px, parent.height * min(1.0, max(0.0, sample.upload)));
+                                                border-radius: 3px;
+                                                background: #8b5cf699;
+                                                y: parent.height - self.height;
+                                            }
+
+                                            // Download level (blue)
+                                            Rectangle {
+                                                width: 6px;
+                                                height: max(3px, parent.height * min(1.0, max(0.0, sample.download)));
+                                                border-radius: 3px;
+                                                background: #0076f5;
+                                                y: parent.height - self.height;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -8,13 +8,15 @@ license = "MIT"
 
 [dependencies]
 directories = "6.0"
+raw-window-handle = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-slint = "1.17.1"
+slint = { version = "1.17.1", features = ["raw-window-handle-06"] }
 
 [build-dependencies]
 lucide-slint = "1.43.0"
 slint-build = "1.17.1"
+
 
 [target.'cfg(windows)'.build-dependencies]
 ico = "0.4"
