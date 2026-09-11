@@ -505,10 +505,11 @@ export component ProvidersPage inherits Rectangle {
 
         // DNS Providers Card List
         ListView {
-            for provider in root.providers: VerticalLayout {
-                padding-bottom: 14px;
+            for provider in root.providers: Rectangle {
+                height: 116px; // 102px content + 14px padding
 
                 Rectangle {
+                    y: 0px;
                     height: 102px;
                     border-radius: 16px;
                 background: provider.active ? (Theme.dark ? #0f223f : #f0f7ff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
