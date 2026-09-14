@@ -1,8 +1,10 @@
-import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { ConnectionBadge } from "../components/common.slint";
 import { Theme } from "../theme.slint";
+import { IconDisplay, IconSet } from "@lucide";
 
 component FormSection inherits Rectangle {
-    in property <string> symbol;
+    in property <int> icon-index;
     in property <string> title;
     in property <string> subtitle;
 
@@ -21,27 +23,58 @@ component FormSection inherits Rectangle {
                 height: 40px;
                 border-radius: 13px;
                 background: Theme.accent.with-alpha(0.12);
-                Text { text: root.symbol; color: Theme.accent; font-size: 19px; horizontal-alignment: center; vertical-alignment: center; }
+                if root.icon-index == 0: IconDisplay {
+                    icon: IconSet.Database;
+                    size: 18px;
+                    stroke: Theme.accent;
+                    x: 11px;
+                    y: 11px;
+                }
+                if root.icon-index == 1: IconDisplay {
+                    icon: IconSet.Network;
+                    size: 18px;
+                    stroke: Theme.accent;
+                    x: 11px;
+                    y: 11px;
+                }
+                if root.icon-index == 2: IconDisplay {
+                    icon: IconSet.Shield;
+                    size: 18px;
+                    stroke: Theme.accent;
+                    x: 11px;
+                    y: 11px;
+                }
             }
+
             VerticalLayout {
                 alignment: center;
-                Text { text: root.title; color: Theme.text; font-size: 15px; font-weight: 700; }
-                Text { text: root.subtitle; color: Theme.muted-text; font-size: 10px; }
+                Text {
+                    text: root.title;
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 700;
+                }
+
+                Text {
+                    text: root.subtitle;
+                    color: Theme.muted-text;
+                    font-size: 10px;
+                }
             }
         }
+
         @children
     }
 }
 
 component PurposeChip inherits Rectangle {
-    in property <string> symbol;
     in property <string> label;
     in property <string> value;
     in property <string> selected-value;
     callback selected(string);
 
     height: 34px;
-    width: chip-content.preferred-width + 24px;
+    width: chip-content.preferred-width + 22px;
     border-radius: 17px;
     background: selected-value == value ? Theme.accent : Theme.background.with-alpha(0.35);
     border-width: 1px;
@@ -49,11 +82,19 @@ component PurposeChip inherits Rectangle {
     chip-content := HorizontalLayout {
         padding-left: 11px;
         padding-right: 11px;
-        spacing: 6px;
-        Text { text: root.symbol; color: root.selected-value == root.value ? white : Theme.accent; font-size: 13px; vertical-alignment: center; }
-        Text { text: root.label; color: root.selected-value == root.value ? white : Theme.secondary-text; font-size: 11px; vertical-alignment: center; }
+        alignment: center;
+        Text {
+            text: root.label;
+            color: root.selected-value == root.value ? white : Theme.secondary-text;
+            font-size: 11px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
-    TouchArea { clicked => { root.selected(root.value); } }
+
+    TouchArea {
+        clicked => { root.selected(root.value); }
+    }
 }
 
 component PreviewRow inherits HorizontalLayout {
@@ -61,8 +102,22 @@ component PreviewRow inherits HorizontalLayout {
     in property <string> value;
 
     height: 31px;
-    Text { width: 94px; text: root.label; color: Theme.muted-text; font-size: 11px; vertical-alignment: center; }
-    Text { text: root.value == "" ? "—" : root.value; color: Theme.text; font-size: 11px; font-weight: 600; vertical-alignment: center; overflow: elide; }
+    Text {
+        width: 94px;
+        text: root.label;
+        color: Theme.muted-text;
+        font-size: 11px;
+        vertical-alignment: center;
+    }
+
+    Text {
+        text: root.value == "" ? "—" : root.value;
+        color: Theme.text;
+        font-size: 11px;
+        font-weight: 600;
+        vertical-alignment: center;
+        overflow: elide;
+    }
 }
 
 export component CustomDnsPage inherits VerticalLayout {
@@ -85,26 +140,35 @@ export component CustomDnsPage inherits VerticalLayout {
     HorizontalLayout {
         height: 65px;
         spacing: 12px;
-        Rectangle { width: 5px; height: 46px; border-radius: 3px; background: Theme.cyan; }
+        Rectangle {
+            width: 5px;
+            height: 46px;
+            border-radius: 3px;
+            background: Theme.cyan;
+        }
+
         VerticalLayout {
             alignment: center;
-            Text { text: form-id == "" ? (language == "id" ? "Tambah DNS kustom" : "Add custom DNS") : (language == "id" ? "Ubah DNS kustom" : "Edit custom DNS"); color: Theme.text; font-size: 27px; font-weight: 800; }
-            Text { text: language == "id" ? "Alamat divalidasi sebelum disimpan. DNS bawaan tidak dapat diubah." : "Addresses are validated before saving. Built-in DNS entries cannot be edited."; color: Theme.secondary-text; font-size: 12px; }
-        }
-        Rectangle { horizontal-stretch: 1; }
-        ComboBox { width: 220px; model: root.adapters; current-index <=> root.adapter-index; }
-        Rectangle {
-            width: 165px;
-            height: 52px;
-            border-radius: 15px;
-            background: Theme.surface;
-            border-width: 1px;
-            border-color: Theme.border;
-            VerticalLayout {
-                alignment: center;
-                Text { text: adapters.length > 0 ? "●  " + (language == "id" ? "Terhubung" : "Connected") : "●  Offline"; color: adapters.length > 0 ? Theme.cyan : Theme.muted-text; font-size: 11px; horizontal-alignment: center; }
-                Text { text: language == "id" ? "Aman dan terkendali" : "Secure and controlled"; color: Theme.muted-text; font-size: 9px; horizontal-alignment: center; }
+            Text {
+                text: form-id == "" ? (language == "id" ? "Tambah DNS kustom" : "Add custom DNS") : (language == "id" ? "Ubah DNS kustom" : "Edit custom DNS");
+                color: Theme.text;
+                font-size: 27px;
+                font-weight: 800;
             }
+
+            Text {
+                text: language == "id" ? "Alamat divalidasi sebelum disimpan. DNS bawaan tidak dapat diubah." : "Addresses are validated before saving. Built-in DNS entries cannot be edited.";
+                color: Theme.secondary-text;
+                font-size: 12px;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        ConnectionBadge {
+            label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
         }
     }
 
@@ -118,9 +182,34 @@ export component CustomDnsPage inherits VerticalLayout {
             padding-left: 14px;
             padding-right: 14px;
             spacing: 10px;
-            Text { text: "ⓘ"; color: Theme.accent; font-size: 16px; vertical-alignment: center; }
-            Text { text: language == "id" ? "Khusus DNS pribadi, lokal, atau eksperimen" : "For private, local, or experimental DNS"; color: Theme.accent; font-size: 11px; font-weight: 600; vertical-alignment: center; }
-            Text { text: language == "id" ? "Tambahkan resolver untuk jaringan lokal, Pi-hole, atau konfigurasi khusus lainnya." : "Add a resolver for local networks, Pi-hole, or another special configuration."; color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+            Text {
+                text: "ⓘ";
+                color: Theme.accent;
+                font-size: 16px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: language == "id" ? "Khusus DNS pribadi, lokal, atau eksperimen" : "For private, local, or experimental DNS";
+                color: Theme.accent;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            Text {
+                text: language == "id" ? "Tambahkan resolver untuk jaringan lokal, Pi-hole, atau konfigurasi khusus lainnya." : "Add a resolver for local networks, Pi-hole, or another special configuration.";
+                color: Theme.muted-text;
+                font-size: 10px;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
         }
     }
 
@@ -129,34 +218,184 @@ export component CustomDnsPage inherits VerticalLayout {
         ScrollView {
             VerticalLayout {
                 spacing: 11px;
-                FormSection { height: 205px; symbol: "▤"; title: language == "id" ? "Informasi dasar" : "Basic information"; subtitle: language == "id" ? "Berikan nama dan deskripsi untuk DNS kustom Anda." : "Give your custom DNS a recognizable name and description.";
-                    Text { text: language == "id" ? "Nama DNS" : "DNS name"; color: Theme.text; font-size: 11px; font-weight: 600; }
-                    LineEdit { text <=> root.form-name; placeholder-text: language == "id" ? "Contoh: DNS Rumah" : "Example: Home DNS"; }
-                    Text { text: language == "id" ? "Deskripsi singkat" : "Short description"; color: Theme.text; font-size: 11px; font-weight: 600; }
-                    LineEdit { text <=> root.form-summary; placeholder-text: language == "id" ? "Contoh: DNS lokal untuk jaringan rumah" : "Example: Local DNS for the home network"; }
-                }
-                FormSection { height: 144px; symbol: "⌘"; title: "IPv4"; subtitle: language == "id" ? "Masukkan alamat resolver dalam format IPv4." : "Enter resolver addresses in IPv4 format.";
-                    HorizontalLayout {
-                        spacing: 10px;
-                        VerticalLayout { spacing: 4px; Text { text: language == "id" ? "Utama" : "Primary"; color: Theme.text; font-size: 11px; font-weight: 600; } LineEdit { text <=> root.form-ipv4-primary; placeholder-text: "1.1.1.1"; } Text { text: language == "id" ? "Format IPv4, misalnya 1.1.1.1" : "IPv4 format, for example 1.1.1.1"; color: Theme.muted-text; font-size: 9px; } }
-                        VerticalLayout { spacing: 4px; Text { text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)"; color: Theme.text; font-size: 11px; font-weight: 600; } LineEdit { text <=> root.form-ipv4-secondary; placeholder-text: "1.0.0.1"; } Text { text: language == "id" ? "Format IPv4, misalnya 1.0.0.1" : "IPv4 format, for example 1.0.0.1"; color: Theme.muted-text; font-size: 9px; } }
+                FormSection {
+                    height: 205px;
+                    icon-index: 0;
+                    title: language == "id" ? "Informasi dasar" : "Basic information";
+                    subtitle: language == "id" ? "Berikan nama dan deskripsi untuk DNS kustom Anda." : "Give your custom DNS a recognizable name and description.";
+                    Text {
+                        text: language == "id" ? "Nama DNS" : "DNS name";
+                        color: Theme.text;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+
+                    LineEdit {
+                        text <=> root.form-name;
+                        placeholder-text: language == "id" ? "Contoh: DNS Rumah" : "Example: Home DNS";
+                    }
+
+                    Text {
+                        text: language == "id" ? "Deskripsi singkat" : "Short description";
+                        color: Theme.text;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+
+                    LineEdit {
+                        text <=> root.form-summary;
+                        placeholder-text: language == "id" ? "Contoh: DNS lokal untuk jaringan rumah" : "Example: Local DNS for the home network";
                     }
                 }
-                FormSection { height: 144px; symbol: "⌘"; title: "IPv6"; subtitle: language == "id" ? "Masukkan alamat resolver dalam format IPv6." : "Enter resolver addresses in IPv6 format.";
+
+                FormSection {
+                    height: 144px;
+                    icon-index: 1;
+                    title: "IPv4";
+                    subtitle: language == "id" ? "Masukkan alamat resolver dalam format IPv4." : "Enter resolver addresses in IPv4 format.";
                     HorizontalLayout {
                         spacing: 10px;
-                        VerticalLayout { spacing: 4px; Text { text: language == "id" ? "Utama" : "Primary"; color: Theme.text; font-size: 11px; font-weight: 600; } LineEdit { text <=> root.form-ipv6-primary; placeholder-text: "2606:4700:4700::1111"; } Text { text: language == "id" ? "Format IPv6, misalnya 2606:4700:4700::1111" : "IPv6 format, for example 2606:4700:4700::1111"; color: Theme.muted-text; font-size: 9px; } }
-                        VerticalLayout { spacing: 4px; Text { text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)"; color: Theme.text; font-size: 11px; font-weight: 600; } LineEdit { text <=> root.form-ipv6-secondary; placeholder-text: "2606:4700:4700::1001"; } Text { text: language == "id" ? "Format IPv6, misalnya 2606:4700:4700::1001" : "IPv6 format, for example 2606:4700:4700::1001"; color: Theme.muted-text; font-size: 9px; } }
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: language == "id" ? "Utama" : "Primary";
+                                color: Theme.text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            LineEdit {
+                                text <=> root.form-ipv4-primary;
+                                placeholder-text: "1.1.1.1";
+                            }
+
+                            Text {
+                                text: language == "id" ? "Format IPv4, misalnya 1.1.1.1" : "IPv4 format, for example 1.1.1.1";
+                                color: Theme.muted-text;
+                                font-size: 9px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)";
+                                color: Theme.text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            LineEdit {
+                                text <=> root.form-ipv4-secondary;
+                                placeholder-text: "1.0.0.1";
+                            }
+
+                            Text {
+                                text: language == "id" ? "Format IPv4, misalnya 1.0.0.1" : "IPv4 format, for example 1.0.0.1";
+                                color: Theme.muted-text;
+                                font-size: 9px;
+                            }
+                        }
                     }
                 }
-                FormSection { height: 128px; symbol: "◎"; title: language == "id" ? "Peruntukan / Kegunaan" : "Purpose / Usage"; subtitle: language == "id" ? "Pilih kategori yang paling sesuai dengan tujuan DNS ini." : "Choose the category that best describes this DNS.";
+
+                FormSection {
+                    height: 144px;
+                    icon-index: 1;
+                    title: "IPv6";
+                    subtitle: language == "id" ? "Masukkan alamat resolver dalam format IPv6." : "Enter resolver addresses in IPv6 format.";
+                    HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: language == "id" ? "Utama" : "Primary";
+                                color: Theme.text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            LineEdit {
+                                text <=> root.form-ipv6-primary;
+                                placeholder-text: "2606:4700:4700::1111";
+                            }
+
+                            Text {
+                                text: language == "id" ? "Format IPv6, misalnya 2606:4700:4700::1111" : "IPv6 format, for example 2606:4700:4700::1111";
+                                color: Theme.muted-text;
+                                font-size: 9px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: language == "id" ? "Cadangan (opsional)" : "Secondary (optional)";
+                                color: Theme.text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            LineEdit {
+                                text <=> root.form-ipv6-secondary;
+                                placeholder-text: "2606:4700:4700::1001";
+                            }
+
+                            Text {
+                                text: language == "id" ? "Format IPv6, misalnya 2606:4700:4700::1001" : "IPv6 format, for example 2606:4700:4700::1001";
+                                color: Theme.muted-text;
+                                font-size: 9px;
+                            }
+                        }
+                    }
+                }
+
+                FormSection {
+                    height: 128px;
+                    icon-index: 2;
+                    title: language == "id" ? "Peruntukan / Kegunaan" : "Purpose / Usage";
+                    subtitle: language == "id" ? "Pilih kategori yang paling sesuai dengan tujuan DNS ini." : "Choose the category that best describes this DNS.";
                     HorizontalLayout {
                         spacing: 7px;
-                        PurposeChip { symbol: "⌂"; label: language == "id" ? "Rumah" : "Home"; value: "home"; selected-value: root.form-purpose; selected(value) => { root.form-purpose = value; } }
-                        PurposeChip { symbol: "▦"; label: language == "id" ? "Kantor" : "Office"; value: "office"; selected-value: root.form-purpose; selected(value) => { root.form-purpose = value; } }
-                        PurposeChip { symbol: "◉"; label: "Pi-hole"; value: "pihole"; selected-value: root.form-purpose; selected(value) => { root.form-purpose = value; } }
-                        PurposeChip { symbol: "◇"; label: language == "id" ? "Privasi" : "Privacy"; value: "privacy"; selected-value: root.form-purpose; selected(value) => { root.form-purpose = value; } }
-                        PurposeChip { symbol: "⌘"; label: language == "id" ? "Jaringan lokal" : "Local network"; value: "local"; selected-value: root.form-purpose; selected(value) => { root.form-purpose = value; } }
+                        PurposeChip {
+
+                            label: language == "id" ? "Rumah" : "Home";
+                            value: "home";
+                            selected-value: root.form-purpose;
+                            selected(value) => { root.form-purpose = value; }
+                        }
+
+                        PurposeChip {
+
+                            label: language == "id" ? "Kantor" : "Office";
+                            value: "office";
+                            selected-value: root.form-purpose;
+                            selected(value) => { root.form-purpose = value; }
+                        }
+
+                        PurposeChip {
+
+                            label: "Pi-hole";
+                            value: "pihole";
+                            selected-value: root.form-purpose;
+                            selected(value) => { root.form-purpose = value; }
+                        }
+
+                        PurposeChip {
+
+                            label: language == "id" ? "Privasi" : "Privacy";
+                            value: "privacy";
+                            selected-value: root.form-purpose;
+                            selected(value) => { root.form-purpose = value; }
+                        }
+
+                        PurposeChip {
+
+                            label: language == "id" ? "Jaringan lokal" : "Local network";
+                            value: "local";
+                            selected-value: root.form-purpose;
+                            selected(value) => { root.form-purpose = value; }
+                        }
                     }
                 }
             }
@@ -175,17 +414,75 @@ export component CustomDnsPage inherits VerticalLayout {
                     spacing: 8px;
                     HorizontalLayout {
                         spacing: 10px;
-                        Text { text: "◉"; color: Theme.accent; font-size: 20px; }
-                        VerticalLayout { Text { text: language == "id" ? "Pratinjau & Status" : "Preview & Status"; color: Theme.text; font-size: 15px; font-weight: 700; } Text { text: language == "id" ? "Periksa konfigurasi sebelum disimpan." : "Review the configuration before saving."; color: Theme.muted-text; font-size: 9px; } }
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 9px;
+                            background: Theme.accent.with-alpha(0.12);
+                            IconDisplay {
+                                icon: IconSet.Shield;
+                                size: 16px;
+                                stroke: Theme.accent;
+                                x: 6px;
+                                y: 6px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            Text {
+                                text: language == "id" ? "Pratinjau & Status" : "Preview & Status";
+                                color: Theme.text;
+                                font-size: 15px;
+                                font-weight: 700;
+                            }
+
+                            Text {
+                                text: language == "id" ? "Periksa konfigurasi sebelum disimpan." : "Review the configuration before saving.";
+                                color: Theme.muted-text;
+                                font-size: 9px;
+                            }
+                        }
                     }
-                    Rectangle { height: 1px; background: Theme.border; }
-                    PreviewRow { label: language == "id" ? "Nama DNS" : "DNS name"; value: root.form-name; }
-                    PreviewRow { label: language == "id" ? "Deskripsi" : "Description"; value: root.form-summary; }
-                    PreviewRow { label: "Adapter"; value: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : "—"; }
-                    PreviewRow { label: "IPv4"; value: root.form-ipv4-primary; }
-                    PreviewRow { label: "IPv6"; value: root.form-ipv6-primary; }
-                    PreviewRow { label: language == "id" ? "Peruntukan" : "Purpose"; value: root.form-purpose; }
-                    Rectangle { vertical-stretch: 1; }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Theme.border;
+                    }
+
+                    PreviewRow {
+                        label: language == "id" ? "Nama DNS" : "DNS name";
+                        value: root.form-name;
+                    }
+
+                    PreviewRow {
+                        label: language == "id" ? "Deskripsi" : "Description";
+                        value: root.form-summary;
+                    }
+
+                    PreviewRow {
+                        label: "Adapter";
+                        value: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : "—";
+                    }
+
+                    PreviewRow {
+                        label: "IPv4";
+                        value: root.form-ipv4-primary;
+                    }
+
+                    PreviewRow {
+                        label: "IPv6";
+                        value: root.form-ipv6-primary;
+                    }
+
+                    PreviewRow {
+                        label: language == "id" ? "Peruntukan" : "Purpose";
+                        value: root.form-purpose;
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+
                     Rectangle {
                         height: 68px;
                         border-radius: 14px;
@@ -195,12 +492,31 @@ export component CustomDnsPage inherits VerticalLayout {
                         HorizontalLayout {
                             padding: 11px;
                             spacing: 9px;
-                            Text { text: "ⓘ"; color: Theme.accent; font-size: 18px; }
-                            VerticalLayout { Text { text: language == "id" ? "Resolver belum diuji" : "Resolver not tested"; color: Theme.text; font-size: 11px; font-weight: 700; } Text { text: language == "id" ? "Uji alamat sebelum menyimpan." : "Test the address before saving."; color: Theme.muted-text; font-size: 9px; } }
+                            Text {
+                                text: "ⓘ";
+                                color: Theme.accent;
+                                font-size: 18px;
+                            }
+
+                            VerticalLayout {
+                                Text {
+                                    text: language == "id" ? "Resolver belum diuji" : "Resolver not tested";
+                                    color: Theme.text;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: language == "id" ? "Uji alamat sebelum menyimpan." : "Test the address before saving.";
+                                    color: Theme.muted-text;
+                                    font-size: 9px;
+                                }
+                            }
                         }
                     }
                 }
             }
+
             Rectangle {
                 height: 160px;
                 border-radius: 18px;
@@ -210,9 +526,21 @@ export component CustomDnsPage inherits VerticalLayout {
                 VerticalLayout {
                     padding: 15px;
                     spacing: 9px;
-                    Button { text: language == "id" ? "▣  Simpan DNS" : "▣  Save DNS"; clicked => { root.save-provider(root.form-id, root.form-name, root.form-ipv4-primary, root.form-ipv4-secondary, root.form-ipv6-primary, root.form-ipv6-secondary, root.form-summary, root.form-purpose); } }
-                    Button { text: language == "id" ? "↻  Reset" : "↻  Reset"; clicked => { root.clear-form(); } }
-                    Button { text: language == "id" ? "▷  Uji resolver" : "▷  Test resolver"; clicked => { root.test-resolver(root.form-ipv4-primary, root.form-ipv6-primary); } }
+                    Button {
+                        text: language == "id" ? "Simpan DNS" : "Save DNS";
+                        primary: true;
+                        clicked => { root.save-provider(root.form-id, root.form-name, root.form-ipv4-primary, root.form-ipv4-secondary, root.form-ipv6-primary, root.form-ipv6-secondary, root.form-summary, root.form-purpose); }
+                    }
+
+                    Button {
+                        text: language == "id" ? "Reset formulir" : "Reset form";
+                        clicked => { root.clear-form(); }
+                    }
+
+                    Button {
+                        text: language == "id" ? "Uji resolver" : "Test resolver";
+                        clicked => { root.test-resolver(root.form-ipv4-primary, root.form-ipv6-primary); }
+                    }
                 }
             }
         }

@@ -3,6 +3,7 @@ use std::{process::Command, time::Instant};
 #[derive(Clone, Debug, Default)]
 pub struct AdapterInfo {
     pub name: String,
+    pub label: String,
     pub dns: String,
 }
 
@@ -47,14 +48,18 @@ fn powershell(script: &str) -> Result<String, String> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $d=(Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex).ServerAddresses -join ', '; Write-Output ($n + [char]9 + $d) }";
+    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $d=(Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex).ServerAddresses -join ', '; $p=(Get-NetConnectionProfile -InterfaceIndex $_.ifIndex -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name); $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $d) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
         .filter_map(|line| {
-            let (name, dns) = line.split_once('\t')?;
+            let mut fields = line.split('\t');
+            let name = fields.next()?;
+            let label = fields.next()?;
+            let dns = fields.next()?;
             Some(AdapterInfo {
                 name: name.into(),
+                label: label.into(),
                 dns: dns.into(),
             })
         })
@@ -70,6 +75,7 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
     Ok(vec![AdapterInfo {
         name: "Default network".into(),
+        label: "Default network".into(),
         dns: "System managed".into(),
     }])
 }

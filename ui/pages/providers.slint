@@ -1,5 +1,5 @@
 import { Button, LineEdit, ListView } from "std-widgets.slint";
-import { Tag } from "../components/common.slint";
+import { ConnectionBadge, Tag } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { ProviderRow, DnsProfileRow } from "../types.slint";
 import { IconDisplay, IconSet } from "@lucide";
@@ -25,12 +25,33 @@ component FilterButton inherits Rectangle {
 
         VerticalLayout {
             alignment: center;
-            if root.icon-index == 0: IconDisplay { icon: IconSet.LayoutGrid; size: 14px; stroke: root.selected ? white : Theme.accent; }
-            if root.icon-index == 1: IconDisplay { icon: IconSet.Lock; size: 14px; stroke: root.selected ? white : Theme.accent; }
-            if root.icon-index == 2: IconDisplay { icon: IconSet.Zap; size: 14px; stroke: root.selected ? white : Theme.accent; }
-            if root.icon-index == 3: IconDisplay { icon: IconSet.Shield; size: 14px; stroke: root.selected ? white : Theme.accent; }
-            if root.icon-index == 4: IconDisplay { icon: IconSet.Ban; size: 14px; stroke: root.selected ? white : Theme.accent; }
+            if root.icon-index == 0: IconDisplay {
+                icon: IconSet.LayoutGrid;
+                size: 14px;
+                stroke: root.selected ? white : Theme.accent;
+            }
+            if root.icon-index == 1: IconDisplay {
+                icon: IconSet.Lock;
+                size: 14px;
+                stroke: root.selected ? white : Theme.accent;
+            }
+            if root.icon-index == 2: IconDisplay {
+                icon: IconSet.Zap;
+                size: 14px;
+                stroke: root.selected ? white : Theme.accent;
+            }
+            if root.icon-index == 3: IconDisplay {
+                icon: IconSet.Shield;
+                size: 14px;
+                stroke: root.selected ? white : Theme.accent;
+            }
+            if root.icon-index == 4: IconDisplay {
+                icon: IconSet.Ban;
+                size: 14px;
+                stroke: root.selected ? white : Theme.accent;
+            }
         }
+
         Text {
             text: root.label;
             color: root.selected ? white : Theme.secondary-text;
@@ -39,6 +60,7 @@ component FilterButton inherits Rectangle {
             vertical-alignment: center;
         }
     }
+
     filter-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
@@ -96,36 +118,48 @@ component IpModeButton inherits Rectangle {
     }
 }
 
-component AddressRow inherits HorizontalLayout {
+component AddressRow inherits Rectangle {
     in property <string> version;
     in property <string> address;
 
-    height: 28px;
-    spacing: 9px;
-    alignment: start;
+    height: 32px;
+    border-radius: 8px;
+    background: root.version == "IPv4" ? Theme.accent.with-alpha(0.06) : Theme.purple.with-alpha(0.06);
 
-    Rectangle {
-        width: 46px;
-        height: 22px;
-        border-radius: 7px;
-        background: root.version == "IPv4" ? Theme.accent.with-alpha(0.12) : Theme.purple.with-alpha(0.12);
-        Text {
-            text: root.version;
-            color: root.version == "IPv4" ? Theme.accent : Theme.purple;
-            font-size: 10px;
-            font-weight: 700;
-            horizontal-alignment: center;
-            vertical-alignment: center;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+
+        VerticalLayout {
+            width: 46px;
+            alignment: center;
+
+            Rectangle {
+                width: 46px;
+                height: 22px;
+                border-radius: 7px;
+                background: root.version == "IPv4" ? Theme.accent.with-alpha(0.12) : Theme.purple.with-alpha(0.12);
+                Text {
+                    text: root.version;
+                    color: root.version == "IPv4" ? Theme.accent : Theme.purple;
+                    font-size: 10px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
         }
-    }
-    Text {
-        text: root.address;
-        color: Theme.secondary-text;
-        font-size: 11px;
-        font-family: "Consolas";
-        font-weight: 500;
-        vertical-alignment: center;
-        overflow: elide;
+
+        Text {
+            text: root.address;
+            color: Theme.secondary-text;
+            font-size: 11px;
+            font-family: "Consolas";
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+        }
     }
 }
 
@@ -265,6 +299,7 @@ component ProfileCard inherits Rectangle {
                     font-weight: 700;
                     vertical-alignment: center;
                 }
+
                 Tag {
                     text: root.tag;
                     tint: root.selected ? Theme.cyan : Theme.accent;
@@ -287,6 +322,7 @@ component ProfileCard inherits Rectangle {
                     font-family: "Consolas";
                     vertical-alignment: center;
                 }
+
                 if root.ipv6 != "—" && root.ipv6 != "": Text {
                     text: "IPv6: " + root.ipv6;
                     color: Theme.muted-text;
@@ -346,60 +382,20 @@ export component ProvidersPage inherits Rectangle {
                     font-size: 26px;
                     font-weight: 800;
                 }
+
                 Text {
                     text: language == "id" ? "Pilih penyedia DNS terbaik sesuai kebutuhan privasi, kecepatan, atau keamanan Anda." : "Choose the best DNS provider tailored for your privacy, speed, or security.";
                     color: Theme.secondary-text;
                     font-size: 13px;
                 }
             }
-            Rectangle { horizontal-stretch: 1; }
 
-            // Current Connection Badge - hug content, perfectly centered
-            VerticalLayout {
-                alignment: center;
-                horizontal-stretch: 0;
+            Rectangle {
+                horizontal-stretch: 1;
+            }
 
-                Rectangle {
-                    height: 38px;
-                    width: connection-content.preferred-width + 24px;
-                    border-radius: 12px;
-                    background: Theme.surface;
-                    border-width: 1px;
-                    border-color: Theme.border;
-
-                    connection-content := HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 14px;
-                        spacing: 9px;
-                        alignment: center;
-
-                        VerticalLayout {
-                            alignment: center;
-                            Rectangle {
-                                width: 26px;
-                                height: 26px;
-                                border-radius: 8px;
-                                background: Theme.accent.with-alpha(0.12);
-
-                                IconDisplay {
-                                    icon: IconSet.Network;
-                                    size: 16px;
-                                    stroke: Theme.accent;
-                                    x: (parent.width - 16px) / 2;
-                                    y: (parent.height - 16px) / 2;
-                                }
-                            }
-                        }
-
-                        Text {
-                            text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
-                            color: Theme.text;
-                            font-size: 13px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
+            ConnectionBadge {
+                label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
             }
         }
 
@@ -414,24 +410,28 @@ export component ProvidersPage inherits Rectangle {
                 selected: root.category == "all";
                 clicked => { root.category = "all"; root.filter-request(root.search-text, root.category); }
             }
+
             FilterButton {
                 icon-index: 1;
                 label: language == "id" ? "Privasi" : "Privacy";
                 selected: root.category == "privacy";
                 clicked => { root.category = "privacy"; root.filter-request(root.search-text, root.category); }
             }
+
             FilterButton {
                 icon-index: 2;
                 label: language == "id" ? "Kecepatan" : "Speed";
                 selected: root.category == "speed";
                 clicked => { root.category = "speed"; root.filter-request(root.search-text, root.category); }
             }
+
             FilterButton {
                 icon-index: 3;
                 label: language == "id" ? "Keamanan" : "Security";
                 selected: root.category == "security";
                 clicked => { root.category = "security"; root.filter-request(root.search-text, root.category); }
             }
+
             FilterButton {
                 icon-index: 4;
                 label: language == "id" ? "Bebas iklan" : "Ad blocking";
@@ -439,7 +439,9 @@ export component ProvidersPage inherits Rectangle {
                 clicked => { root.category = "ads"; root.filter-request(root.search-text, root.category); }
             }
 
-            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
 
             LineEdit {
                 width: 240px;
@@ -448,6 +450,7 @@ export component ProvidersPage inherits Rectangle {
                 placeholder-text: language == "id" ? "Cari penyedia DNS..." : "Search DNS providers...";
                 edited => { root.filter-request(root.search-text, root.category); }
             }
+
             AddButton {
                 clicked => { root.add-provider(); }
             }
@@ -464,23 +467,28 @@ export component ProvidersPage inherits Rectangle {
                 font-size: 11.5px;
                 vertical-alignment: center;
             }
+
             IpModeButton {
                 label: "IPv4";
                 selected: root.ip-mode == 0;
                 clicked => { root.ip-mode = 0; }
             }
+
             IpModeButton {
                 label: "IPv6";
                 selected: root.ip-mode == 1;
                 clicked => { root.ip-mode = 1; }
             }
+
             IpModeButton {
                 label: "IPv4 + IPv6";
                 selected: root.ip-mode == 2;
                 clicked => { root.ip-mode = 2; }
             }
 
-            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
 
             Rectangle {
                 height: 26px;
@@ -506,135 +514,199 @@ export component ProvidersPage inherits Rectangle {
         // DNS Providers Card List
         ListView {
             for provider in root.providers: Rectangle {
-                height: 116px; // 102px content + 14px padding
+                height: root.width < 680px ? 158px : 116px;
 
                 Rectangle {
                     y: 0px;
-                    height: 102px;
+                    height: root.width < 680px ? 144px : 102px;
                     border-radius: 16px;
-                background: provider.active ? (Theme.dark ? #0f223f : #f0f7ff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
-                border-width: provider.active ? 1.5px : 1px;
-                border-color: provider.active ? Theme.cyan : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
-                clip: true;
+                    background: provider.active ? (Theme.dark ? #0f223f : #f0f7ff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
+                    border-width: provider.active ? 1.5px : 1px;
+                    border-color: provider.active ? Theme.cyan : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
+                    clip: true;
 
-                card-touch := TouchArea { }
+                    card-touch := TouchArea { }
 
-                HorizontalLayout {
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    spacing: 16px;
+                    if root.width >= 680px: HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        spacing: 16px;
 
-                    // Provider Official SVG Logo
-                    ProviderIcon {
-                        provider-id: provider.id;
-                        symbol: provider.symbol;
-                        active: provider.active;
-                    }
-
-                    // Provider Name, Summary & Tags
+                        // Provider Official SVG Logo
                     VerticalLayout {
-                        spacing: 4px;
-                        horizontal-stretch: 1;
-                        alignment: center;
+                            alignment: center;
 
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: start;
-                            Text {
-                                text: provider.name;
-                                color: Theme.text;
-                                font-size: 16.5px;
-                                font-weight: 800;
-                                vertical-alignment: center;
+                            ProviderIcon {
+                                provider-id: provider.id;
+                                symbol: provider.symbol;
+                                active: provider.active;
                             }
-                            if provider.active: Tag {
-                                text: language == "id" ? "AKTIF" : "ACTIVE";
-                                tint: Theme.cyan;
-                            }
-                            if provider.profile_count > 1: Rectangle {
-                                height: 20px;
-                                width: profile-badge-text.preferred-width + 14px;
-                                border-radius: 6px;
-                                background: Theme.cyan.with-alpha(0.12);
+                        }
 
-                                profile-badge-text := Text {
-                                    text: provider.profile_count + (language == "id" ? " Profil" : " Profiles");
-                                    color: Theme.cyan;
-                                    font-size: 10.5px;
-                                    font-weight: 700;
-                                    horizontal-alignment: center;
+                        // Provider Name, Summary & Tags
+                    VerticalLayout {
+                            spacing: 4px;
+                            horizontal-stretch: 1;
+                            alignment: center;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Text {
+                                    text: provider.name;
+                                    color: Theme.text;
+                                    font-size: 16.5px;
+                                    font-weight: 800;
                                     vertical-alignment: center;
+                                }
+
+                                if provider.active: Tag {
+                                    text: language == "id" ? "AKTIF" : "ACTIVE";
+                                    tint: Theme.cyan;
+                                }
+                                if provider.profile_count > 1: Rectangle {
+                                    height: 20px;
+                                    width: profile-badge-text.preferred-width + 14px;
+                                    border-radius: 6px;
+                                    background: Theme.cyan.with-alpha(0.12);
+
+                                    profile-badge-text := Text {
+                                        text: provider.profile_count + (language == "id" ? " Profil" : " Profiles");
+                                        color: Theme.cyan;
+                                        font-size: 10.5px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: provider.summary;
+                                color: Theme.secondary-text;
+                                font-size: 11.5px;
+                                overflow: elide;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: start;
+                                Tag {
+                                    text: provider.tag;
+                                    tint: provider.id == "quad9" || provider.id == "cleanbrowsing" ? #ec4899 :
+                                        provider.id == "adguard" || provider.id == "control-d" ? #10b981 :
+                                        provider.id == "google" || provider.id == "opendns" ? #f59e0b :
+                                        Theme.cyan;
+                                }
+
+                                if provider.custom: Tag {
+                                    text: language == "id" ? "KUSTOM" : "CUSTOM";
+                                    tint: Theme.purple;
                                 }
                             }
                         }
 
+                        // Divider
+                    Rectangle {
+                            width: 1px;
+                            height: 56px;
+                            background: Theme.border;
+                        }
+
+                        // IP Addresses Column
+                    VerticalLayout {
+                            width: 290px;
+                            alignment: center;
+                            spacing: 3px;
+                            AddressRow {
+                                version: "IPv4";
+                                address: provider.ipv4;
+                            }
+
+                            AddressRow {
+                                version: "IPv6";
+                                address: provider.ipv6;
+                            }
+                        }
+
+                        // Action Column
+                    VerticalLayout {
+                            width: provider.custom ? 140px : 124px;
+                            alignment: center;
+                            spacing: 6px;
+
+                            Button {
+                                text: provider.active ? (language == "id" ? "Aktif  ✓" : "Active  ✓") : ((language == "id" ? "Gunakan" : "Use DNS") + "  →");
+                                enabled: !busy && !provider.active;
+                                clicked => { root.request-use-provider(provider.id); }
+                            }
+
+                            if provider.custom: HorizontalLayout {
+                                spacing: 6px;
+                                alignment: center;
+                                Button {
+                                    text: language == "id" ? "Ubah" : "Edit";
+                                    clicked => { root.edit-provider(provider.id); }
+                                }
+
+                                Button {
+                                    text: language == "id" ? "Hapus" : "Del";
+                                    clicked => { root.delete-provider(provider.id); }
+                                }
+                            }
+                        }
+                    }
+
+                    // Compact layout prevents horizontal scrolling in narrow windows.
+                    if root.width < 680px: VerticalLayout {
+                        padding: 12px;
+                        spacing: 6px;
+
+                        HorizontalLayout {
+                            height: 28px;
+                            spacing: 8px;
+
+                            Text {
+                                text: provider.name;
+                                color: Theme.text;
+                                font-size: 15px;
+                                font-weight: 800;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+
+                            if provider.active: Tag {
+                                text: language == "id" ? "AKTIF" : "ACTIVE";
+                                tint: Theme.cyan;
+                            }
+                            Button {
+                                width: 110px;
+                                text: provider.active ? (language == "id" ? "Aktif  ✓" : "Active  ✓") : ((language == "id" ? "Gunakan" : "Use DNS") + "  →");
+                                enabled: !busy && !provider.active;
+                                clicked => { root.request-use-provider(provider.id); }
+                            }
+                        }
+
                         Text {
+                            height: 14px;
                             text: provider.summary;
                             color: Theme.secondary-text;
-                            font-size: 11.5px;
+                            font-size: 10.5px;
                             overflow: elide;
                         }
 
-                        HorizontalLayout {
-                            spacing: 6px;
-                            alignment: start;
-                            Tag {
-                                text: provider.tag;
-                                tint: provider.id == "quad9" || provider.id == "cleanbrowsing" ? #ec4899 :
-                                      provider.id == "adguard" || provider.id == "control-d" ? #10b981 :
-                                      provider.id == "google" || provider.id == "opendns" ? #f59e0b :
-                                      Theme.cyan;
-                            }
-                            if provider.custom: Tag {
-                                text: language == "id" ? "KUSTOM" : "CUSTOM";
-                                tint: Theme.purple;
-                            }
-                        }
-                    }
-
-                    // Divider
-                    Rectangle {
-                        width: 1px;
-                        height: 56px;
-                        background: Theme.border;
-                    }
-
-                    // IP Addresses Column
-                    VerticalLayout {
-                        width: 290px;
-                        alignment: center;
-                        spacing: 3px;
-                        AddressRow { version: "IPv4"; address: provider.ipv4; }
-                        AddressRow { version: "IPv6"; address: provider.ipv6; }
-                    }
-
-                    // Action Column
-                    VerticalLayout {
-                        width: provider.custom ? 140px : 124px;
-                        alignment: center;
-                        spacing: 6px;
-
-                        Button {
-                            text: provider.active ? (language == "id" ? "Aktif  ✓" : "Active  ✓") : ((language == "id" ? "Gunakan" : "Use DNS") + "  →");
-                            enabled: !busy && !provider.active;
-                            clicked => { root.request-use-provider(provider.id); }
+                        AddressRow {
+                            version: "IPv4";
+                            address: provider.ipv4;
                         }
 
-                        if provider.custom: HorizontalLayout {
-                            spacing: 6px;
-                            alignment: center;
-                            Button {
-                                text: language == "id" ? "Ubah" : "Edit";
-                                clicked => { root.edit-provider(provider.id); }
-                            }
-                            Button {
-                                text: language == "id" ? "Hapus" : "Del";
-                                clicked => { root.delete-provider(provider.id); }
-                            }
+                        AddressRow {
+                            version: "IPv6";
+                            address: provider.ipv6;
                         }
                     }
                 }
-            }
             }
         }
     }
@@ -680,6 +752,7 @@ export component ProvidersPage inherits Rectangle {
                             font-size: 18px;
                             font-weight: 800;
                         }
+
                         Text {
                             text: language == "id" ? "Pilih varian atau jenis proteksi DNS yang ingin Anda gunakan:" : "Choose the DNS variant or protection profile you want to use:";
                             color: Theme.secondary-text;
@@ -765,7 +838,9 @@ export component ProvidersPage inherits Rectangle {
                         }
                     }
 
-                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
 
                     Button {
                         text: language == "id" ? "Batal" : "Cancel";

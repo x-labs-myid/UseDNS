@@ -312,7 +312,12 @@ fn main() -> Result<(), slint::PlatformError> {
                     // ReleaseCapture releases any pointer capture, and WM_NCLBUTTONDOWN initiates window moving.
                     unsafe {
                         ReleaseCapture();
-                        PostMessageW(target_hwnd, 0x00A1 /* WM_NCLBUTTONDOWN */, 2 /* HTCAPTION */, 0);
+                        PostMessageW(
+                            target_hwnd,
+                            0x00A1, /* WM_NCLBUTTONDOWN */
+                            2,      /* HTCAPTION */
+                            0,
+                        );
                     }
                 }
             }
@@ -418,7 +423,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         Ok(found) => {
                             let labels = found
                                 .iter()
-                                .map(|item| SharedString::from(&item.name))
+                                .map(|item| SharedString::from(&item.label))
                                 .collect::<Vec<_>>();
                             window.set_adapters(ModelRc::from(Rc::new(VecModel::from(labels))));
                             let index = window.get_adapter_index().max(0) as usize;
@@ -611,7 +616,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 .iter()
                 .map(|p| {
                     let name = if lang == "id" { &p.name_id } else { &p.name_en };
-                    let description = if lang == "id" { &p.description_id } else { &p.description_en };
+                    let description = if lang == "id" {
+                        &p.description_id
+                    } else {
+                        &p.description_en
+                    };
                     let tag = if lang == "id" { &p.tag_id } else { &p.tag_en };
                     DnsProfileRow {
                         id: p.id.as_str().into(),
@@ -667,22 +676,16 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut addresses = Vec::new();
             if mode == 0 || mode == 2 {
                 addresses.extend(
-                    [
-                        profile.ipv4_primary.clone(),
-                        profile.ipv4_secondary.clone(),
-                    ]
-                    .into_iter()
-                    .filter(|v| !v.is_empty()),
+                    [profile.ipv4_primary.clone(), profile.ipv4_secondary.clone()]
+                        .into_iter()
+                        .filter(|v| !v.is_empty()),
                 );
             }
             if mode == 1 || mode == 2 {
                 addresses.extend(
-                    [
-                        profile.ipv6_primary.clone(),
-                        profile.ipv6_secondary.clone(),
-                    ]
-                    .into_iter()
-                    .filter(|v| !v.is_empty()),
+                    [profile.ipv6_primary.clone(), profile.ipv6_secondary.clone()]
+                        .into_iter()
+                        .filter(|v| !v.is_empty()),
                 );
             }
             if addresses.is_empty() {
@@ -1226,9 +1229,14 @@ fn main() -> Result<(), slint::PlatformError> {
                                 })
                                 .collect();
 
-                            window.set_speed_history(ModelRc::from(Rc::new(VecModel::from(speed_models))));
-                            window.set_graph_max_speed(format_speed(max_scale, &current_unit).into());
-                            window.set_graph_mid_speed(format_speed(max_scale / 2.0, &current_unit).into());
+                            window.set_speed_history(ModelRc::from(Rc::new(VecModel::from(
+                                speed_models,
+                            ))));
+                            window
+                                .set_graph_max_speed(format_speed(max_scale, &current_unit).into());
+                            window.set_graph_mid_speed(
+                                format_speed(max_scale / 2.0, &current_unit).into(),
+                            );
 
                             // Arc meter level based on dynamic peak or unit scale
                             let total_level = if current_unit == "kbps" {
@@ -1237,7 +1245,9 @@ fn main() -> Result<(), slint::PlatformError> {
                             } else {
                                 (total / max_scale).min(1.0) as f32
                             };
-                            window.set_total_level(total_level.max((total / max_scale).min(1.0) as f32));
+                            window.set_total_level(
+                                total_level.max((total / max_scale).min(1.0) as f32),
+                            );
                             window.set_download_level((download / max_scale).min(1.0) as f32);
                             window.set_upload_level((upload / max_scale).min(1.0) as f32);
                         }

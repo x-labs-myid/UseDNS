@@ -1,4 +1,5 @@
 import { Button, ComboBox } from "std-widgets.slint";
+import { ConnectionBadge } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
 import { SpeedSample } from "../types.slint";
@@ -23,7 +24,7 @@ export component HomePage inherits VerticalLayout {
     in property <string> graph-mid-speed: "500 Kbps";
     in property <bool> connection-error: false;
     in property <bool> busy: false;
-    
+
     callback refresh;
     callback reset-dns(int);
     callback navigate-providers;
@@ -47,6 +48,7 @@ export component HomePage inherits VerticalLayout {
                 font-size: 24px;
                 font-weight: 800;
             }
+
             Text {
                 text: language == "id" ? "Pantau DNS dan status koneksi aktif Anda." : "Monitor your active DNS and connection status.";
                 color: Theme.secondary-text;
@@ -55,7 +57,9 @@ export component HomePage inherits VerticalLayout {
         }
 
         // Spacer to push right section all the way to the right
-        Rectangle { horizontal-stretch: 1; }
+        Rectangle {
+            horizontal-stretch: 1;
+        }
 
         // Top right adapter selector, refresh button, and status badge
         HorizontalLayout {
@@ -63,47 +67,8 @@ export component HomePage inherits VerticalLayout {
             alignment: end;
             spacing: 10px;
 
-            // Current Connection Badge (Clean & Symmetrical)
-            Rectangle {
-                height: 38px;
-                width: home-connection-content.preferred-width + 24px;
-                border-radius: 12px;
-                background: Theme.surface;
-                border-width: 1px;
-                border-color: Theme.border;
-
-                home-connection-content := HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 14px;
-                    spacing: 9px;
-                    alignment: center;
-
-                    VerticalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 26px;
-                            height: 26px;
-                            border-radius: 8px;
-                            background: Theme.accent.with-alpha(0.12);
-
-                            IconDisplay {
-                                icon: IconSet.Network;
-                                size: 16px;
-                                stroke: Theme.accent;
-                                x: (parent.width - 16px) / 2;
-                                y: (parent.height - 16px) / 2;
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
-                        color: Theme.text;
-                        font-size: 13px;
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-                }
+            ConnectionBadge {
+                label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
             }
 
             // Refresh Button with Icon and Label perfectly centered
@@ -209,7 +174,10 @@ export component HomePage inherits VerticalLayout {
                             font-weight: 700;
                             vertical-alignment: center;
                         }
-                        Rectangle { horizontal-stretch: 1; }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
                         // Status pill "Aktif"
                         HorizontalLayout {
                             spacing: 4px;
@@ -221,6 +189,7 @@ export component HomePage inherits VerticalLayout {
                                 background: #10b981;
                                 y: (parent.height - self.height) / 2;
                             }
+
                             Text {
                                 text: language == "id" ? "Aktif" : "Active";
                                 color: #10b981;
@@ -230,6 +199,7 @@ export component HomePage inherits VerticalLayout {
                             }
                         }
                     }
+
                     Text {
                         text: root.active-provider;
                         color: Theme.text;
@@ -237,6 +207,7 @@ export component HomePage inherits VerticalLayout {
                         font-weight: 700;
                         overflow: elide;
                     }
+
                     Text {
                         text: root.current-dns;
                         color: Theme.muted-text;
@@ -288,6 +259,7 @@ export component HomePage inherits VerticalLayout {
                         font-size: 11px;
                         font-weight: 700;
                     }
+
                     Text {
                         text: root.connection-state;
                         color: root.connection-error ? #ef4444 : (root.connection-state == "Unstable" ? #f59e0b : #10b981);
@@ -295,6 +267,7 @@ export component HomePage inherits VerticalLayout {
                         font-weight: 700;
                         overflow: elide;
                     }
+
                     Text {
                         text: language == "id" ? "Berdasarkan latensi DNS" : "Based on DNS latency";
                         color: Theme.muted-text;
@@ -346,6 +319,7 @@ export component HomePage inherits VerticalLayout {
                         font-size: 11px;
                         font-weight: 700;
                     }
+
                     Text {
                         text: root.latency;
                         color: #6366f1;
@@ -353,6 +327,7 @@ export component HomePage inherits VerticalLayout {
                         font-weight: 700;
                         overflow: elide;
                     }
+
                     Text {
                         text: language == "id" ? "Waktu respons rata-rata" : "Average response time";
                         color: Theme.muted-text;
@@ -410,6 +385,7 @@ export component HomePage inherits VerticalLayout {
                             font-size: 15px;
                             font-weight: 700;
                         }
+
                         Text {
                             text: language == "id" ? "Pantau kecepatan koneksi Anda saat ini." : "Monitor your current connection speed.";
                             color: Theme.muted-text;
@@ -419,7 +395,9 @@ export component HomePage inherits VerticalLayout {
                 }
 
                 // Spacer pushes right side to far right
-                Rectangle { horizontal-stretch: 1; }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
 
                 // Right side: Realtime update indicator pushed all the way to right
                 HorizontalLayout {
@@ -434,6 +412,7 @@ export component HomePage inherits VerticalLayout {
                         background: #10b981;
                         y: (parent.height - self.height) / 2;
                     }
+
                     Text {
                         text: language == "id" ? "Diperbarui setiap 1 detik" : "Updated every 1 second";
                         color: Theme.muted-text;
@@ -506,6 +485,7 @@ export component HomePage inherits VerticalLayout {
                                 font-weight: 800;
                                 horizontal-alignment: center;
                             }
+
                             Text {
                                 text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
                                 color: #0076f5;
@@ -513,6 +493,7 @@ export component HomePage inherits VerticalLayout {
                                 font-weight: 700;
                                 horizontal-alignment: center;
                             }
+
                             Text {
                                 text: language == "id" ? "Kecepatan Saat Ini" : "Current Speed";
                                 color: Theme.muted-text;
@@ -570,6 +551,7 @@ export component HomePage inherits VerticalLayout {
                                         font-size: 11px;
                                         font-weight: 600;
                                     }
+
                                     Text {
                                         text: root.download-speed;
                                         color: Theme.text;
@@ -578,7 +560,9 @@ export component HomePage inherits VerticalLayout {
                                     }
                                 }
 
-                                Rectangle { horizontal-stretch: 1; }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                }
 
                                 // Mini wave line decoration
                                 Rectangle {
@@ -628,6 +612,7 @@ export component HomePage inherits VerticalLayout {
                                         font-size: 11px;
                                         font-weight: 600;
                                     }
+
                                     Text {
                                         text: root.upload-speed;
                                         color: Theme.text;
@@ -636,7 +621,9 @@ export component HomePage inherits VerticalLayout {
                                     }
                                 }
 
-                                Rectangle { horizontal-stretch: 1; }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                }
 
                                 // Mini wave line decoration
                                 Rectangle {
@@ -672,7 +659,9 @@ export component HomePage inherits VerticalLayout {
                                     vertical-alignment: center;
                                 }
 
-                                Rectangle { horizontal-stretch: 1; }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                }
 
                                 // Legend
                                 HorizontalLayout {
@@ -681,14 +670,39 @@ export component HomePage inherits VerticalLayout {
                                     HorizontalLayout {
                                         spacing: 5px;
                                         alignment: center;
-                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #0076f5; y: (parent.height - self.height) / 2; }
-                                        Text { text: "Download"; color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+                                        Rectangle {
+                                            width: 6px;
+                                            height: 6px;
+                                            border-radius: 3px;
+                                            background: #0076f5;
+                                            y: (parent.height - self.height) / 2;
+                                        }
+
+                                        Text {
+                                            text: "Download";
+                                            color: Theme.muted-text;
+                                            font-size: 10px;
+                                            vertical-alignment: center;
+                                        }
                                     }
+
                                     HorizontalLayout {
                                         spacing: 5px;
                                         alignment: center;
-                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #8b5cf6; y: (parent.height - self.height) / 2; }
-                                        Text { text: "Upload"; color: Theme.muted-text; font-size: 10px; vertical-alignment: center; }
+                                        Rectangle {
+                                            width: 6px;
+                                            height: 6px;
+                                            border-radius: 3px;
+                                            background: #8b5cf6;
+                                            y: (parent.height - self.height) / 2;
+                                        }
+
+                                        Text {
+                                            text: "Upload";
+                                            color: Theme.muted-text;
+                                            font-size: 10px;
+                                            vertical-alignment: center;
+                                        }
                                     }
                                 }
                             }
@@ -710,8 +724,15 @@ export component HomePage inherits VerticalLayout {
                                             width: 50px;
                                             vertical-alignment: center;
                                         }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
+
+                                        Rectangle {
+                                            height: 1px;
+                                            horizontal-stretch: 1;
+                                            background: Theme.border-subtle;
+                                            y: (parent.height - self.height) / 2;
+                                        }
                                     }
+
                                     HorizontalLayout {
                                         spacing: 8px;
                                         Text {
@@ -721,8 +742,15 @@ export component HomePage inherits VerticalLayout {
                                             width: 50px;
                                             vertical-alignment: center;
                                         }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
+
+                                        Rectangle {
+                                            height: 1px;
+                                            horizontal-stretch: 1;
+                                            background: Theme.border-subtle;
+                                            y: (parent.height - self.height) / 2;
+                                        }
                                     }
+
                                     HorizontalLayout {
                                         spacing: 8px;
                                         Text {
@@ -732,7 +760,13 @@ export component HomePage inherits VerticalLayout {
                                             width: 50px;
                                             vertical-alignment: center;
                                         }
-                                        Rectangle { height: 1px; horizontal-stretch: 1; background: Theme.border-subtle; y: (parent.height - self.height) / 2; }
+
+                                        Rectangle {
+                                            height: 1px;
+                                            horizontal-stretch: 1;
+                                            background: Theme.border-subtle;
+                                            y: (parent.height - self.height) / 2;
+                                        }
                                     }
                                 }
 
@@ -804,10 +838,10 @@ export component HomePage inherits VerticalLayout {
                 border-radius: 21px;
                 background: #0076f5.with-alpha(0.12);
                 IconDisplay {
-                        icon: IconSet.Database;
-                        size: 20px;
-                        stroke: #0076f5;
-                        x: (parent.width - 20px) / 2;
+                    icon: IconSet.Database;
+                    size: 20px;
+                    stroke: #0076f5;
+                    x: (parent.width - 20px) / 2;
                     y: (parent.height - 20px) / 2;
                 }
             }
@@ -822,9 +856,10 @@ export component HomePage inherits VerticalLayout {
                     font-size: 15px;
                     font-weight: 700;
                 }
+
                 Text {
-                    text: language == "id" ? 
-                        "Pilih penyedia dari halaman Daftar DNS, atau kembalikan adapter ke DNS otomatis dari DHCP." : 
+                    text: language == "id" ?
+                        "Pilih penyedia dari halaman Daftar DNS, atau kembalikan adapter ke DNS otomatis dari DHCP." :
                         "Choose a provider from the DNS list, or restore adapter to automatic DNS via DHCP.";
                     color: Theme.muted-text;
                     font-size: 11px;
@@ -858,6 +893,7 @@ export component HomePage inherits VerticalLayout {
                             }
                         }
                     }
+
                     VerticalLayout {
                         alignment: center;
                         Text {
@@ -868,6 +904,7 @@ export component HomePage inherits VerticalLayout {
                         }
                     }
                 }
+
                 TouchArea {
                     mouse-cursor: pointer;
                     clicked => { root.navigate-providers(); }
@@ -878,8 +915,8 @@ export component HomePage inherits VerticalLayout {
             Rectangle {
                 height: 40px;
                 border-radius: 12px;
-                background: (root.busy || root.adapters.length == 0) ? 
-                    #93c5fd : 
+                background: (root.busy || root.adapters.length == 0) ?
+                    #93c5fd :
                     @linear-gradient(90deg, #0076f5 0%, #0099ff 100%);
                 HorizontalLayout {
                     padding-left: 18px;
@@ -900,6 +937,7 @@ export component HomePage inherits VerticalLayout {
                             }
                         }
                     }
+
                     VerticalLayout {
                         alignment: center;
                         Text {
@@ -910,6 +948,7 @@ export component HomePage inherits VerticalLayout {
                         }
                     }
                 }
+
                 TouchArea {
                     mouse-cursor: (root.busy || root.adapters.length == 0) ? default : pointer;
                     clicked => {
@@ -934,24 +973,26 @@ export component HomePage inherits VerticalLayout {
             width: 16px;
             height: 16px;
             IconDisplay {
-                    icon: IconSet.Info;
-                    size: 14px;
-                    stroke: #0076f5;
-                    x: (parent.width - 14px) / 2;
+                icon: IconSet.Info;
+                size: 14px;
+                stroke: #0076f5;
+                x: (parent.width - 14px) / 2;
                 y: (parent.height - 14px) / 2;
             }
         }
 
         Text {
-            text: language == "id" ? 
-                "Tips: Gunakan DNS publik yang cepat dan aman untuk pengalaman internet yang lebih baik." : 
+            text: language == "id" ?
+                "Tips: Gunakan DNS publik yang cepat dan aman untuk pengalaman internet yang lebih baik." :
                 "Tips: Use fast and secure public DNS for a better and safer browsing experience.";
             color: Theme.muted-text;
             font-size: 10.5px;
             vertical-alignment: center;
         }
 
-        Rectangle { horizontal-stretch: 1; }
+        Rectangle {
+            horizontal-stretch: 1;
+        }
 
         HorizontalLayout {
             spacing: 6px;
@@ -960,13 +1001,14 @@ export component HomePage inherits VerticalLayout {
                 width: 16px;
                 height: 16px;
                 IconDisplay {
-                        icon: IconSet.Shield;
-                        size: 13px;
-                        stroke: #0076f5;
-                        x: (parent.width - 13px) / 2;
+                    icon: IconSet.Shield;
+                    size: 13px;
+                    stroke: #0076f5;
+                    x: (parent.width - 13px) / 2;
                     y: (parent.height - 13px) / 2;
                 }
             }
+
             Text {
                 text: language == "id" ? "Privasi  •  Kecepatan  •  Kebebasan" : "Privacy  •  Speed  •  Freedom";
                 color: Theme.muted-text;

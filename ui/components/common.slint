@@ -1,4 +1,5 @@
 import { Theme } from "../theme.slint";
+import { IconDisplay, IconSet } from "@lucide";
 
 export component NavButton inherits Rectangle {
     in property <string> label;
@@ -14,7 +15,7 @@ export component NavButton inherits Rectangle {
         padding-left: 16px;
         padding-right: 16px;
         spacing: 12px;
-        
+
         VerticalLayout {
             alignment: center;
             Rectangle {
@@ -41,9 +42,57 @@ export component NavButton inherits Rectangle {
             }
         }
     }
+
     TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+    }
+}
+
+export component ConnectionBadge inherits Rectangle {
+    in property <string> label;
+    in property <length> label-max-width: 280px;
+
+    height: 38px;
+    width: min(badge-content.preferred-width + 24px, root.label-max-width);
+    border-radius: 12px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+
+    badge-content := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        spacing: 9px;
+        alignment: center;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 26px;
+                height: 26px;
+                border-radius: 8px;
+                background: Theme.accent.with-alpha(0.12);
+
+                IconDisplay {
+                    icon: IconSet.Network;
+                    size: 16px;
+                    stroke: Theme.accent;
+                    x: (parent.width - 16px) / 2;
+                    y: (parent.height - 16px) / 2;
+                }
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: Theme.text;
+            font-size: 13px;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
     }
 }
 
@@ -61,9 +110,27 @@ export component StatCard inherits Rectangle {
     VerticalLayout {
         padding: 18px;
         spacing: 7px;
-        Text { text: root.title; color: Theme.secondary-text; font-size: 12px; font-weight: 600; }
-        Text { text: root.value; color: root.accent; font-size: 23px; font-weight: 700; overflow: elide; }
-        Text { text: root.hint; color: Theme.muted-text; font-size: 12px; overflow: elide; }
+        Text {
+            text: root.title;
+            color: Theme.secondary-text;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        Text {
+            text: root.value;
+            color: root.accent;
+            font-size: 23px;
+            font-weight: 700;
+            overflow: elide;
+        }
+
+        Text {
+            text: root.hint;
+            color: Theme.muted-text;
+            font-size: 12px;
+            overflow: elide;
+        }
     }
 }
 
@@ -72,8 +139,19 @@ export component SectionTitle inherits VerticalLayout {
     in property <string> subtitle;
 
     spacing: 5px;
-    Text { text: root.title; color: Theme.text; font-size: 26px; font-weight: 700; }
-    Text { text: root.subtitle; color: Theme.secondary-text; font-size: 14px; wrap: word-wrap; }
+    Text {
+        text: root.title;
+        color: Theme.text;
+        font-size: 26px;
+        font-weight: 700;
+    }
+
+    Text {
+        text: root.subtitle;
+        color: Theme.secondary-text;
+        font-size: 14px;
+        wrap: word-wrap;
+    }
 }
 
 export component Tag inherits Rectangle {
@@ -109,9 +187,28 @@ export component ThemeOption inherits Rectangle {
     VerticalLayout {
         padding: 17px;
         spacing: 5px;
-        Text { text: root.symbol; color: root.selected ? Theme.cyan : Theme.accent; font-size: 22px; }
-        Text { text: root.title; color: Theme.text; font-size: 15px; font-weight: 700; }
-        Text { text: root.detail; color: Theme.muted-text; font-size: 11px; wrap: word-wrap; }
+        Text {
+            text: root.symbol;
+            color: root.selected ? Theme.cyan : Theme.accent;
+            font-size: 22px;
+        }
+
+        Text {
+            text: root.title;
+            color: Theme.text;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        Text {
+            text: root.detail;
+            color: Theme.muted-text;
+            font-size: 11px;
+            wrap: word-wrap;
+        }
     }
-    TouchArea { clicked => { root.clicked(); } }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
 }
