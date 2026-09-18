@@ -116,7 +116,7 @@ git push origin v1.0.0
 The workflow (`.github/workflows/release.yml`) then:
 
 1. Validates the tag and classifies the channel (alpha, beta, rc, or stable).
-2. Builds `--release` on Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel.
+2. Builds `--release` on Windows x64, Linux x64, and macOS. The Intel Mac binary is cross-compiled on Apple Silicon so the job does not wait on the old Intel runners.
 3. Attaches the binaries and `SHA256SUMS.txt` to a GitHub Release for that tag.
 
 Artifacts are named like `usedns-1.0.0-windows-x86_64.exe` and `usedns-1.0.0-linux-x86_64`.
