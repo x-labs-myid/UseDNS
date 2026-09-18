@@ -49,6 +49,50 @@ export component NavButton inherits Rectangle {
     }
 }
 
+export component AppButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <bool> primary: false;
+    callback clicked;
+
+    min-width: 32px;
+    min-height: 32px;
+    horizontal-stretch: 1;
+    border-radius: 6px;
+    background: !root.enabled
+        ? (root.primary ? Theme.accent.with-alpha(0.35) : Theme.surface)
+        : (btn-touch.pressed
+        ? (root.primary ? Theme.accent.with-alpha(0.82) : Theme.background.with-alpha(0.55))
+        : (btn-touch.has-hover
+        ? (root.primary ? #0084ff : Theme.surface-strong)
+        : (root.primary ? Theme.accent : Theme.surface)));
+    border-width: 1px;
+    border-color: root.primary ? transparent : Theme.border;
+    opacity: root.enabled ? 1 : 0.6;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.primary ? white : Theme.text;
+            font-size: 13px;
+            font-weight: root.primary ? 600 : 500;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    btn-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
 export component ConnectionBadge inherits Rectangle {
     in property <string> label;
     in property <length> label-max-width: 280px;
@@ -187,10 +231,10 @@ export component ThemeOption inherits Rectangle {
     VerticalLayout {
         padding: 17px;
         spacing: 5px;
-        Text {
-            text: root.symbol;
-            color: root.selected ? Theme.cyan : Theme.accent;
-            font-size: 22px;
+        IconDisplay {
+            icon: root.symbol == "light" ? IconSet.Sun : (root.symbol == "dark" ? IconSet.Moon : IconSet.Settings);
+            size: 22px;
+            stroke: root.selected ? Theme.cyan : Theme.accent;
         }
 
         Text {
@@ -209,6 +253,106 @@ export component ThemeOption inherits Rectangle {
     }
 
     TouchArea {
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
+    }
+}
+
+export component ProviderIcon inherits Rectangle {
+    in property <string> provider-id;
+    in property <bool> active;
+    in property <length> size: 68px;
+    in property <bool> round: false;
+
+    width: root.size;
+    height: root.size;
+    border-radius: root.round ? (root.size / 2) : (root.size * 0.26);
+    background: root.provider-id == "" || root.provider-id == "system"
+        ? @linear-gradient(135deg, #10b981 0%, #059669 100%)
+        : (root.provider-id == "control-d" ? (Theme.dark ? #0b1528 : #0f172a) : (Theme.dark ? #0e1b34 : #ffffff));
+    border-width: root.active ? 2px : 1px;
+    border-color: root.active ? Theme.cyan : (Theme.dark ? #1e355c : #e2e8f0);
+    drop-shadow-blur: 8px;
+    drop-shadow-color: Theme.dark ? #00000055 : #00000010;
+    drop-shadow-offset-y: 2px;
+    clip: true;
+
+    if root.provider-id == "cloudflare": Image {
+        width: root.size * 0.64;
+        height: root.size * 0.64;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/cloudflare.svg");
+    }
+    if root.provider-id == "google": Image {
+        width: root.size * 0.62;
+        height: root.size * 0.62;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/google.svg");
+    }
+    if root.provider-id == "quad9": Image {
+        width: root.size * 0.62;
+        height: root.size * 0.62;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/quad9.svg");
+    }
+    if root.provider-id == "adguard": Image {
+        width: root.size * 0.62;
+        height: root.size * 0.62;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/adguard.svg");
+    }
+    if root.provider-id == "cleanbrowsing": Image {
+        width: root.size * 0.64;
+        height: root.size * 0.64;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/cleanbrowsing.svg");
+    }
+    if root.provider-id == "control-d": Image {
+        width: root.size * 0.64;
+        height: root.size * 0.64;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/control-d.svg");
+    }
+    if root.provider-id == "nextdns": Image {
+        width: root.size * 0.62;
+        height: root.size * 0.62;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/nextdns.svg");
+    }
+    if root.provider-id == "opendns": Image {
+        width: root.size * 0.62;
+        height: root.size * 0.62;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        source: @image-url("../../.assets/icons/dns-providers/opendns.svg");
+    }
+    if root.provider-id == "" || root.provider-id == "system": IconDisplay {
+        icon: IconSet.Server;
+        size: root.size * 0.46;
+        stroke: white;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+    if root.provider-id != "" && root.provider-id != "system" && root.provider-id != "cloudflare" && root.provider-id != "google" && root.provider-id != "quad9" && root.provider-id != "adguard" && root.provider-id != "cleanbrowsing" && root.provider-id != "control-d" && root.provider-id != "nextdns" && root.provider-id != "opendns": IconDisplay {
+        icon: IconSet.Globe;
+        size: root.size * 0.42;
+        stroke: root.active ? Theme.cyan : Theme.accent;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
     }
 }

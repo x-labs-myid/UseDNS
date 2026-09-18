@@ -9,7 +9,6 @@ import { Theme } from "theme.slint";
 import { ProviderRow, SpeedSample, DnsProfileRow } from "types.slint";
 import { IconDisplay, IconSet } from "@lucide";
 export { ProviderRow, SpeedSample, DnsProfileRow }
-
 export component AppWindow inherits Window {
     title: "UseDNS";
     icon: @image-url("../.assets/UseDNS.png");
@@ -49,10 +48,11 @@ export component AppWindow inherits Window {
     in-out property <string> graph-max-speed: "1.0 Mbps";
     in-out property <string> graph-mid-speed: "500 Kbps";
     in-out property <string> active-provider: "System / DHCP";
+    in-out property <string> active-provider-id: "system";
     in-out property <bool> busy: false;
     in-out property <string> toast-message: "";
     in-out property <bool> toast-error: false;
-    in-out property <int> ip-mode: 2;
+    in-out property <int> ip-mode: 0;
 
     in-out property <bool> profile-popup-open: false;
     in-out property <string> popup-provider-id: "";
@@ -130,6 +130,7 @@ export component AppWindow inherits Window {
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     active-provider: root.active-provider;
+                    active-provider-id: root.active-provider-id;
                     current-dns: root.current-dns;
                     connection-state: root.connection-state;
                     latency: root.latency;
@@ -326,7 +327,13 @@ export component AppWindow inherits Window {
                         root.nav-menu-open = false;
                         root.page = 0;
                     }
-                    IconDisplay { icon: IconSet.House; size: 16px; stroke: root.page == 0 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                    IconDisplay {
+                        icon: IconSet.House;
+                        size: 16px;
+                        stroke: root.page == 0 ? #0076f5 : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
                 }
 
                 NavDropdownItem {
@@ -336,7 +343,13 @@ export component AppWindow inherits Window {
                         root.nav-menu-open = false;
                         root.page = 1;
                     }
-                    IconDisplay { icon: IconSet.List; size: 16px; stroke: root.page == 1 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                    IconDisplay {
+                        icon: IconSet.List;
+                        size: 16px;
+                        stroke: root.page == 1 ? #0076f5 : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
                 }
 
                 NavDropdownItem {
@@ -347,7 +360,13 @@ export component AppWindow inherits Window {
                         root.page = 2;
                         root.clear-form();
                     }
-                    IconDisplay { icon: IconSet.Database; size: 16px; stroke: root.page == 2 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                    IconDisplay {
+                        icon: IconSet.Database;
+                        size: 16px;
+                        stroke: root.page == 2 ? #0076f5 : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
                 }
 
                 NavDropdownItem {
@@ -357,7 +376,13 @@ export component AppWindow inherits Window {
                         root.nav-menu-open = false;
                         root.page = 3;
                     }
-                    IconDisplay { icon: IconSet.Shield; size: 16px; stroke: root.page == 3 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                    IconDisplay {
+                        icon: IconSet.Shield;
+                        size: 16px;
+                        stroke: root.page == 3 ? #0076f5 : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
                 }
 
                 Rectangle {
@@ -372,7 +397,13 @@ export component AppWindow inherits Window {
                         root.nav-menu-open = false;
                         root.page = 4;
                     }
-                    IconDisplay { icon: IconSet.Settings; size: 16px; stroke: root.page == 4 ? #0076f5 : Theme.secondary-text; x: 1px; y: 1px; }
+                    IconDisplay {
+                        icon: IconSet.Settings;
+                        size: 16px;
+                        stroke: root.page == 4 ? #0076f5 : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
                 }
             }
         }

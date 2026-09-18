@@ -1,4 +1,3 @@
-import { Button } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { NavButton } from "common.slint";
 import { IconDisplay, IconSet } from "@lucide";
@@ -26,15 +25,28 @@ export component Sidebar inherits Rectangle {
                 source: @image-url("../../.assets/UseDNS.png");
                 image-fit: contain;
             }
+
             VerticalLayout {
                 alignment: center;
                 spacing: 1px;
-                Text { text: "UseDNS"; color: Theme.text; font-size: 20px; font-weight: 800; }
-                Text { text: "DNS made simple"; color: Theme.muted-text; font-size: 10px; }
+                Text {
+                    text: "UseDNS";
+                    color: Theme.text;
+                    font-size: 20px;
+                    font-weight: 800;
+                }
+
+                Text {
+                    text: "DNS made simple";
+                    color: Theme.muted-text;
+                    font-size: 10px;
+                }
             }
+}
+
+        Rectangle {
+            height: 16px;
         }
-        
-        Rectangle { height: 16px; }
 
         NavButton {
             label: language == "id" ? "Beranda" : "Home";
@@ -46,6 +58,7 @@ export component Sidebar inherits Rectangle {
                 stroke: page == 0 ? white : Theme.secondary-text;
             }
         }
+
         NavButton {
             label: language == "id" ? "Daftar DNS" : "DNS providers";
             selected: page == 1;
@@ -56,6 +69,7 @@ export component Sidebar inherits Rectangle {
                 stroke: page == 1 ? white : Theme.secondary-text;
             }
         }
+
         NavButton {
             label: language == "id" ? "DNS kustom" : "Custom DNS";
             selected: page == 2;
@@ -66,6 +80,7 @@ export component Sidebar inherits Rectangle {
                 stroke: page == 2 ? white : Theme.secondary-text;
             }
         }
+
         NavButton {
             label: language == "id" ? "Kebijakan" : "Policy";
             selected: page == 3;
@@ -76,6 +91,7 @@ export component Sidebar inherits Rectangle {
                 stroke: page == 3 ? white : Theme.secondary-text;
             }
         }
+
         NavButton {
             label: language == "id" ? "Pengaturan" : "Settings";
             selected: page == 4;
@@ -87,7 +103,9 @@ export component Sidebar inherits Rectangle {
             }
         }
 
-        Rectangle { vertical-stretch: 1; }
+        Rectangle {
+            vertical-stretch: 1;
+        }
 
         // Slogan and decorative text from mockup
         VerticalLayout {
@@ -99,6 +117,7 @@ export component Sidebar inherits Rectangle {
                 font-size: 11px;
                 font-italic: true;
             }
+
             Text {
                 text: "A Better Internet";
                 color: Theme.muted-text;
@@ -142,6 +161,7 @@ export component Sidebar inherits Rectangle {
                         }
                     }
                 }
+
                 VerticalLayout {
                     alignment: center;
                     Text {
@@ -152,6 +172,7 @@ export component Sidebar inherits Rectangle {
                         horizontal-stretch: 1;
                     }
                 }
+
                 VerticalLayout {
                     alignment: center;
                     Rectangle {
@@ -171,6 +192,7 @@ export component Sidebar inherits Rectangle {
                     }
                 }
             }
+
             TouchArea {
                 mouse-cursor: pointer;
                 clicked => { root.navigate(4); }
@@ -180,7 +202,12 @@ export component Sidebar inherits Rectangle {
         VerticalLayout {
             spacing: 2px;
             padding-top: 4px;
-            Text { text: "v0.1.0 MVP"; color: Theme.muted-text; font-size: 10px; }
+            Text {
+                text: "v0.1.0 MVP";
+                color: Theme.muted-text;
+                font-size: 10px;
+            }
+
             Text {
                 text: language == "id" ? "Koneksi lebih baik untuk internet yang lebih bebas." : "Better connection for a freer internet.";
                 color: Theme.muted-text.with-alpha(0.8);

@@ -1,5 +1,4 @@
-import { Button, ComboBox } from "std-widgets.slint";
-import { ConnectionBadge } from "../components/common.slint";
+import { ConnectionBadge, ProviderIcon } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
 import { SpeedSample } from "../types.slint";
@@ -9,6 +8,7 @@ export component HomePage inherits VerticalLayout {
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     in property <string> active-provider: "System / DHCP";
+    in property <string> active-provider-id: "system";
     in property <string> current-dns: "—";
     in property <string> connection-state: "Stable";
     in property <string> latency: "—";
@@ -146,19 +146,11 @@ export component HomePage inherits VerticalLayout {
 
                 VerticalLayout {
                     alignment: center;
-                    // Green DNS badge circle with Icon
-                    Rectangle {
-                        width: 48px;
-                        height: 48px;
-                        border-radius: 24px;
-                        background: @linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        IconDisplay {
-                            icon: IconSet.Server;
-                            size: 22px;
-                            stroke: white;
-                            x: (parent.width - 22px) / 2;
-                            y: (parent.height - 22px) / 2;
-                        }
+                    ProviderIcon {
+                        provider-id: root.active-provider-id;
+                        active: true;
+                        size: 48px;
+                        round: true;
                     }
                 }
 

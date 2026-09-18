@@ -77,17 +77,93 @@ fn provider_tag(provider: &DnsProvider, language: &str) -> String {
     }
 }
 
+fn dns_matches(current_dns: &str, address: &str) -> bool {
+    let address = address.trim();
+    if address.is_empty() {
+        return false;
+    }
+    current_dns
+        .split([',', ';', ' ', '\t'])
+        .map(str::trim)
+        .any(|part| part.eq_ignore_ascii_case(address))
+}
+
+fn resolve_active_provider(
+    providers: &[DnsProvider],
+    current_dns: &str,
+    language: &str,
+) -> (String, String) {
+    for provider in providers {
+        if !provider_is_active(provider, current_dns) {
+            continue;
+        }
+        let profiles = provider.get_profiles();
+        let title = if profiles.len() > 1 {
+            profiles
+                .iter()
+                .find(|profile| {
+                    [
+                        profile.ipv4_primary.as_str(),
+                        profile.ipv4_secondary.as_str(),
+                        profile.ipv6_primary.as_str(),
+                        profile.ipv6_secondary.as_str(),
+                    ]
+                    .into_iter()
+                    .any(|address| dns_matches(current_dns, address))
+                })
+                .map(|profile| {
+                    let profile_name = if language == "id" {
+                        &profile.name_id
+                    } else {
+                        &profile.name_en
+                    };
+                    format!("{} - {}", provider.name, profile_name)
+                })
+                .unwrap_or_else(|| provider.name.clone())
+        } else {
+            provider.name.clone()
+        };
+        return (provider.id.clone(), title);
+    }
+    (
+        "system".into(),
+        if language == "id" {
+            "Sistem / DHCP".into()
+        } else {
+            "System / DHCP".into()
+        },
+    )
+}
+
+fn apply_active_provider_state(
+    window: &AppWindow,
+    providers: &[DnsProvider],
+    current_dns: &str,
+    language: &str,
+) {
+    let (id, title) = resolve_active_provider(providers, current_dns, language);
+    window.set_active_provider_id(id.into());
+    window.set_active_provider(title.into());
+}
+
+fn provider_is_active(provider: &DnsProvider, current_dns: &str) -> bool {
+    if current_dns.trim().is_empty() {
+        return false;
+    }
+    provider.get_profiles().iter().any(|profile| {
+        [
+            profile.ipv4_primary.as_str(),
+            profile.ipv4_secondary.as_str(),
+            profile.ipv6_primary.as_str(),
+            profile.ipv6_secondary.as_str(),
+        ]
+        .into_iter()
+        .any(|address| dns_matches(current_dns, address))
+    })
+}
+
 fn row(provider: &DnsProvider, language: &str, current_dns: &str) -> ProviderRow {
-    let addresses = [
-        provider.ipv4_primary.as_str(),
-        provider.ipv4_secondary.as_str(),
-        provider.ipv6_primary.as_str(),
-        provider.ipv6_secondary.as_str(),
-    ];
-    let is_active = addresses
-        .iter()
-        .filter(|value| !value.is_empty())
-        .any(|value| current_dns.contains(*value));
+    let is_active = provider_is_active(provider, current_dns);
 
     let profile_count = provider.get_profiles().len() as i32;
 
@@ -396,6 +472,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let theme = Rc::new(RefCell::new(settings.theme));
     let speed_unit = Rc::new(RefCell::new(settings.speed_unit));
     let adapters = Arc::new(Mutex::new(Vec::<system::AdapterInfo>::new()));
+    let provider_filter = Rc::new(RefCell::new((String::new(), String::from("all"))));
 
     window.set_system_dark(system::prefers_dark_mode());
     window.set_language(language.borrow().as_str().into());
@@ -406,9 +483,15 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let weak = window.as_weak();
         let adapters = adapters.clone();
+        let providers = providers.clone();
+        let language = language.clone();
+        let provider_filter = provider_filter.clone();
         window.on_refresh(move || {
             let weak = weak.clone();
             let adapters = adapters.clone();
+            let providers_snapshot = providers.borrow().clone();
+            let language_value = language.borrow().clone();
+            let (query, category) = provider_filter.borrow().clone();
             if let Some(window) = weak.upgrade() {
                 window.set_busy(true);
                 window.set_toast_message("".into());
@@ -430,6 +513,20 @@ fn main() -> Result<(), slint::PlatformError> {
                             let selected = found.get(index).or_else(|| found.first());
                             if let Some(selected) = selected {
                                 window.set_current_dns(selected.dns.clone().into());
+                                apply_active_provider_state(
+                                    &window,
+                                    &providers_snapshot,
+                                    &selected.dns,
+                                    &language_value,
+                                );
+                                set_filtered_provider_model(
+                                    &window,
+                                    &providers_snapshot,
+                                    &language_value,
+                                    &selected.dns,
+                                    &query,
+                                    &category,
+                                );
                                 let dns = selected.dns.clone();
                                 let weak_check = weak.clone();
                                 std::thread::spawn(move || {
@@ -481,6 +578,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
         let weak = window.as_weak();
+        let provider_filter = provider_filter.clone();
         window.on_language_changed(move |new_language| {
             let value = if new_language.as_str() == "id" {
                 "id"
@@ -489,11 +587,14 @@ fn main() -> Result<(), slint::PlatformError> {
             };
             *language.borrow_mut() = value.into();
             if let Some(window) = weak.upgrade() {
-                set_provider_model(
+                let (query, category) = provider_filter.borrow().clone();
+                set_filtered_provider_model(
                     &window,
                     &providers.borrow(),
                     value,
                     &window.get_current_dns(),
+                    &query,
+                    &category,
                 );
             }
             let settings = storage::Settings {
@@ -583,7 +684,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let providers = providers.clone();
         let language = language.clone();
         let weak = window.as_weak();
+        let provider_filter = provider_filter.clone();
         window.on_filter_providers(move |query, category| {
+            *provider_filter.borrow_mut() = (query.to_string(), category.to_string());
             if let Some(window) = weak.upgrade() {
                 set_filtered_provider_model(
                     &window,
@@ -638,6 +741,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 window.set_popup_provider_name(provider.name.into());
                 window.set_popup_profiles(ModelRc::from(Rc::new(VecModel::from(profile_rows))));
                 window.set_selected_profile_index(0);
+                window.set_ip_mode(0);
                 window.set_profile_popup_open(true);
             }
         });
@@ -647,6 +751,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let providers = providers.clone();
         let adapters = adapters.clone();
         let language = language.clone();
+        let provider_filter = provider_filter.clone();
         let weak = window.as_weak();
         window.on_confirm_apply_profile(move |id, profile_index, adapter_index, mode| {
             let provider = providers
@@ -715,7 +820,10 @@ fn main() -> Result<(), slint::PlatformError> {
             } else {
                 provider.name.clone()
             };
+            let active_provider_id = provider.id.clone();
 
+            let providers_snapshot = providers.borrow().clone();
+            let (query, category) = provider_filter.borrow().clone();
             std::thread::spawn(move || {
                 let result = system::apply_dns(&adapter.name, &addresses);
                 let _ = slint::invoke_from_event_loop(move || {
@@ -723,8 +831,17 @@ fn main() -> Result<(), slint::PlatformError> {
                         window.set_busy(false);
                         match result {
                             Ok(()) => {
+                                window.set_active_provider_id(active_provider_id.into());
                                 window.set_active_provider(active_title.into());
                                 window.set_current_dns(addresses.join(", ").into());
+                                set_filtered_provider_model(
+                                    &window,
+                                    &providers_snapshot,
+                                    &lang,
+                                    &addresses.join(", "),
+                                    &query,
+                                    &category,
+                                );
                                 show_message(
                                     &window,
                                     if lang == "id" {
@@ -802,6 +919,7 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             let weak = weak.clone();
             let provider_name = provider.name.clone();
+            let provider_id = provider.id.clone();
             let language_value = language.borrow().clone();
             std::thread::spawn(move || {
                 let result = system::apply_dns(&adapter.name, &addresses);
@@ -810,6 +928,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         window.set_busy(false);
                         match result {
                             Ok(()) => {
+                                window.set_active_provider_id(provider_id.into());
                                 window.set_active_provider(provider_name.clone().into());
                                 window.set_current_dns(addresses.join(", ").into());
                                 show_message(
@@ -858,7 +977,15 @@ fn main() -> Result<(), slint::PlatformError> {
                         window.set_busy(false);
                         match result {
                             Ok(()) => {
-                                window.set_active_provider("System / DHCP".into());
+                                window.set_active_provider_id("system".into());
+                                window.set_active_provider(
+                                    if language == "id" {
+                                        "Sistem / DHCP"
+                                    } else {
+                                        "System / DHCP"
+                                    }
+                                    .into(),
+                                );
                                 show_message(
                                     &window,
                                     if language == "id" {

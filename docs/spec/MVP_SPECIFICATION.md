@@ -1,7 +1,8 @@
 # UseDNS MVP — Product and Technical Specification
 
-**Document status:** Implemented MVP baseline  
-**Application version:** `0.1.0`  
+**Document status:** Implemented MVP baseline (synced with current UI)  
+**Application version:** `1.0.0`  
+**Last synced:** 2026-09-18  
 **Primary platform:** Windows 10 and Windows 11  
 **UI framework:** Slint `1.17.1`  
 **Implementation language:** Rust 2024 edition  
@@ -16,10 +17,10 @@ UseDNS is a lightweight desktop utility for viewing, comparing, applying, and re
 
 The MVP combines four primary capabilities:
 
-1. Display the active network adapter, current DNS addresses, connection reachability, latency, and real-time adapter throughput.
-2. Present a curated, read-only catalog of public DNS providers and apply their IPv4, IPv6, or combined configurations.
+1. Display the active network adapter, Active DNS (provider logo and name), current DNS addresses, connection reachability, latency, and real-time adapter throughput.
+2. Present a curated, read-only catalog of public DNS providers (without exposing raw IP addresses on the list) and apply a protection profile plus IPv4, IPv6, or both through a guided dialog. IPv4-only is the recommended default.
 3. Allow users to create, edit, validate, test, persist, and delete custom DNS profiles.
-4. Explain the application's privacy behavior and provide a bilingual, theme-aware desktop interface.
+4. Explain the application's privacy behavior and provide a bilingual, theme-aware, frameless desktop interface.
 
 UseDNS does not operate a DNS resolver. DNS queries are sent directly by Windows to the resolver selected by the user.
 
@@ -70,13 +71,18 @@ The Home page is implemented in `ui/pages/home.slint`.
 
 ### Current behavior
 
-- Shows a welcome header and UseDNS branding.
+- Shows a dashboard header, adapter badge, and Refresh action.
+- Navigation is in the frameless title bar (page menu), not a persistent sidebar as the primary chrome.
 - Lists active Windows network adapters in an adapter selector.
 - Shows whether an adapter is available and the application considers the connection connected or disrupted.
 - Displays the current DNS server addresses returned by Windows.
-- Displays the active provider label.
+- Displays the active provider on the **Active DNS** card:
+  - Official provider logo when a bundled provider matches the adapter DNS.
+  - Globe icon for custom providers.
+  - Server icon and `System / DHCP` (or `Sistem / DHCP`) when no bundled/custom address matches.
+  - Provider name, plus the matching profile name when the provider has more than one profile.
   - Defaults to `System / DHCP` at startup.
-  - Changes to the selected provider name after a successful apply operation in the current session.
+  - Updates after apply, reset, and adapter refresh by matching Windows DNS addresses to all profile addresses (not only the provider default pair).
 - Checks resolver reachability using the operating system's `ping` command.
 - Displays approximate latency in milliseconds.
 - Classifies connection quality as:
@@ -92,10 +98,12 @@ The Home page is implemented in `ui/pages/home.slint`.
 
 - Reads Windows network-adapter byte counters through `Get-NetAdapterStatistics`.
 - Samples received and sent byte counters every second.
-- Converts the counter delta into megabits per second.
+- Converts the counter delta into bits per second and displays it in the user-selected unit (`kbps` by default, or `mbps`).
 - Displays:
   - Current download activity.
   - Current upload activity.
+  - Combined current speed and a compact gauge.
+  - A short rolling history graph.
   - Relative progress indicators.
 - Sampling runs outside the Slint UI thread.
 - An atomic guard prevents overlapping statistics requests.
@@ -103,7 +111,7 @@ The Home page is implemented in `ui/pages/home.slint`.
 
 ### Important interpretation
 
-The displayed Mbps values represent current adapter traffic, not maximum line speed. This is not a traditional bandwidth speed test. If the device is idle, values near `0 Mbps` are expected.
+The displayed speed values represent current adapter traffic, not maximum line speed. This is not a traditional bandwidth speed test. If the device is idle, values near zero are expected.
 
 ---
 
@@ -113,27 +121,35 @@ The provider page is implemented in `ui/pages/providers.slint`.
 
 ### Included providers
 
-| ID | Provider | IPv4 | IPv6 | Primary focus |
-| --- | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare | `1.1.1.1`, `1.0.0.1` | `2606:4700:4700::1111`, `2606:4700:4700::1001` | Performance and privacy |
-| `google` | Google Public DNS | `8.8.8.8`, `8.8.4.4` | `2001:4860:4860::8888`, `2001:4860:4860::8844` | Reliability and availability |
-| `quad9` | Quad9 | `9.9.9.9`, `149.112.112.112` | `2620:fe::fe`, `2620:fe::9` | Malware and phishing protection |
-| `adguard` | AdGuard DNS | `94.140.14.14`, `94.140.15.15` | `2a10:50c0::ad1:ff`, `2a10:50c0::ad2:ff` | Ad and tracker filtering |
+Bundled providers and their default (primary) addresses. Additional profile-specific addresses live in `DnsProfile` records in `src/models.rs`.
+
+| ID              | Provider          | Default IPv4                         | Default IPv6                                   | Primary focus                   |
+| --------------- | ----------------- | ------------------------------------ | ---------------------------------------------- | ------------------------------- |
+| `cloudflare`    | Cloudflare        | `1.1.1.1`, `1.0.0.1`                 | `2606:4700:4700::1111`, `2606:4700:4700::1001` | Performance and privacy         |
+| `google`        | Google Public DNS | `8.8.8.8`, `8.8.4.4`                 | `2001:4860:4860::8888`, `2001:4860:4860::8844` | Reliability and availability    |
+| `quad9`         | Quad9             | `9.9.9.9`, `149.112.112.112`         | `2620:fe::fe`, `2620:fe::9`                    | Malware and phishing protection |
+| `adguard`       | AdGuard DNS       | `94.140.14.14`, `94.140.15.15`       | `2a10:50c0::ad1:ff`, `2a10:50c0::ad2:ff`       | Ad and tracker filtering        |
+| `cleanbrowsing` | CleanBrowsing     | `185.228.168.168`, `185.228.169.168` | `2a0d:2a00:1::`, `2a0d:2a00:2::`               | Family-safe filtering           |
+| `control-d`     | Control D         | `76.76.2.2`, `76.76.10.2`            | `2606:1a40::2`, `2606:1a40:1::2`               | Ads, malware, productivity      |
+| `nextdns`       | NextDNS           | `45.90.28.0`, `45.90.30.0`           | `2a07:a8c0::`, `2a07:a8c1::`                   | Cloud privacy                   |
+| `opendns`       | Cisco OpenDNS     | `208.67.222.222`, `208.67.220.220`   | `2620:119:35::35`, `2620:119:53::53`           | Enterprise security             |
 
 ### Catalog presentation
 
-Each provider card can display:
+Provider cards are designed for non-technical users. They **do not** show raw IPv4 or IPv6 addresses.
 
-- Provider monogram.
+Each card displays:
+
+- Official provider logo (SVG under `.assets/icons/dns-providers/`), or a Globe icon for custom providers.
 - Provider name.
-- Localized description.
-- IPv4 addresses.
-- IPv6 addresses.
-- Focus/category badge.
-- Active badge when an address matches the detected DNS string.
-- Advantages.
-- Trade-offs or limitations.
+- Localized short summary.
+- Focus/category badge and, when relevant, a profile-count badge.
 - Custom badge for user-created profiles.
+- **In use** status (centered check + label) when any profile address matches the adapter DNS string.
+- **Use DNS** action when the provider is not active.
+- Edit and Delete only on custom providers.
+
+List items leave a right gutter so the ListView scrollbar does not cover the cards.
 
 ### Search
 
@@ -147,32 +163,30 @@ The result model is rebuilt and sent to Slint after the search input changes.
 
 ### Category filters
 
-| Filter | Included bundled providers |
-| --- | --- |
-| All | Every bundled and custom provider |
-| Privacy | Cloudflare and Quad9 |
-| Speed | Cloudflare and Google Public DNS |
-| Security | Quad9 and AdGuard DNS |
-| Ad blocking | AdGuard DNS |
+| Filter      | Included bundled providers                                        |
+| ----------- | ----------------------------------------------------------------- |
+| All         | Every bundled and custom provider                                 |
+| Privacy     | Cloudflare, Quad9, NextDNS, and custom `privacy`                  |
+| Speed       | Cloudflare, Google Public DNS, OpenDNS, and custom `speed`        |
+| Security    | Quad9, AdGuard DNS, CleanBrowsing, OpenDNS, and custom `security` |
+| Ad blocking | AdGuard DNS, Control D, NextDNS, and custom `ad-blocking`         |
 
-Custom providers remain discoverable under All and through search. More detailed custom-category integration is planned.
+Custom providers remain discoverable under All and through search. Purpose-based filter membership for custom entries uses `DnsProvider.purpose`.
 
-### Detail expansion
+### Apply dialog
 
-- A provider card can be expanded and collapsed.
-- Expanded details show advantages and limitations.
-- Custom entries expose Edit and Delete actions.
-- Bundled entries never expose Edit or Delete actions.
+Selecting **Use DNS** always opens a modal:
 
-### Address mode
+1. If the provider has multiple `DnsProfile` variants, the user picks one (name, tag, description — no raw IPs).
+2. The user chooses how to apply DNS:
+   - **IPv4** — recommended default; works on almost every device.
+   - **IPv6** — only if the network supports IPv6.
+   - **Both** — IPv4 and IPv6 together.
+3. Confirm **Apply DNS** or cancel.
 
-Before applying a provider, the user can choose:
+The catalog no longer has a global address-mode bar. Mode is chosen per apply and reset to IPv4 each time the dialog opens.
 
-- IPv4 only.
-- IPv6 only.
-- IPv4 and IPv6 together.
-
-The backend omits blank secondary addresses. Applying a mode for which the provider has no address produces an error instead of silently applying an incomplete configuration.
+The backend omits blank secondary addresses. Applying a mode for which the selected profile has no address produces an error instead of silently applying an incomplete configuration.
 
 ---
 
@@ -190,20 +204,23 @@ Set-DnsClientServerAddress -InterfaceAlias '<adapter>' -ServerAddresses (...)
 
 ### Apply flow
 
-1. User selects an adapter.
-2. User selects IPv4, IPv6, or combined mode.
-3. User selects Use DNS on a provider card.
-4. Rust resolves the provider by stable ID.
-5. Rust resolves the adapter by the selected index.
-6. Empty addresses are removed.
-7. The DNS operation runs on a worker thread.
-8. Slint shows a busy overlay during the operation.
-9. On success:
-   - The active provider label is updated.
-   - The current DNS display is updated.
-   - A localized success message is shown.
-   - Network status is refreshed.
-10. On failure, the PowerShell or platform error is shown in the application.
+1. User selects an adapter (Home, catalog badge, or policy).
+2. User selects **Use DNS** on a provider card.
+3. The apply dialog opens. Default address mode is IPv4 (`ip-mode = 0`).
+4. User selects a profile when more than one exists, then IPv4 / IPv6 / both.
+5. Rust resolves the provider by stable ID and the selected profile index.
+6. Rust resolves the adapter by the selected index.
+7. Empty addresses are removed.
+8. The DNS operation runs on a worker thread.
+9. Slint shows a busy overlay during the operation.
+10. On success:
+    - The active provider id and label (including profile name when relevant) are updated.
+    - The Home Active DNS logo updates.
+    - The catalog **In use** indicator is rebuilt from the applied addresses.
+    - The current DNS display is updated.
+    - A localized success message is shown.
+    - Network status is refreshed.
+11. On failure, the PowerShell or platform error is shown in the application.
 
 ### Privilege requirement
 
@@ -228,7 +245,9 @@ Set-DnsClientServerAddress -InterfaceAlias '<adapter>' -ResetServerAddresses
 
 ### Result
 
-- On success, the active provider label returns to `System / DHCP`.
+- On success, the active provider id returns to `system` and the label to `System / DHCP` (or `Sistem / DHCP`).
+- The Home Active DNS card shows the server icon again.
+- The catalog **In use** indicator is cleared for bundled/custom matches.
 - The adapter state is refreshed.
 - A localized result message is displayed.
 
@@ -387,9 +406,11 @@ The page accurately reports current MVP behavior:
 - Connection checking at startup is enabled.
 - DNS operation results are displayed through in-app notifications.
 - Adapter activity refreshes every second.
-- Speed is displayed in Mbps.
+- Internet speed unit is configurable: **Kbps** (default) or **Mbps**. The choice is persisted in `Settings.speed_unit`.
 
-These entries are informational in the current MVP and are not presented as configurable toggles.
+Appearance, language, and speed-unit controls are interactive. Tray and some behavior rows remain informational.
+
+The Settings page body is wrapped in a `ScrollView` with `viewport-width: self.width` so extra sections do not clip and do not freeze layout.
 
 ---
 
@@ -430,10 +451,15 @@ All major pages consume these tokens rather than maintaining independent color p
 ### Icon library standard
 
 All UI icons across the application **must** use the Lucide icon set via the Slint port:
+
 - **Porting for Slint:** [lucide-slint](https://github.com/cnlancehu/lucide-slint)
 - **Original reference:** [Lucide Icons](https://github.com/lucide-icons/lucide)
 
 Using ad-hoc ASCII/Unicode symbols, custom unstandardized SVG shapes, or inconsistent icon sets for standard UI iconography (navigation, actions, badges, indicators) is strictly prohibited. All icons must be integrated consistently using `lucide-slint` components and styled according to the design system tokens.
+
+**Exception:** DNS provider brand marks use official logos in `.assets/icons/dns-providers/`. They are trademarks, not UI glyphs.
+
+Interactive controls (custom `AppButton`, chips, title-bar actions, choice cards) set `mouse-cursor: pointer` when enabled. The title-bar drag region uses `mouse-cursor: move`.
 
 ### Application icon
 
@@ -454,6 +480,7 @@ At build time, `build.rs` generates icon frames at 16, 24, 32, 48, 64, 128, and 
 UseDNS/
 ├── .assets/
 │   ├── UseDNS.png
+│   ├── icons/dns-providers/
 │   └── info.txt
 ├── docs/
 │   └── spec/
@@ -466,7 +493,8 @@ UseDNS/
 ├── ui/
 │   ├── components/
 │   │   ├── common.slint
-│   │   └── sidebar.slint
+│   │   ├── sidebar.slint
+│   │   └── titlebar.slint
 │   ├── pages/
 │   │   ├── custom-dns.slint
 │   │   ├── home.slint
@@ -501,9 +529,9 @@ Responsibilities:
 
 Responsibilities:
 
-- Define `DnsProvider`.
-- Define bundled provider data.
-- Validate IPv4 and IPv6 fields.
+- Define `DnsProvider` and `DnsProfile`.
+- Define bundled provider and profile data.
+- Validate IPv4 and IPv6 fields on providers and profiles.
 - Protect built-in/custom behavior through the `custom` marker.
 
 ## 4.3 `src/storage.rs`
@@ -536,7 +564,7 @@ Responsibilities:
 
 - Export the top-level `AppWindow` consumed by Rust.
 - Own the shared UI properties and callback surface.
-- Compose the sidebar and page components.
+- Compose the frameless title bar and page components.
 - Connect child-page callbacks to top-level callbacks.
 - Display global busy and notification overlays.
 - Synchronize the effective Slint widget color scheme.
@@ -544,11 +572,12 @@ Responsibilities:
 ## 4.6 UI modules
 
 - `ui/theme.slint`: application-wide adaptive design tokens.
-- `ui/types.slint`: UI-facing `ProviderRow` structure.
-- `ui/components/common.slint`: reusable navigation, status, title, badge, and selection components.
-- `ui/components/sidebar.slint`: branding and primary navigation.
-- `ui/pages/home.slint`: network status and activity dashboard.
-- `ui/pages/providers.slint`: search, filters, provider cards, and apply actions.
+- `ui/types.slint`: UI-facing `ProviderRow`, `DnsProfileRow`, and `SpeedSample` structures.
+- `ui/components/common.slint`: reusable buttons, badges, tags, and `ProviderIcon`.
+- `ui/components/titlebar.slint`: window chrome, page menu, theme toggle, minimize, close.
+- `ui/components/sidebar.slint`: legacy navigation module (primary chrome is the title bar).
+- `ui/pages/home.slint`: network status and activity dashboard, including Active DNS logo.
+- `ui/pages/providers.slint`: search, filters, provider cards, apply dialog, and in-use status.
 - `ui/pages/custom-dns.slint`: custom profile form, preview, purpose, and resolver testing.
 - `ui/pages/policy.slint`: privacy explanations and recovery actions.
 - `ui/pages/settings.slint`: appearance, language, and current-behavior information.
@@ -560,6 +589,20 @@ Responsibilities:
 ## 5.1 DNS provider
 
 ```rust
+pub struct DnsProfile {
+    pub id: String,
+    pub name_en: String,
+    pub name_id: String,
+    pub description_en: String,
+    pub description_id: String,
+    pub tag_en: String,
+    pub tag_id: String,
+    pub ipv4_primary: String,
+    pub ipv4_secondary: String,
+    pub ipv6_primary: String,
+    pub ipv6_secondary: String,
+}
+
 pub struct DnsProvider {
     pub id: String,
     pub name: String,
@@ -575,8 +618,11 @@ pub struct DnsProvider {
     pub cons_en: String,
     pub cons_id: String,
     pub custom: bool,
+    pub profiles: Vec<DnsProfile>,
 }
 ```
+
+If `profiles` is empty, `DnsProvider::get_profiles()` synthesizes a single default profile from the provider-level addresses.
 
 ### Identity rules
 
@@ -592,6 +638,7 @@ pub struct DnsProvider {
 pub struct Settings {
     pub language: String,
     pub theme: String,
+    pub speed_unit: String,
     pub custom_providers: Vec<DnsProvider>,
 }
 ```
@@ -602,6 +649,7 @@ Example:
 {
   "language": "en",
   "theme": "system",
+  "speed_unit": "kbps",
   "custom_providers": []
 }
 ```
@@ -610,6 +658,7 @@ Example:
 
 - Invalid or unknown language values become `en`.
 - Invalid or unknown theme values become `system`.
+- Invalid or unknown speed-unit values become `kbps`.
 - Missing purpose values become an empty string during deserialization and are presented as `general` while editing.
 - Missing custom-provider collections become empty.
 - Invalid or unreadable settings files fall back to defaults rather than preventing startup.
@@ -722,7 +771,7 @@ For apply and reset operations, run the terminal as Administrator.
 cargo build --release
 ```
 
-Output:
+`Cargo.toml` defines a slim `profile.dev` (`debug = 0`) and a stripped `profile.release` (`lto = "thin"`, `strip = true`). Output:
 
 ```text
 target/release/usedns.exe
@@ -759,14 +808,14 @@ cargo test
 1. **No automatic UAC elevation**  
    The app must be launched as Administrator for DNS writes.
 
-2. **No confirmation dialog before apply/reset**  
-   Actions currently execute immediately after selection.
+2. **No extra confirmation after the apply dialog**  
+   Apply still requires choosing a profile and address mode, then **Apply DNS**. There is no second “are you sure?” step. Reset to DHCP still runs immediately.
 
 3. **No exact previous-configuration rollback**  
    Recovery resets to DHCP rather than restoring a previously captured static configuration.
 
 4. **Active provider detection is address-string based**  
-   The active badge compares known addresses to the Windows DNS string. Unknown or partially matching configurations remain labeled as system/custom state.
+   The **In use** badge and Home logo compare every profile IPv4/IPv6 address (tokenized, case-insensitive) to the Windows DNS string. Unknown or partially matching configurations remain labeled as System / DHCP.
 
 5. **Adapter changes require status refresh for all dashboard values**  
    Selecting another adapter does not guarantee every status value is immediately recomputed until Refresh runs.
@@ -826,7 +875,7 @@ cargo test
 **Priority: High**
 
 - Move provider metadata to a versioned data file.
-- Add more curated providers such as OpenDNS, Control D, and configurable NextDNS profiles.
+- Keep bundled provider metadata (including OpenDNS, Control D, and NextDNS) in a versioned data file rather than `models.rs`.
 - Add provider-policy URLs.
 - Integrate custom-purpose categories with provider filters.
 - Add copy-address actions.
@@ -844,7 +893,7 @@ cargo test
 - Add Start Minimized behavior after tray support exists.
 - Add startup launch configuration.
 - Add configurable connection-check and network-activity intervals.
-- Add selectable speed units such as Mbps, MB/s, Kbps, and KB/s.
+- Extend speed units beyond the current Kbps / Mbps pair (for example MB/s and KB/s).
 - Add native Windows notifications with a preference toggle.
 - Observe Windows theme-change events continuously.
 - Add minimize-to-tray and quick DNS switching from the tray menu.
@@ -902,6 +951,8 @@ cargo test
 - [x] IPv4-only mode is available.
 - [x] IPv6-only mode is available.
 - [x] Combined IPv4 and IPv6 mode is available.
+- [x] IPv4-only is the recommended default in the apply dialog.
+- [x] Active DNS is indicated in the catalog and on Home with the provider logo.
 - [x] Privileged-operation errors are displayed.
 - [ ] UAC elevation is handled automatically.
 - [ ] Previous static DNS configuration can be restored exactly.
@@ -919,12 +970,13 @@ cargo test
 
 ### Provider catalog
 
-- [x] Bundled provider cards are available.
+- [x] Bundled provider cards are available (eight providers).
+- [x] Official provider logos are shown in the catalog and on Home.
 - [x] Provider descriptions are localized.
-- [x] Advantages and limitations are shown.
+- [x] Protection profiles are selectable in the apply dialog.
 - [x] Search is functional.
 - [x] Category filters are functional.
-- [x] Details can be expanded.
+- [x] Raw IP addresses are hidden from the catalog list.
 - [x] Bundled entries are immutable.
 - [ ] Provider data can be updated independently of an app release.
 
@@ -950,8 +1002,10 @@ cargo test
 - [x] Dark mode is available.
 - [x] Follow System mode is available.
 - [x] Theme preference is persisted.
+- [x] Speed unit (Kbps / Mbps) is selectable and persisted.
 - [x] Major UI surfaces use shared theme tokens.
 - [x] UI icons adhere strictly to the Lucide icon library via `lucide-slint`.
+- [x] Clickable controls use a pointer cursor when enabled.
 - [ ] Native Windows theme changes are observed continuously.
 - [ ] Full accessibility audit is complete.
 

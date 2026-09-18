@@ -1,6 +1,6 @@
 [package]
 name = "usedns"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 build = "build.rs"
 description = "A simple DNS changer and recommendation app"
@@ -22,3 +22,19 @@ slint-build = "1.17.1"
 ico = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
 winresource = "0.1"
+
+# Keep local debug builds small: skip DWARF/PDB for the crate and all deps.
+# This is debug *info*, not opt-level — compile stays fast.
+[profile.dev]
+debug = 0
+incremental = true
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+debug = false

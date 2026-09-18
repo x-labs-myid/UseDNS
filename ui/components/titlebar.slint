@@ -66,7 +66,7 @@ export component Titlebar inherits Rectangle {
     callback window-close();
 
     // Label menu yang sedang aktif
-    property <string> current-label: 
+    property <string> current-label:
         page == 0 ? (language == "id" ? "Beranda" : "Home") :
         page == 1 ? (language == "id" ? "Daftar DNS" : "DNS Providers") :
         page == 2 ? (language == "id" ? "DNS kustom" : "Custom DNS") :
@@ -132,11 +132,31 @@ export component Titlebar inherits Rectangle {
                             width: 16px;
                             height: 16px;
 
-                            if page == 0: IconDisplay { icon: IconSet.House; size: 16px; stroke: #0076f5; }
-                            if page == 1: IconDisplay { icon: IconSet.List; size: 16px; stroke: #0076f5; }
-                            if page == 2: IconDisplay { icon: IconSet.Database; size: 16px; stroke: #0076f5; }
-                            if page == 3: IconDisplay { icon: IconSet.Shield; size: 16px; stroke: #0076f5; }
-                            if page == 4: IconDisplay { icon: IconSet.Settings; size: 16px; stroke: #0076f5; }
+                            if page == 0: IconDisplay {
+                                icon: IconSet.House;
+                                size: 16px;
+                                stroke: #0076f5;
+                            }
+                            if page == 1: IconDisplay {
+                                icon: IconSet.List;
+                                size: 16px;
+                                stroke: #0076f5;
+                            }
+                            if page == 2: IconDisplay {
+                                icon: IconSet.Database;
+                                size: 16px;
+                                stroke: #0076f5;
+                            }
+                            if page == 3: IconDisplay {
+                                icon: IconSet.Shield;
+                                size: 16px;
+                                stroke: #0076f5;
+                            }
+                            if page == 4: IconDisplay {
+                                icon: IconSet.Settings;
+                                size: 16px;
+                                stroke: #0076f5;
+                            }
                         }
                     }
 
@@ -194,6 +214,7 @@ export component Titlebar inherits Rectangle {
             TouchArea {
                 width: 100%;
                 height: 100%;
+                mouse-cursor: move;
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
                         root.window-drag();
@@ -282,5 +303,4 @@ export component Titlebar inherits Rectangle {
             }
         }
     }
-
 }

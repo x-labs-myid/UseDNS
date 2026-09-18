@@ -1,3 +1,4 @@
+import { ScrollView } from "std-widgets.slint";
 import { ConnectionBadge } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
@@ -62,87 +63,105 @@ component ChoiceCard inherits Rectangle {
     in property <bool> selected;
     callback clicked;
 
-    border-radius: 17px;
+    height: 56px;
+    horizontal-stretch: 1;
+    border-radius: 14px;
     background: selected ? Theme.surface-strong : Theme.background.with-alpha(0.28);
-    border-width: selected ? 2px : 1px;
+    border-width: 1.5px;
     border-color: selected ? Theme.accent : Theme.border;
     HorizontalLayout {
-        padding: 16px;
-        spacing: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 10px;
+        alignment: start;
         Rectangle {
-            width: 45px;
-            height: 45px;
-            border-radius: 23px;
+            width: 36px;
+            height: 36px;
+            y: 2px;
+            border-radius: 18px;
             background: root.selected ? Theme.cyan.with-alpha(0.15) : Theme.accent.with-alpha(0.10);
             if root.symbol == "system": IconDisplay {
                 icon: IconSet.Settings;
-                size: 20px;
+                size: 16px;
                 stroke: root.selected ? Theme.cyan : Theme.accent;
-                x: 12px;
-                y: 12px;
+                x: 10px;
+                y: 10px;
             }
             if root.symbol == "light": IconDisplay {
                 icon: IconSet.Sun;
-                size: 20px;
+                size: 16px;
                 stroke: root.selected ? Theme.cyan : Theme.accent;
-                x: 12px;
-                y: 12px;
+                x: 10px;
+                y: 10px;
             }
             if root.symbol == "dark": IconDisplay {
                 icon: IconSet.Moon;
-                size: 20px;
+                size: 16px;
                 stroke: root.selected ? Theme.cyan : Theme.accent;
-                x: 12px;
-                y: 12px;
+                x: 10px;
+                y: 10px;
             }
-            if root.symbol != "system" && root.symbol != "light" && root.symbol != "dark": Text {
-                text: root.symbol;
-                color: root.selected ? Theme.cyan : Theme.accent;
-                font-size: 21px;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+            if root.symbol == "language": IconDisplay {
+                icon: IconSet.Languages;
+                size: 16px;
+                stroke: root.selected ? Theme.cyan : Theme.accent;
+                x: 10px;
+                y: 10px;
+            }
+            if root.symbol == "speed": IconDisplay {
+                icon: IconSet.Gauge;
+                size: 16px;
+                stroke: root.selected ? Theme.cyan : Theme.accent;
+                x: 10px;
+                y: 10px;
             }
         }
 
         VerticalLayout {
-            alignment: center;
+            alignment: start;
+            spacing: 1px;
+            horizontal-stretch: 1;
             Text {
                 text: root.title;
                 color: Theme.text;
-                font-size: 14px;
+                font-size: 13px;
                 font-weight: 700;
+                overflow: elide;
+                horizontal-alignment: left;
             }
 
             Text {
                 text: root.detail;
                 color: Theme.muted-text;
-                font-size: 10px;
+                font-size: 9px;
+                overflow: elide;
+                horizontal-alignment: left;
             }
         }
 
         Rectangle {
-            horizontal-stretch: 1;
-        }
-
-        Rectangle {
-            width: 22px;
-            height: 22px;
-            border-radius: 11px;
+            width: 18px;
+            height: 18px;
+            y: 9px;
+            border-radius: 9px;
             background: root.selected ? Theme.accent : transparent;
             border-width: 2px;
             border-color: root.selected ? Theme.accent : Theme.border;
             if root.selected: Rectangle {
-                width: 8px;
-                height: 8px;
-                x: 7px;
-                y: 7px;
-                border-radius: 4px;
+                width: 6px;
+                height: 6px;
+                x: 6px;
+                y: 6px;
+                border-radius: 3px;
                 background: white;
             }
         }
     }
 
     TouchArea {
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
 }
@@ -234,13 +253,13 @@ export component SettingsPage inherits VerticalLayout {
     callback theme-changed(string);
     callback speed-unit-changed(string);
 
-    spacing: 13px;
+    spacing: 10px;
     HorizontalLayout {
-        height: 78px;
+        height: 64px;
         spacing: 12px;
         Rectangle {
             width: 5px;
-            height: 48px;
+            height: 40px;
             border-radius: 3px;
             background: Theme.cyan;
         }
@@ -270,214 +289,227 @@ export component SettingsPage inherits VerticalLayout {
         }
     }
 
-    Rectangle {
-        height: 198px;
-        border-radius: 20px;
-        background: Theme.surface;
-        border-width: 1px;
-        border-color: Theme.border;
+    ScrollView {
+        vertical-stretch: 1;
+        viewport-width: self.width;
         VerticalLayout {
-            padding: 16px;
-            spacing: 10px;
-            SettingHeader {
-                icon-index: 0;
-                title: language == "id" ? "Tampilan" : "Appearance";
-                subtitle: language == "id" ? "Ikuti sistem akan menyesuaikan tema dengan pengaturan Windows." : "Follow system automatically matches your Windows appearance.";
-            }
+            width: 100%;
+            spacing: 12px;
+            padding-right: 6px;
+            padding-bottom: 8px;
 
-            HorizontalLayout {
-                spacing: 11px;
-                ChoiceCard {
-                    symbol: "system";
-                    title: language == "id" ? "Ikuti sistem" : "Follow system";
-                    detail: language == "id" ? "Otomatis terang atau gelap" : "Automatically light or dark";
-                    selected: root.theme-mode == "system";
-                    clicked => { root.theme-mode = "system"; root.theme-changed("system"); }
-                }
-
-                ChoiceCard {
-                    symbol: "light";
-                    title: language == "id" ? "Terang" : "Light";
-                    detail: language == "id" ? "Bersih dan cerah" : "Clean and bright";
-                    selected: root.theme-mode == "light";
-                    clicked => { root.theme-mode = "light"; root.theme-changed("light"); }
-                }
-
-                ChoiceCard {
-                    symbol: "dark";
-                    title: language == "id" ? "Gelap" : "Dark";
-                    detail: language == "id" ? "Nyaman di cahaya redup" : "Comfortable in low light";
-                    selected: root.theme-mode == "dark";
-                    clicked => { root.theme-mode = "dark"; root.theme-changed("dark"); }
-                }
-            }
-        }
-    }
-
-    Rectangle {
-        height: 140px;
-        border-radius: 20px;
-        background: Theme.surface;
-        border-width: 1px;
-        border-color: Theme.border;
-        VerticalLayout {
-            padding: 16px;
-            spacing: 8px;
-            SettingHeader {
-                icon-index: 1;
-                title: language == "id" ? "Bahasa" : "Language";
-                subtitle: language == "id" ? "Pilih bahasa yang digunakan pada antarmuka UseDNS." : "Choose the language used throughout the UseDNS interface.";
-            }
-
-            HorizontalLayout {
-                spacing: 10px;
-                ChoiceCard {
-                    title: "English";
-                    detail: "English (EN)";
-                    symbol: "EN";
-                    selected: root.language == "en";
-                    clicked => { root.language = "en"; root.language-changed("en"); }
-                }
-
-                ChoiceCard {
-                    title: "Bahasa Indonesia";
-                    detail: "Indonesia (ID)";
-                    symbol: "ID";
-                    selected: root.language == "id";
-                    clicked => { root.language = "id"; root.language-changed("id"); }
-                }
-            }
-        }
-    }
-
-    HorizontalLayout {
-        spacing: 12px;
-        Rectangle {
-            border-radius: 20px;
-            background: Theme.surface;
-            border-width: 1px;
-            border-color: Theme.border;
-            VerticalLayout {
-                padding: 16px;
-                spacing: 4px;
-                SettingHeader {
-                    icon-index: 0;
-                    title: language == "id" ? "Perilaku aplikasi" : "Application behavior";
-                    subtitle: language == "id" ? "Perilaku aktif pada versi MVP." : "Behavior currently active in the MVP.";
-                }
-
-                InfoRow {
-                    icon-index: 0;
-                    title: language == "id" ? "Mulai minim di tray" : "Start minimized in tray";
-                    detail: language == "id" ? "Dukungan system tray belum tersedia." : "System tray support is not available yet.";
-                    value: language == "id" ? "Belum tersedia" : "Not available";
-                }
-
-                InfoRow {
-                    icon-index: 1;
-                    title: language == "id" ? "Periksa koneksi saat startup" : "Check connection at startup";
-                    detail: language == "id" ? "Memeriksa resolver setelah aplikasi dibuka." : "Checks the resolver after the app opens.";
-                    value: language == "id" ? "Aktif" : "Enabled";
-                    active: true;
-                }
-
-                InfoRow {
-                    icon-index: 2;
-                    title: language == "id" ? "Notifikasi perubahan DNS" : "DNS change notifications";
-                    detail: language == "id" ? "Status hasil ditampilkan di dalam aplikasi." : "Results are shown inside the application.";
-                    value: language == "id" ? "Aktif" : "Enabled";
-                    active: true;
-                }
-            }
-        }
-
-        Rectangle {
-            border-radius: 20px;
-            background: Theme.surface;
-            border-width: 1px;
-            border-color: Theme.border;
-            VerticalLayout {
-                padding: 16px;
-                spacing: 4px;
-                SettingHeader {
-                    icon-index: 2;
-                    title: language == "id" ? "Preferensi pengujian" : "Testing preferences";
-                    subtitle: language == "id" ? "Konfigurasi pengukuran jaringan saat ini." : "Current network measurement configuration.";
-                }
-
-                InfoRow {
-                    icon-index: 1;
-                    title: language == "id" ? "Interval aktivitas jaringan" : "Network activity interval";
-                    detail: language == "id" ? "Counter adapter diperbarui secara real-time." : "Adapter counters update in real time.";
-                    value: language == "id" ? "Setiap 1 detik" : "Every 1 second";
-                    active: true;
-                }
-
-                // Satuan kecepatan internet (Default Kbps)
+            Rectangle {
+                height: 154px;
+                border-radius: 20px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
                 VerticalLayout {
-                    spacing: 6px;
-                    padding-top: 4px;
-                    padding-bottom: 4px;
-                    Text {
-                        text: language == "id" ? "Satuan Kecepatan Internet:" : "Internet Speed Unit:";
-                        color: Theme.secondary-text;
-                        font-size: 11px;
-                        font-weight: 600;
+                    padding: 16px;
+                    spacing: 10px;
+                    SettingHeader {
+                        icon-index: 0;
+                        title: language == "id" ? "Tampilan" : "Appearance";
+                        subtitle: language == "id" ? "Ikuti sistem akan menyesuaikan tema dengan pengaturan Windows." : "Follow system automatically matches your Windows appearance.";
                     }
 
                     HorizontalLayout {
-                        spacing: 8px;
+                        spacing: 11px;
+                        alignment: start;
                         ChoiceCard {
-                            symbol: "K";
-                            title: "Kbps";
-                            detail: language == "id" ? "Kilobit/detik (Default)" : "Kilobits/sec (Default)";
-                            selected: root.speed-unit == "kbps";
-                            clicked => {
-                                root.speed-unit = "kbps";
-                                root.speed-unit-changed("kbps");
-                            }
+                            symbol: "system";
+                            title: language == "id" ? "Ikuti sistem" : "Follow system";
+                            detail: language == "id" ? "Otomatis terang atau gelap" : "Automatically light or dark";
+                            selected: root.theme-mode == "system";
+                            clicked => { root.theme-mode = "system"; root.theme-changed("system"); }
                         }
 
                         ChoiceCard {
-                            symbol: "M";
-                            title: "Mbps";
-                            detail: language == "id" ? "Megabit/detik" : "Megabits/sec";
-                            selected: root.speed-unit == "mbps";
-                            clicked => {
-                                root.speed-unit = "mbps";
-                                root.speed-unit-changed("mbps");
+                            symbol: "light";
+                            title: language == "id" ? "Terang" : "Light";
+                            detail: language == "id" ? "Bersih dan cerah" : "Clean and bright";
+                            selected: root.theme-mode == "light";
+                            clicked => { root.theme-mode = "light"; root.theme-changed("light"); }
+                        }
+
+                        ChoiceCard {
+                            symbol: "dark";
+                            title: language == "id" ? "Gelap" : "Dark";
+                            detail: language == "id" ? "Nyaman di cahaya redup" : "Comfortable in low light";
+                            selected: root.theme-mode == "dark";
+                            clicked => { root.theme-mode = "dark"; root.theme-changed("dark"); }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 154px;
+                border-radius: 20px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 10px;
+                    SettingHeader {
+                        icon-index: 1;
+                        title: language == "id" ? "Bahasa" : "Language";
+                        subtitle: language == "id" ? "Pilih bahasa yang digunakan pada antarmuka UseDNS." : "Choose the language used throughout the UseDNS interface.";
+                    }
+
+                    HorizontalLayout {
+                        spacing: 11px;
+                        alignment: start;
+                        ChoiceCard {
+                            title: "English";
+                            detail: "English (EN)";
+                            symbol: "language";
+                            selected: root.language == "en";
+                            clicked => { root.language = "en"; root.language-changed("en"); }
+                        }
+
+                        ChoiceCard {
+                            title: "Bahasa Indonesia";
+                            detail: "Indonesia (ID)";
+                            symbol: "language";
+                            selected: root.language == "id";
+                            clicked => { root.language = "id"; root.language-changed("id"); }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                Rectangle {
+                    border-radius: 20px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 4px;
+                        SettingHeader {
+                            icon-index: 0;
+                            title: language == "id" ? "Perilaku aplikasi" : "Application behavior";
+                            subtitle: language == "id" ? "Perilaku aktif pada versi MVP." : "Behavior currently active in the MVP.";
+                        }
+
+                        InfoRow {
+                            icon-index: 0;
+                            title: language == "id" ? "Mulai minim di tray" : "Start minimized in tray";
+                            detail: language == "id" ? "Dukungan system tray belum tersedia." : "System tray support is not available yet.";
+                            value: language == "id" ? "Belum tersedia" : "Not available";
+                        }
+
+                        InfoRow {
+                            icon-index: 1;
+                            title: language == "id" ? "Periksa koneksi saat startup" : "Check connection at startup";
+                            detail: language == "id" ? "Memeriksa resolver setelah aplikasi dibuka." : "Checks the resolver after the app opens.";
+                            value: language == "id" ? "Aktif" : "Enabled";
+                            active: true;
+                        }
+
+                        InfoRow {
+                            icon-index: 2;
+                            title: language == "id" ? "Notifikasi perubahan DNS" : "DNS change notifications";
+                            detail: language == "id" ? "Status hasil ditampilkan di dalam aplikasi." : "Results are shown inside the application.";
+                            value: language == "id" ? "Aktif" : "Enabled";
+                            active: true;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    border-radius: 20px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 4px;
+                        SettingHeader {
+                            icon-index: 2;
+                            title: language == "id" ? "Preferensi pengujian" : "Testing preferences";
+                            subtitle: language == "id" ? "Konfigurasi pengukuran jaringan saat ini." : "Current network measurement configuration.";
+                        }
+
+                        InfoRow {
+                            icon-index: 1;
+                            title: language == "id" ? "Interval aktivitas jaringan" : "Network activity interval";
+                            detail: language == "id" ? "Counter adapter diperbarui secara real-time." : "Adapter counters update in real time.";
+                            value: language == "id" ? "Setiap 1 detik" : "Every 1 second";
+                            active: true;
+                        }
+
+                        // Satuan kecepatan internet (Default Kbps)
+                VerticalLayout {
+                            spacing: 6px;
+                            padding-top: 4px;
+                            padding-bottom: 4px;
+                            Text {
+                                text: language == "id" ? "Satuan Kecepatan Internet:" : "Internet Speed Unit:";
+                                color: Theme.secondary-text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                ChoiceCard {
+                                    symbol: "speed";
+                                    title: "Kbps";
+                                    detail: language == "id" ? "Kilobit/detik (Default)" : "Kilobits/sec (Default)";
+                                    selected: root.speed-unit == "kbps";
+                                    clicked => {
+                                        root.speed-unit = "kbps";
+                                        root.speed-unit-changed("kbps");
+                                    }
+                                }
+
+                                ChoiceCard {
+                                    symbol: "speed";
+                                    title: "Mbps";
+                                    detail: language == "id" ? "Megabit/detik" : "Megabits/sec";
+                                    selected: root.speed-unit == "mbps";
+                                    clicked => {
+                                        root.speed-unit = "mbps";
+                                        root.speed-unit-changed("mbps");
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    }
 
-    Rectangle {
-        height: 45px;
-        border-radius: 15px;
-        background: Theme.accent.with-alpha(0.07);
-        border-width: 1px;
-        border-color: Theme.accent.with-alpha(0.4);
-        HorizontalLayout {
-            padding-left: 15px;
-            spacing: 10px;
-            VerticalLayout {
-                width: 22px;
-                alignment: center;
-                IconDisplay {
-                    icon: IconSet.Shield;
-                    size: 18px;
-                    stroke: Theme.accent;
+            Rectangle {
+                height: 45px;
+                border-radius: 15px;
+                background: Theme.accent.with-alpha(0.07);
+                border-width: 1px;
+                border-color: Theme.accent.with-alpha(0.4);
+                HorizontalLayout {
+                    padding-left: 15px;
+                    spacing: 10px;
+                    VerticalLayout {
+                        width: 22px;
+                        alignment: center;
+                        IconDisplay {
+                            icon: IconSet.Shield;
+                            size: 18px;
+                            stroke: Theme.accent;
+                        }
+                    }
+
+                    Text {
+                        text: language == "id" ? "Tips: Perubahan tampilan dan bahasa langsung diterapkan dan disimpan secara lokal." : "Tip: Appearance and language changes are applied immediately and stored locally.";
+                        color: Theme.secondary-text;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                    }
                 }
-            }
-
-            Text {
-                text: language == "id" ? "Tips: Perubahan tampilan dan bahasa langsung diterapkan dan disimpan secara lokal." : "Tip: Appearance and language changes are applied immediately and stored locally.";
-                color: Theme.secondary-text;
-                font-size: 10px;
-                vertical-alignment: center;
             }
         }
     }
