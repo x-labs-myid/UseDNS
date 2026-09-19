@@ -128,7 +128,6 @@ jobs:
           $outfile = Join-Path (Resolve-Path dist).Path "usedns-$env:VERSION-windows-x86_64-setup.exe"
           & $makensis `
             "/DAPP_VERSION=$env:VERSION" `
-            "/DAPP_EXE=packaging\windows\usedns.exe" `
             "/DOUT_FILE=$outfile" `
             "packaging\windows\installer.nsi"
           if ($LASTEXITCODE -ne 0) { throw "NSIS failed" }
