@@ -524,7 +524,11 @@ mod tests {
     fn default_providers_are_valid() {
         for provider in default_providers() {
             assert!(provider.validate().is_ok(), "{}", provider.name);
-            assert!(!provider.get_profiles().is_empty(), "Profiles for {}", provider.name);
+            assert!(
+                !provider.get_profiles().is_empty(),
+                "Profiles for {}",
+                provider.name
+            );
         }
     }
 

@@ -10,8 +10,8 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{
-        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -296,7 +296,7 @@ struct Margins {
 #[link(name = "dwmapi")]
 unsafe extern "system" {
     fn ReleaseCapture() -> i32;
-    fn PostMessageW(hwnd: *mut std::ffi::c_void, msg: u32, wparam: usize, lparam: isize) -> i32;
+    fn SendMessageW(hwnd: *mut std::ffi::c_void, msg: u32, wparam: usize, lparam: isize) -> isize;
     fn ShowWindow(hwnd: *mut std::ffi::c_void, ncmdshow: i32) -> i32;
     fn DwmExtendFrameIntoClientArea(hwnd: *mut std::ffi::c_void, pmargins: *const Margins) -> i32;
     fn DwmSetWindowAttribute(
@@ -387,10 +387,10 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 if !target_hwnd.is_null() {
                     // SAFETY: target_hwnd was checked non-null and refers to a valid top-level window.
-                    // ReleaseCapture releases any pointer capture, and WM_NCLBUTTONDOWN initiates window moving.
+                    // Send WM_NCLBUTTONDOWN synchronously so the caption drag uses this mouse press.
                     unsafe {
                         ReleaseCapture();
-                        PostMessageW(
+                        SendMessageW(
                             target_hwnd,
                             0x00A1, /* WM_NCLBUTTONDOWN */
                             2,      /* HTCAPTION */

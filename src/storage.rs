@@ -1,7 +1,11 @@
 use crate::models::DnsProvider;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs::{self, File},
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Settings {
@@ -31,6 +35,14 @@ fn settings_path() -> Option<PathBuf> {
     ProjectDirs::from("dev", "UseDNS", "UseDNS").map(|dirs| dirs.config_dir().join("settings.json"))
 }
 
+fn backup_path(path: &Path) -> PathBuf {
+    path.with_extension("json.bak")
+}
+
+fn temporary_path(path: &Path) -> PathBuf {
+    path.with_extension("json.tmp")
+}
+
 pub fn load() -> Settings {
     let Some(path) = settings_path() else {
         return Settings {
@@ -38,7 +50,12 @@ pub fn load() -> Settings {
             ..Default::default()
         };
     };
-    fs::read_to_string(path)
+    let backup = backup_path(&path);
+    if !path.exists() && backup.exists() {
+        let _ = fs::rename(&backup, &path);
+    }
+
+    fs::read_to_string(&path)
         .ok()
         .and_then(|data| serde_json::from_str(&data).ok())
         .unwrap_or_else(|| Settings {
@@ -54,5 +71,28 @@ pub fn save(settings: &Settings) -> io::Result<()> {
         fs::create_dir_all(parent)?;
     }
     let data = serde_json::to_vec_pretty(settings).map_err(io::Error::other)?;
-    fs::write(path, data)
+    let temporary = temporary_path(&path);
+    let backup = backup_path(&path);
+
+    let mut file = File::create(&temporary)?;
+    file.write_all(&data)?;
+    file.sync_all()?;
+    drop(file);
+
+    if backup.exists() {
+        fs::remove_file(&backup)?;
+    }
+    if path.exists() {
+        fs::rename(&path, &backup)?;
+    }
+    if let Err(error) = fs::rename(&temporary, &path) {
+        if backup.exists() {
+            let _ = fs::rename(&backup, &path);
+        }
+        return Err(error);
+    }
+    if backup.exists() {
+        fs::remove_file(backup)?;
+    }
+    Ok(())
 }
