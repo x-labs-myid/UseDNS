@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod models;
 mod storage;
 mod system;
@@ -527,13 +529,13 @@ fn main() -> Result<(), slint::PlatformError> {
                                     &query,
                                     &category,
                                 );
+                                window.set_busy(false);
                                 let dns = selected.dns.clone();
                                 let weak_check = weak.clone();
                                 std::thread::spawn(move || {
                                     let result = system::check_connection(&dns);
                                     let _ = slint::invoke_from_event_loop(move || {
                                         if let Some(window) = weak_check.upgrade() {
-                                            window.set_busy(false);
                                             match result {
                                                 Ok(ms) => {
                                                     window.set_latency(format!("{ms} ms").into());

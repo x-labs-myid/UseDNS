@@ -18,6 +18,12 @@ lucide-slint = "1.43.0"
 slint-build = "1.17.1"
 
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+] }
+
 [target.'cfg(windows)'.build-dependencies]
 ico = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }

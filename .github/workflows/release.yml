@@ -116,26 +116,78 @@ jobs:
       - name: Build release
         run: cargo build --locked --release --target ${{ matrix.target }}
 
-      - name: Stage artifact
-        shell: bash
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
         env:
           VERSION: ${{ needs.meta.outputs.version }}
         run: |
-          mkdir -p dist
-          src="target/${{ matrix.target }}/release/${{ matrix.artifact }}"
-          dest="usedns-${VERSION}-${{ matrix.asset_suffix }}"
-          cp "${src}" "dist/${dest}"
-          if [[ "${RUNNER_OS}" != "Windows" ]]; then
-            chmod +x "dist/${dest}"
+          mkdir dist
+          Copy-Item "target\${{ matrix.target }}\release\usedns.exe" "packaging\windows\usedns.exe"
+          choco install nsis --no-progress -y
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          $outfile = Join-Path (Resolve-Path dist).Path "usedns-$env:VERSION-windows-x86_64-setup.exe"
+          & $makensis `
+            "/DAPP_VERSION=$env:VERSION" `
+            "/DAPP_EXE=packaging\windows\usedns.exe" `
+            "/DOUT_FILE=$outfile" `
+            "packaging\windows\installer.nsi"
+          if ($LASTEXITCODE -ne 0) { throw "NSIS failed" }
+          Get-ChildItem dist
+
+      - name: Package Linux archive and .deb
+        if: runner.os == 'Linux'
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist staging
+          cp "target/${{ matrix.target }}/release/usedns" staging/usedns
+          chmod +x staging/usedns
+          tar -C staging -czf "dist/usedns-${VERSION}-linux-x86_64.tar.gz" usedns
+
+          deb_version="${VERSION}"
+          if [[ "${VERSION}" == *-* ]]; then
+            deb_version="${VERSION%%-*}~${VERSION#*-}"
           fi
-          echo "ASSET_NAME=${dest}" >> "${GITHUB_ENV}"
+
+          pkg_root="pkg-deb"
+          mkdir -p "${pkg_root}/DEBIAN" \
+            "${pkg_root}/usr/bin" \
+            "${pkg_root}/usr/share/applications" \
+            "${pkg_root}/usr/share/pixmaps" \
+            "${pkg_root}/usr/share/doc/usedns"
+          cp staging/usedns "${pkg_root}/usr/bin/usedns"
+          chmod 755 "${pkg_root}/usr/bin/usedns"
+          cp packaging/linux/usedns.desktop "${pkg_root}/usr/share/applications/usedns.desktop"
+          if [[ -f .assets/UseDNS.png ]]; then
+            cp .assets/UseDNS.png "${pkg_root}/usr/share/pixmaps/usedns.png"
+          fi
+          sed "s/DEB_VERSION/${deb_version}/g" packaging/linux/control > "${pkg_root}/DEBIAN/control"
+          echo "See https://github.com/x-labs-myid/UseDNS" > "${pkg_root}/usr/share/doc/usedns/README"
+          dpkg-deb --root-owner-group --build "${pkg_root}" "dist/usedns_${deb_version}_amd64.deb"
+          dpkg-deb --info "dist/usedns_${deb_version}_amd64.deb"
           ls -lh dist
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          mkdir -p dist "UseDNS.app/Contents/MacOS" UseDNS.app/Contents/Resources
+          cp "target/${{ matrix.target }}/release/usedns" UseDNS.app/Contents/MacOS/UseDNS
+          chmod +x UseDNS.app/Contents/MacOS/UseDNS
+          sed "s/APP_VERSION/${VERSION}/g" packaging/macos/Info.plist > UseDNS.app/Contents/Info.plist
+          if [[ -f .assets/UseDNS.png ]]; then
+            mkdir -p UseDNS.app/Contents/Resources
+            cp .assets/UseDNS.png UseDNS.app/Contents/Resources/UseDNS.png
+          fi
+          ditto -c -k --keepParent UseDNS.app "dist/usedns-${VERSION}-${{ matrix.asset_suffix }}.zip"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ASSET_NAME }}
-          path: dist/${{ env.ASSET_NAME }}
+          name: dist-${{ matrix.asset_suffix }}
+          path: dist/*
           if-no-files-found: error
 
   publish:
@@ -162,6 +214,10 @@ jobs:
           CHANNEL: ${{ needs.meta.outputs.channel }}
         run: |
           set -euo pipefail
+          deb_version="${VERSION}"
+          if [[ "${VERSION}" == *-* ]]; then
+            deb_version="${VERSION%%-*}~${VERSION#*-}"
+          fi
           {
             case "${CHANNEL}" in
               alpha)
@@ -186,12 +242,13 @@ jobs:
                 ;;
             esac
             echo
-            echo "Builds:"
+            echo "Downloads:"
             echo
-            echo "- Windows 10/11 (x64): \`usedns-${VERSION}-windows-x86_64.exe\`"
-            echo "- Linux (x64): \`usedns-${VERSION}-linux-x86_64\`"
-            echo "- macOS Apple Silicon: \`usedns-${VERSION}-macos-aarch64\`"
-            echo "- macOS Intel: \`usedns-${VERSION}-macos-x86_64\`"
+            echo "- Windows: \`usedns-${VERSION}-windows-x86_64-setup.exe\` — run the setup wizard. It installs to Program Files and adds Start Menu / desktop shortcuts."
+            echo "- Linux (Debian/Ubuntu): \`usedns_${deb_version}_amd64.deb\` — install with \`sudo apt install ./usedns_*.deb\`."
+            echo "- Linux (tarball): \`usedns-${VERSION}-linux-x86_64.tar.gz\` — unpack and run \`./usedns\`."
+            echo "- macOS Apple Silicon: \`usedns-${VERSION}-macos-aarch64.zip\` — unzip and drop \`UseDNS.app\` in Applications."
+            echo "- macOS Intel: \`usedns-${VERSION}-macos-x86_64.zip\` — same as above, for Intel Macs."
             echo
             echo "SHA256 checksums are in \`SHA256SUMS.txt\`."
             echo

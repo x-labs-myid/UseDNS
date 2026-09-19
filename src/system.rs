@@ -1,4 +1,26 @@
-use std::{process::Command, time::Instant};
+use std::{
+    net::{IpAddr, SocketAddr, TcpStream},
+    time::{Duration, Instant},
+};
+
+#[cfg(windows)]
+use std::process::Command;
+
+#[cfg(windows)]
+use std::{os::windows::process::CommandExt, process::Stdio};
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(windows)]
+fn hidden_output(command: &mut Command) -> std::io::Result<std::process::Output> {
+    command
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct AdapterInfo {
@@ -9,18 +31,16 @@ pub struct AdapterInfo {
 
 #[cfg(windows)]
 pub fn prefers_dark_mode() -> bool {
-    Command::new("reg.exe")
-        .args([
-            "query",
-            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-            "/v",
-            "AppsUseLightTheme",
-        ])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).contains("0x0"))
-        .unwrap_or(false)
+    hidden_output(Command::new("reg.exe").args([
+        "query",
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+        "/v",
+        "AppsUseLightTheme",
+    ]))
+    .ok()
+    .filter(|output| output.status.success())
+    .map(|output| String::from_utf8_lossy(&output.stdout).contains("0x0"))
+    .unwrap_or(false)
 }
 
 #[cfg(not(windows))]
@@ -30,10 +50,15 @@ pub fn prefers_dark_mode() -> bool {
 
 #[cfg(windows)]
 fn powershell(script: &str) -> Result<String, String> {
-    let output = Command::new("powershell.exe")
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .output()
-        .map_err(|error| format!("Could not start PowerShell: {error}"))?;
+    let output = hidden_output(Command::new("powershell.exe").args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        script,
+    ]))
+    .map_err(|error| format!("Could not start PowerShell: {error}"))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
@@ -81,23 +106,53 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
 }
 
 #[cfg(windows)]
+fn utf16z(buf: &[u16]) -> String {
+    let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+    String::from_utf16_lossy(&buf[..len])
+}
+
+#[cfg(windows)]
 pub fn network_counters(adapter: &str) -> Result<(u64, u64), String> {
-    let escaped_adapter = adapter.replace('\'', "''");
-    let output = powershell(&format!(
-        "$s=Get-NetAdapterStatistics -Name '{escaped_adapter}'; Write-Output ($s.ReceivedBytes.ToString() + [char]9 + $s.SentBytes.ToString())"
-    ))?;
-    let (received, sent) = output
-        .split_once('\t')
-        .ok_or_else(|| "Windows returned invalid network statistics.".to_string())?;
-    Ok((
-        received
-            .trim()
-            .parse()
-            .map_err(|_| "Invalid received-byte counter.".to_string())?,
-        sent.trim()
-            .parse()
-            .map_err(|_| "Invalid sent-byte counter.".to_string())?,
-    ))
+    use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
+
+    let needle = adapter.trim();
+    if needle.is_empty() {
+        return Err("No network adapter was selected.".into());
+    }
+
+    unsafe {
+        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+        GetIfTable2(&mut table)
+            .ok()
+            .map_err(|error| format!("Could not read adapter statistics: {error}"))?;
+        if table.is_null() {
+            return Err("Could not read adapter statistics.".into());
+        }
+
+        struct TableGuard(*mut MIB_IF_TABLE2);
+        impl Drop for TableGuard {
+            fn drop(&mut self) {
+                if !self.0.is_null() {
+                    unsafe {
+                        FreeMibTable(self.0.cast());
+                    }
+                }
+            }
+        }
+        let _guard = TableGuard(table);
+
+        let table_ref = &*table;
+        let rows =
+            std::slice::from_raw_parts(table_ref.Table.as_ptr(), table_ref.NumEntries as usize);
+        for row in rows {
+            let alias = utf16z(&row.Alias);
+            if alias.eq_ignore_ascii_case(needle) {
+                return Ok((row.InOctets, row.OutOctets));
+            }
+        }
+    }
+
+    Err("The selected adapter was not found.".into())
 }
 
 #[cfg(not(windows))]
@@ -142,24 +197,20 @@ pub fn reset_dns(_adapter: &str) -> Result<(), String> {
 }
 
 pub fn check_connection(target: &str) -> Result<u128, String> {
-    let clean_target = target.split(',').next().unwrap_or("1.1.1.1").trim();
-    let target = if clean_target.is_empty() {
-        "1.1.1.1"
-    } else {
-        clean_target
-    };
+    let clean_target = target
+        .split([',', ';', ' ', '\t'])
+        .map(str::trim)
+        .find(|part| !part.is_empty() && *part != "—")
+        .unwrap_or("1.1.1.1");
+    let ip: IpAddr = clean_target
+        .parse()
+        .map_err(|_| format!("Could not check the resolver address '{clean_target}'."))?;
     let started = Instant::now();
-    #[cfg(windows)]
-    let status = Command::new("ping")
-        .args(["-n", "2", "-w", "2000", target])
-        .status();
-    #[cfg(not(windows))]
-    let status = Command::new("ping")
-        .args(["-c", "2", "-W", "2", target])
-        .status();
-    match status {
-        Ok(result) if result.success() => Ok(started.elapsed().as_millis() / 2),
-        Ok(_) => Err("The DNS resolver did not respond.".into()),
-        Err(error) => Err(format!("Could not run the connection check: {error}")),
+    for port in [53_u16, 443] {
+        let addr = SocketAddr::new(ip, port);
+        if TcpStream::connect_timeout(&addr, Duration::from_secs(2)).is_ok() {
+            return Ok(started.elapsed().as_millis().max(1));
+        }
     }
+    Err("The DNS resolver did not respond.".into())
 }

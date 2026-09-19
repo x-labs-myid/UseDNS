@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=UseDNS
+Comment=Choose and switch DNS resolvers
+Exec=usedns
+Icon=usedns
+Terminal=false
+Type=Application
+Categories=Network;Utility;
+StartupNotify=true
+Keywords=DNS;network;resolver;
