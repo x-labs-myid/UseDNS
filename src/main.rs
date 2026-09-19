@@ -6,6 +6,8 @@ mod system;
 
 use models::DnsProvider;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+#[cfg(windows)]
+use std::io::Write;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -292,11 +294,45 @@ struct Margins {
 }
 
 #[cfg(windows)]
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Rect {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+struct DragOrigin {
+    cursor: Point,
+    window: Rect,
+}
+
+#[cfg(windows)]
 #[link(name = "user32")]
 #[link(name = "dwmapi")]
 unsafe extern "system" {
-    fn ReleaseCapture() -> i32;
-    fn SendMessageW(hwnd: *mut std::ffi::c_void, msg: u32, wparam: usize, lparam: isize) -> isize;
+    fn GetCursorPos(point: *mut Point) -> i32;
+    fn GetWindowRect(hwnd: *mut std::ffi::c_void, rect: *mut Rect) -> i32;
+    fn SetWindowPos(
+        hwnd: *mut std::ffi::c_void,
+        insert_after: *mut std::ffi::c_void,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        flags: u32,
+    ) -> i32;
     fn ShowWindow(hwnd: *mut std::ffi::c_void, ncmdshow: i32) -> i32;
     fn DwmExtendFrameIntoClientArea(hwnd: *mut std::ffi::c_void, pmargins: *const Margins) -> i32;
     fn DwmSetWindowAttribute(
@@ -308,6 +344,72 @@ unsafe extern "system" {
     fn GetForegroundWindow() -> *mut std::ffi::c_void;
     fn GetActiveWindow() -> *mut std::ffi::c_void;
 }
+
+#[cfg(windows)]
+fn drag_origin(hwnd: isize) -> Option<DragOrigin> {
+    let mut cursor = Point { x: 0, y: 0 };
+    let mut window = Rect {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    // SAFETY: hwnd originates from Slint's Win32 window handle and both output pointers are valid.
+    unsafe {
+        (GetCursorPos(&mut cursor) != 0 && GetWindowRect(hwnd as _, &mut window) != 0)
+            .then_some(DragOrigin { cursor, window })
+    }
+}
+
+#[cfg(windows)]
+fn move_window_from_origin(hwnd: isize, origin: DragOrigin) {
+    let mut cursor = Point { x: 0, y: 0 };
+    // SAFETY: hwnd originates from Slint's Win32 window handle and cursor is a valid output pointer.
+    unsafe {
+        if GetCursorPos(&mut cursor) != 0 {
+            let moved = SetWindowPos(
+                hwnd as _,
+                std::ptr::null_mut(),
+                origin.window.left + cursor.x - origin.cursor.x,
+                origin.window.top + cursor.y - origin.cursor.y,
+                0,
+                0,
+                0x0001 | 0x0004 | 0x0010, // SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+            );
+            // #region debug-point D:set-window-position
+            report_drag_debug(
+                "D",
+                "SetWindowPos completed",
+                format!(
+                    r#""success":{},"x":{},"y":{}"#,
+                    moved != 0,
+                    origin.window.left + cursor.x - origin.cursor.x,
+                    origin.window.top + cursor.y - origin.cursor.y
+                ),
+            );
+            // #endregion
+        }
+    }
+}
+
+// #region debug-point A-D:native-drag-reporting
+#[cfg(windows)]
+fn report_drag_debug(hypothesis_id: &'static str, message: &'static str, data: String) {
+    std::thread::spawn(move || {
+        let Ok(mut stream) = std::net::TcpStream::connect("127.0.0.1:7777") else {
+            return;
+        };
+        let body = format!(
+            r#"{{"sessionId":"titlebar-drag-stuck","runId":"post-fix","hypothesisId":"{hypothesis_id}","location":"src/main.rs","msg":"[DEBUG] {message}","data":{{{data}}}}}"#
+        );
+        let request = format!(
+            "POST /event HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let _ = stream.write_all(request.as_bytes());
+    });
+}
+// #endregion
 
 fn main() -> Result<(), slint::PlatformError> {
     let window = AppWindow::new()?;
@@ -352,54 +454,48 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     {
-        let weak = window.as_weak();
-        window.on_window_drag(move || {
+        // #region debug-point C:pointer-lifecycle
+        window.on_window_drag_debug(move |kind| {
             #[cfg(windows)]
-            {
-                let mut target_hwnd: *mut std::ffi::c_void = if let Some(h) = hwnd {
-                    h as _
-                } else {
-                    std::ptr::null_mut()
-                };
-
-                if target_hwnd.is_null() {
-                    if let Some(w) = weak.upgrade() {
-                        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-                        if let Ok(handle) = w.window().window_handle().window_handle() {
-                            if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-                                target_hwnd = win32.hwnd.get() as _;
-                            }
-                        }
-                    }
-                }
-
-                if target_hwnd.is_null() {
-                    // SAFETY: GetActiveWindow and GetForegroundWindow are standard Win32 queries with no preconditions.
-                    unsafe {
-                        let active = GetActiveWindow();
-                        if !active.is_null() {
-                            target_hwnd = active;
-                        } else {
-                            target_hwnd = GetForegroundWindow();
-                        }
-                    }
-                }
-
-                if !target_hwnd.is_null() {
-                    // SAFETY: target_hwnd was checked non-null and refers to a valid top-level window.
-                    // Send WM_NCLBUTTONDOWN synchronously so the caption drag uses this mouse press.
-                    unsafe {
-                        ReleaseCapture();
-                        SendMessageW(
-                            target_hwnd,
-                            0x00A1, /* WM_NCLBUTTONDOWN */
-                            2,      /* HTCAPTION */
-                            0,
-                        );
-                    }
-                }
-            }
+            report_drag_debug("C", "titlebar pointer event", format!(r#""kind":{kind}"#));
         });
+        // #endregion
+
+        #[cfg(windows)]
+        {
+            let drag_state = Rc::new(RefCell::new(None::<DragOrigin>));
+            window.on_window_drag(move |kind| {
+                let Some(target_hwnd) = hwnd else {
+                    return;
+                };
+                match kind {
+                    0 => {
+                        *drag_state.borrow_mut() = drag_origin(target_hwnd);
+                        // #region debug-point A:managed-drag-start
+                        report_drag_debug(
+                            "A",
+                            "managed titlebar drag started",
+                            format!(
+                                r#""hwnd":{target_hwnd},"origin_found":{}"#,
+                                drag_state.borrow().is_some()
+                            ),
+                        );
+                        // #endregion
+                    }
+                    1 => {
+                        *drag_state.borrow_mut() = None;
+                        // #region debug-point A:managed-drag-stop
+                        report_drag_debug("A", "managed titlebar drag stopped", String::new());
+                        // #endregion
+                    }
+                    _ => {
+                        if let Some(origin) = *drag_state.borrow() {
+                            move_window_from_origin(target_hwnd, origin);
+                        }
+                    }
+                }
+            });
+        }
     }
 
     {

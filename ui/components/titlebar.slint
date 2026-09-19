@@ -61,7 +61,8 @@ export component Titlebar inherits Rectangle {
     in-out property <bool> menu-open: false;
     callback navigate(int);
     callback toggle-theme();
-    callback window-drag();
+    callback window-drag(int);
+    callback window-drag-debug(int);
     callback window-minimize();
     callback window-close();
 
@@ -196,7 +197,7 @@ export component Titlebar inherits Rectangle {
             }
         }
 
-        // 3. Middle draggable space with application subtitle
+        // 3. Draggable application subtitle.
         drag-area := Rectangle {
             horizontal-stretch: 1;
             height: 100%;
@@ -216,9 +217,10 @@ export component Titlebar inherits Rectangle {
                 height: 100%;
                 mouse-cursor: move;
                 pointer-event(event) => {
-                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
-                        root.window-drag();
-                    }
+                    let kind = event.kind == PointerEventKind.down ? 0 :
+                        event.kind == PointerEventKind.up ? 1 : 2;
+                    root.window-drag(kind);
+                    root.window-drag-debug(kind);
                 }
             }
         }

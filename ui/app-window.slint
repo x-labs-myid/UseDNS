@@ -83,7 +83,8 @@ export component AppWindow inherits Window {
     callback save-provider(string, string, string, string, string, string, string, string);
     callback test-resolver(string, string);
     callback clear-form;
-    callback window-drag;
+    callback window-drag(int);
+    callback window-drag-debug(int);
     callback window-minimize;
     callback window-close;
 
@@ -111,7 +112,8 @@ export component AppWindow inherits Window {
                     root.theme-mode = root.theme-mode == "dark" ? "light" : "dark";
                     root.theme-changed(root.theme-mode);
                 }
-                window-drag => { root.window-drag(); }
+                window-drag(kind) => { root.window-drag(kind); }
+                window-drag-debug(kind) => { root.window-drag-debug(kind); }
                 window-minimize => { root.window-minimize(); }
                 window-close => { root.window-close(); }
             }
