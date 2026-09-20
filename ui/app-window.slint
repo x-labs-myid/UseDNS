@@ -91,10 +91,10 @@ export component AppWindow inherits Window {
     window-frame := Rectangle {
         width: 100%;
         height: 100%;
-        border-radius: 12px;
+        border-radius: Theme.radius-panel;
         background: Theme.background;
         border-width: 1px;
-        border-color: Theme.border;
+        border-color: Theme.glass-highlight;
         clip: true;
 
         VerticalLayout {
@@ -120,7 +120,9 @@ export component AppWindow inherits Window {
 
             content-area := Rectangle {
                 vertical-stretch: 1;
-                background: @linear-gradient(145deg, Theme.background 0%, Theme.surface-strong 160%);
+                background: Theme.dark
+                    ? @linear-gradient(145deg, #0d111a 0%, #111827 100%)
+                    : @linear-gradient(145deg, #f3f7fb 0%, #eaf2f9 100%);
 
                 home-page := HomePage {
                     x: 24px;
@@ -242,12 +244,12 @@ export component AppWindow inherits Window {
         Rectangle {
             width: 260px;
             height: 120px;
-            border-radius: 16px;
-            background: Theme.surface;
+            border-radius: Theme.radius-panel;
+            background: Theme.surface-strong;
             border-width: 1px;
-            border-color: Theme.border;
-            drop-shadow-blur: 16px;
-            drop-shadow-color: #00000033;
+            border-color: Theme.glass-highlight;
+            drop-shadow-blur: 28px;
+            drop-shadow-color: Theme.shadow;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
 
@@ -280,10 +282,13 @@ export component AppWindow inherits Window {
         y: parent.height - 78px;
         width: min(720px, parent.width - 48px);
         height: 52px;
-        border-radius: 12px;
+        border-radius: Theme.radius-card;
         background: Theme.surface-strong;
         border-width: 1px;
-        border-color: root.toast-error ? Theme.accent : Theme.cyan;
+        border-color: root.toast-error ? Theme.danger : Theme.glass-highlight;
+        drop-shadow-blur: 22px;
+        drop-shadow-color: Theme.shadow;
+        drop-shadow-offset-y: 6px;
         Text {
             x: 16px;
             width: parent.width - 32px;
@@ -305,22 +310,18 @@ export component AppWindow inherits Window {
             y: 44px;
             width: 216px;
             height: dropdown-layout.preferred-height;
-            border-radius: 10px;
-            background: Theme.surface;
+            border-radius: Theme.radius-popover;
+            background: Theme.popover;
             border-width: 1px;
-            border-color: Theme.border;
-            drop-shadow-blur: 16px;
-            drop-shadow-color: #00000044;
+            border-color: Theme.popover-border;
+            drop-shadow-blur: 20px;
+            drop-shadow-color: Theme.shadow;
+            drop-shadow-offset-y: 6px;
             clip: true;
-
-            TouchArea {
-                width: 100%;
-                height: 100%;
-            }
 
             dropdown-layout := VerticalLayout {
                 padding: 6px;
-                spacing: 3px;
+                spacing: 2px;
 
                 NavDropdownItem {
                     label: root.language == "id" ? "Beranda" : "Home";
@@ -332,7 +333,7 @@ export component AppWindow inherits Window {
                     IconDisplay {
                         icon: IconSet.House;
                         size: 16px;
-                        stroke: root.page == 0 ? #0076f5 : Theme.secondary-text;
+                        stroke: root.page == 0 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
                     }
@@ -348,7 +349,7 @@ export component AppWindow inherits Window {
                     IconDisplay {
                         icon: IconSet.List;
                         size: 16px;
-                        stroke: root.page == 1 ? #0076f5 : Theme.secondary-text;
+                        stroke: root.page == 1 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
                     }
@@ -365,7 +366,7 @@ export component AppWindow inherits Window {
                     IconDisplay {
                         icon: IconSet.Database;
                         size: 16px;
-                        stroke: root.page == 2 ? #0076f5 : Theme.secondary-text;
+                        stroke: root.page == 2 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
                     }
@@ -381,7 +382,7 @@ export component AppWindow inherits Window {
                     IconDisplay {
                         icon: IconSet.Shield;
                         size: 16px;
-                        stroke: root.page == 3 ? #0076f5 : Theme.secondary-text;
+                        stroke: root.page == 3 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
                     }
@@ -402,7 +403,7 @@ export component AppWindow inherits Window {
                     IconDisplay {
                         icon: IconSet.Settings;
                         size: 16px;
-                        stroke: root.page == 4 ? #0076f5 : Theme.secondary-text;
+                        stroke: root.page == 4 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
                     }

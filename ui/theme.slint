@@ -5,22 +5,35 @@ export global Theme {
     in-out property <bool> system-dark: false;
     out property <bool> dark: mode == "dark" || (mode == "system" && system-dark);
 
-    out property <color> background: dark ? #030a1c : #f0f6fc;
-    out property <color> sidebar: dark ? #07122aee : #f8fbffee;
-    out property <color> surface: dark ? #0c1b3bee : #ffffff;
-    out property <color> surface-strong: dark ? #11264fee : #f0f7ff;
-    out property <color> surface-subtle: dark ? #0a173499 : #f6faff;
-    out property <color> border: dark ? #1f376488 : #d8e5f3;
-    out property <color> border-subtle: dark ? #192d5266 : #e8f0f8;
-    out property <color> text: dark ? #ffffff : #0d213f;
-    out property <color> secondary-text: dark ? #9bc2e8 : #426084;
-    out property <color> muted-text: dark ? #6282a8 : #7e9bb9;
-    out property <color> accent: #0076f5;
-    out property <color> accent-gradient-start: #0084ff;
-    out property <color> accent-gradient-end: #00d2ff;
-    out property <color> cyan: dark ? #00d2ff : #00a6e8;
-    out property <color> green: #10b981;
-    out property <color> purple: #7c3aed;
-    out property <color> orange: #f59e0b;
-    out property <color> overlay: dark ? #020817cc : #d8eff7bb;
+    // Soft Fluent materials: tonal depth instead of simulated backdrop blur.
+    out property <color> background: dark ? #0d111a : #eef3f8;
+    out property <color> sidebar: dark ? #171c27 : #f7f9fc;
+    out property <color> surface: dark ? #181e29 : #f9fbfd;
+    out property <color> surface-strong: dark ? #222936 : #ffffff;
+    out property <color> surface-subtle: dark ? #141a24 : #f1f5f9;
+    out property <color> border: dark ? #303948 : #dce4ec;
+    out property <color> border-subtle: dark ? #252d39 : #e7edf3;
+    out property <color> glass-highlight: dark ? #3a4454 : #ffffff;
+    out property <color> glass-hover: dark ? #283343 : #e8f2fc;
+    out property <color> popover: dark ? #202735 : #ffffff;
+    out property <color> popover-border: dark ? #3a4454 : #d7e0e9;
+    out property <color> shadow: dark ? #00000066 : #3b526b20;
+    out property <color> text: dark ? #f5f7fb : #152033;
+    out property <color> secondary-text: dark ? #b5bdca : #526176;
+    out property <color> muted-text: dark ? #858f9f : #78879a;
+    out property <color> accent: dark ? #0a84ff : #007aff;
+    out property <color> accent-hover: dark ? #2997ff : #1687ff;
+    out property <color> accent-gradient-start: dark ? #0a84ff : #007aff;
+    out property <color> accent-gradient-end: dark ? #64d2ff : #5ac8fa;
+    out property <color> cyan: dark ? #64d2ff : #32ade6;
+    out property <color> green: dark ? #30d158 : #28a745;
+    out property <color> purple: dark ? #bf5af2 : #af52de;
+    out property <color> orange: dark ? #ff9f0a : #ff9500;
+    out property <color> danger: dark ? #ff453a : #ff3b30;
+    out property <color> overlay: dark ? #05070bb8 : #52677d45;
+
+    out property <length> radius-control: 10px;
+    out property <length> radius-card: 16px;
+    out property <length> radius-panel: 20px;
+    out property <length> radius-popover: 12px;
 }

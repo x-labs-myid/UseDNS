@@ -42,7 +42,7 @@ component PolicyCard inherits Rectangle {
     in property <string> first-point;
     in property <string> second-point;
 
-    border-radius: 20px;
+    border-radius: Theme.radius-panel;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -112,8 +112,8 @@ component PolicyCard inherits Rectangle {
         }
 
         Rectangle {
-            border-radius: 14px;
-            background: Theme.background.with-alpha(0.32);
+            border-radius: Theme.radius-card;
+            background: Theme.surface-subtle;
             border-width: 1px;
             border-color: Theme.border;
             VerticalLayout {

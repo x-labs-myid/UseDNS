@@ -17,8 +17,8 @@ component FilterButton inherits Rectangle {
 
     height: 38px;
     width: filter-content.preferred-width + 24px;
-    border-radius: 11px;
-    background: selected ? @linear-gradient(90deg, #0076f5 0%, #0099ff 100%) : (filter-touch.has-hover ? Theme.surface-strong : Theme.surface);
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.accent : (filter-touch.has-hover ? Theme.glass-hover : Theme.surface);
     border-width: 1px;
     border-color: selected ? Theme.cyan.with-alpha(0.5) : Theme.border;
 
@@ -77,8 +77,8 @@ component AddButton inherits Rectangle {
 
     width: 38px;
     height: 38px;
-    border-radius: 11px;
-    background: add-touch.has-hover ? Theme.accent.with-alpha(0.16) : Theme.surface;
+    border-radius: Theme.radius-control;
+    background: add-touch.has-hover ? Theme.glass-hover : Theme.surface;
     border-width: 1px;
     border-color: add-touch.has-hover ? Theme.accent : Theme.border;
 
@@ -107,8 +107,8 @@ component IpModeCard inherits Rectangle {
 
     height: 86px;
     horizontal-stretch: 1;
-    border-radius: 12px;
-    background: selected ? (Theme.dark ? #11284d : #e8f3ff) : (ip-touch.has-hover ? Theme.surface-subtle : Theme.background.with-alpha(0.28));
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.accent.with-alpha(0.10) : (ip-touch.has-hover ? Theme.glass-hover : Theme.surface-subtle);
     border-width: selected ? 1.5px : 1px;
     border-color: selected ? Theme.cyan : (ip-touch.has-hover ? Theme.cyan.with-alpha(0.3) : Theme.border);
 

@@ -7,9 +7,23 @@ export component NavDropdownItem inherits Rectangle {
     callback clicked;
 
     height: 38px;
-    border-radius: 7px;
-    background: selected ? #0076f5.with-alpha(0.12) : (touch.has-hover ? Theme.surface-strong : transparent);
-    animate background { duration: 100ms; }
+    border-radius: Theme.radius-control;
+    background: selected
+        ? Theme.accent.with-alpha(0.12)
+        : (touch.has-hover ? Theme.glass-hover : transparent);
+    animate background { duration: 90ms; }
+
+    Rectangle {
+        x: 2px;
+        y: 9px;
+        width: 3px;
+        height: 20px;
+        border-radius: 2px;
+        background: root.selected
+            ? Theme.accent
+            : (touch.has-hover ? Theme.accent.with-alpha(0.48) : transparent);
+        animate background { duration: 90ms; }
+    }
 
     HorizontalLayout {
         padding-left: 12px;
@@ -29,7 +43,7 @@ export component NavDropdownItem inherits Rectangle {
         Text {
             horizontal-stretch: 1;
             text: root.label;
-            color: root.selected ? #0076f5 : Theme.text;
+            color: root.selected || touch.has-hover ? Theme.accent : Theme.text;
             font-size: 13px;
             font-weight: root.selected ? 700 : 500;
             vertical-alignment: center;
@@ -44,12 +58,14 @@ export component NavDropdownItem inherits Rectangle {
             IconDisplay {
                 icon: IconSet.Check;
                 size: 14px;
-                stroke: #0076f5;
+                stroke: Theme.accent;
             }
         }
     }
 
     touch := TouchArea {
+        width: 100%;
+        height: 100%;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
@@ -75,7 +91,7 @@ export component Titlebar inherits Rectangle {
 
     height: 48px;
     vertical-stretch: 0;
-    background: Theme.surface;
+    background: Theme.surface-strong;
     z: 100;
 
     // Bottom border line
@@ -113,10 +129,10 @@ export component Titlebar inherits Rectangle {
 
             nav-trigger := Rectangle {
                 height: 34px;
-                border-radius: 8px;
-                background: nav-trigger-touch.has-hover || root.menu-open ? Theme.surface-strong : Theme.surface;
+                border-radius: Theme.radius-control;
+                background: nav-trigger-touch.has-hover || root.menu-open ? Theme.glass-hover : Theme.surface-subtle;
                 border-width: 1px;
-                border-color: root.menu-open ? #0076f5 : Theme.border;
+                border-color: root.menu-open ? Theme.accent.with-alpha(0.72) : Theme.glass-highlight;
                 animate background { duration: 120ms; }
                 animate border-color { duration: 120ms; }
 
@@ -135,27 +151,27 @@ export component Titlebar inherits Rectangle {
                             if page == 0: IconDisplay {
                                 icon: IconSet.House;
                                 size: 16px;
-                                stroke: #0076f5;
+                                stroke: Theme.accent;
                             }
                             if page == 1: IconDisplay {
                                 icon: IconSet.List;
                                 size: 16px;
-                                stroke: #0076f5;
+                                stroke: Theme.accent;
                             }
                             if page == 2: IconDisplay {
                                 icon: IconSet.Database;
                                 size: 16px;
-                                stroke: #0076f5;
+                                stroke: Theme.accent;
                             }
                             if page == 3: IconDisplay {
                                 icon: IconSet.Shield;
                                 size: 16px;
-                                stroke: #0076f5;
+                                stroke: Theme.accent;
                             }
                             if page == 4: IconDisplay {
                                 icon: IconSet.Settings;
                                 size: 16px;
-                                stroke: #0076f5;
+                                stroke: Theme.accent;
                             }
                         }
                     }
@@ -284,7 +300,7 @@ export component Titlebar inherits Rectangle {
             close-btn := Rectangle {
                 width: 48px;
                 height: 100%;
-                background: close-touch.has-hover ? #e81123 : transparent;
+                background: close-touch.has-hover ? Theme.danger : transparent;
 
                 IconDisplay {
                     icon: IconSet.X;

@@ -65,8 +65,8 @@ component ChoiceCard inherits Rectangle {
 
     height: 56px;
     horizontal-stretch: 1;
-    border-radius: 14px;
-    background: selected ? Theme.surface-strong : Theme.background.with-alpha(0.28);
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.surface-strong : Theme.surface-subtle;
     border-width: 1.5px;
     border-color: selected ? Theme.accent : Theme.border;
     HorizontalLayout {

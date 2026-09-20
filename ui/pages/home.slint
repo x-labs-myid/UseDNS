@@ -74,7 +74,7 @@ export component HomePage inherits VerticalLayout {
             // Refresh Button with Icon and Label perfectly centered
             refresh-btn := Rectangle {
                 height: 38px;
-                border-radius: 12px;
+                border-radius: Theme.radius-control;
                 background: refresh-touch.has-hover ? Theme.surface-strong : Theme.surface;
                 border-width: 1px;
                 border-color: refresh-touch.has-hover ? #0076f5.with-alpha(0.35) : Theme.border;
@@ -134,7 +134,7 @@ export component HomePage inherits VerticalLayout {
         // Card 1: DNS AKTIF
         Rectangle {
             horizontal-stretch: 1;
-            border-radius: 18px;
+            border-radius: Theme.radius-card;
             background: Theme.surface;
             border-width: 1px;
             border-color: Theme.border;
@@ -213,7 +213,7 @@ export component HomePage inherits VerticalLayout {
         // Card 2: KONEKSI (Wifi)
         Rectangle {
             horizontal-stretch: 1;
-            border-radius: 18px;
+            border-radius: Theme.radius-card;
             background: Theme.surface;
             border-width: 1px;
             border-color: Theme.border;
@@ -273,7 +273,7 @@ export component HomePage inherits VerticalLayout {
         // Card 3: LATENSI (Clock)
         Rectangle {
             horizontal-stretch: 1;
-            border-radius: 18px;
+            border-radius: Theme.radius-card;
             background: Theme.surface;
             border-width: 1px;
             border-color: Theme.border;
@@ -336,7 +336,7 @@ export component HomePage inherits VerticalLayout {
     // -------------------------------------------------------------
     Rectangle {
         vertical-stretch: 1;
-        border-radius: 22px;
+        border-radius: Theme.radius-panel;
         background: Theme.surface;
         border-width: 1px;
         border-color: Theme.border;

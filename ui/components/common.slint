@@ -58,16 +58,16 @@ export component AppButton inherits Rectangle {
     min-width: 32px;
     min-height: 32px;
     horizontal-stretch: 1;
-    border-radius: 6px;
+    border-radius: Theme.radius-control;
     background: !root.enabled
         ? (root.primary ? Theme.accent.with-alpha(0.35) : Theme.surface)
         : (btn-touch.pressed
         ? (root.primary ? Theme.accent.with-alpha(0.82) : Theme.background.with-alpha(0.55))
         : (btn-touch.has-hover
-        ? (root.primary ? #0084ff : Theme.surface-strong)
+        ? (root.primary ? Theme.accent-hover : Theme.glass-hover)
         : (root.primary ? Theme.accent : Theme.surface)));
     border-width: 1px;
-    border-color: root.primary ? transparent : Theme.border;
+    border-color: root.primary ? Theme.accent : Theme.border;
     opacity: root.enabled ? 1 : 0.6;
 
     HorizontalLayout {
@@ -99,8 +99,8 @@ export component ConnectionBadge inherits Rectangle {
 
     height: 38px;
     width: min(badge-content.preferred-width + 24px, root.label-max-width);
-    border-radius: 12px;
-    background: Theme.surface;
+    border-radius: Theme.radius-control;
+    background: Theme.surface-strong;
     border-width: 1px;
     border-color: Theme.border;
 
@@ -146,7 +146,7 @@ export component StatCard inherits Rectangle {
     in property <string> hint;
     in property <color> accent: Theme.cyan;
 
-    border-radius: 18px;
+    border-radius: Theme.radius-card;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border;
@@ -223,10 +223,10 @@ export component ThemeOption inherits Rectangle {
     callback clicked;
 
     height: 116px;
-    border-radius: 20px;
-    background: selected ? Theme.surface-strong : Theme.surface;
+    border-radius: Theme.radius-card;
+    background: selected ? Theme.accent.with-alpha(0.10) : Theme.surface;
     border-width: selected ? 2px : 1px;
-    border-color: selected ? Theme.cyan : Theme.border;
+    border-color: selected ? Theme.accent.with-alpha(0.72) : Theme.border;
 
     VerticalLayout {
         padding: 17px;
