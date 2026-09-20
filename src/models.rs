@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
+use std::{borrow::Cow, net::IpAddr};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DnsProfile {
@@ -55,11 +55,11 @@ impl DnsProvider {
         Ok(())
     }
 
-    pub fn get_profiles(&self) -> Vec<DnsProfile> {
+    pub fn get_profiles(&self) -> Cow<'_, [DnsProfile]> {
         if !self.profiles.is_empty() {
-            return self.profiles.clone();
+            return Cow::Borrowed(&self.profiles);
         }
-        vec![DnsProfile {
+        Cow::Owned(vec![DnsProfile {
             id: "default".into(),
             name_en: "Default".into(),
             name_id: "Bawaan".into(),
@@ -71,7 +71,7 @@ impl DnsProvider {
             ipv4_secondary: self.ipv4_secondary.clone(),
             ipv6_primary: self.ipv6_primary.clone(),
             ipv6_secondary: self.ipv6_secondary.clone(),
-        }]
+        }])
     }
 }
 

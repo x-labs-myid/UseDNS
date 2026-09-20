@@ -5,13 +5,13 @@ mod storage;
 mod system;
 
 use models::DnsProvider;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::RefCell,
     rc::Rc,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -305,13 +305,6 @@ unsafe extern "system" {
     ) -> i32;
     fn GetForegroundWindow() -> *mut std::ffi::c_void;
     fn GetActiveWindow() -> *mut std::ffi::c_void;
-    fn ReleaseCapture() -> i32;
-    fn SendMessageW(
-        hwnd: *mut std::ffi::c_void,
-        msg: u32,
-        wparam: usize,
-        lparam: isize,
-    ) -> isize;
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -357,59 +350,23 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     {
-        #[cfg(windows)]
-        {
-            let weak = window.as_weak();
-            window.on_window_drag(move |kind| {
-                // Only handle mouse-down (kind == 0) — Windows takes over the
-                // entire drag lifecycle via WM_NCLBUTTONDOWN + HTCAPTION.
-                if kind != 0 {
-                    return;
-                }
+        use slint::winit_030::WinitWindowAccessor;
 
-                let mut target_hwnd: *mut std::ffi::c_void = if let Some(h) = hwnd {
-                    h as _
-                } else {
-                    std::ptr::null_mut()
-                };
+        let weak = window.as_weak();
+        window.on_window_drag(move |kind| {
+            if kind != 0 {
+                return;
+            }
 
-                if target_hwnd.is_null() {
-                    if let Some(w) = weak.upgrade() {
-                        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-                        if let Ok(handle) = w.window().window_handle().window_handle() {
-                            if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-                                target_hwnd = win32.hwnd.get() as _;
-                            }
-                        }
-                    }
-                }
-
-                if target_hwnd.is_null() {
-                    unsafe {
-                        let active = GetActiveWindow();
-                        if !active.is_null() {
-                            target_hwnd = active;
-                        } else {
-                            target_hwnd = GetForegroundWindow();
-                        }
-                    }
-                }
-
-                if target_hwnd.is_null() {
-                    return;
-                }
-
-                // Native Windows title bar drag:
-                // Release Slint's input capture and send WM_NCLBUTTONDOWN with HTCAPTION.
-                // Windows then handles the full drag, snap, and Aero Shake natively.
-                unsafe {
-                    ReleaseCapture();
-                    const WM_NCLBUTTONDOWN: u32 = 0x00A1;
-                    const HTCAPTION: usize = 2;
-                    SendMessageW(target_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-                }
-            });
-        }
+            if let Some(window) = weak.upgrade() {
+                window.window().with_winit_window(|winit_window| {
+                    // Let winit hand the gesture to the platform. On Windows this
+                    // preserves native moving, snapping, and maximized-window restore
+                    // while guarding against duplicate drag requests.
+                    let _ = winit_window.drag_window();
+                });
+            }
+        });
     }
 
     {
@@ -498,8 +455,13 @@ fn main() -> Result<(), slint::PlatformError> {
         let providers = providers.clone();
         let language = language.clone();
         let provider_filter = provider_filter.clone();
+        let refreshing = Arc::new(AtomicBool::new(false));
         window.on_refresh(move || {
+            if refreshing.swap(true, Ordering::AcqRel) {
+                return;
+            }
             let weak = weak.clone();
+            let refreshing = refreshing.clone();
             let adapters = adapters.clone();
             let providers_snapshot = providers.borrow().clone();
             let language_value = language.borrow().clone();
@@ -511,6 +473,7 @@ fn main() -> Result<(), slint::PlatformError> {
             std::thread::spawn(move || {
                 let result = system::active_adapters();
                 let _ = slint::invoke_from_event_loop(move || {
+                    refreshing.store(false, Ordering::Release);
                     let Some(window) = weak.upgrade() else {
                         return;
                     };
@@ -1259,10 +1222,6 @@ fn main() -> Result<(), slint::PlatformError> {
         let weak = window.as_weak();
         let adapters = adapters.clone();
         let speed_unit = speed_unit.clone();
-        let previous = Arc::new(Mutex::new(None::<(String, u64, u64, Instant)>));
-        let history_samples = Arc::new(Mutex::new(vec![(0.0f64, 0.0f64); 24]));
-        let sampling = Arc::new(AtomicBool::new(false));
-
         // Initialize speed-history with 24 blank samples
         let initial_samples: Vec<SpeedSample> = (0..24)
             .map(|_| SpeedSample {
@@ -1275,123 +1234,117 @@ fn main() -> Result<(), slint::PlatformError> {
         window.set_graph_max_speed(format_speed(1.0, &initial_unit).into());
         window.set_graph_mid_speed(format_speed(0.5, &initial_unit).into());
 
-        let history_samples_clone = history_samples.clone();
+        let (sample_sender, sample_receiver) =
+            std::sync::mpsc::sync_channel::<Option<(u32, String)>>(1);
+        let worker_weak = weak.clone();
+        std::thread::spawn(move || {
+            let mut previous = None::<(u32, u64, u64, Instant)>;
+            let mut samples = vec![(0.0f64, 0.0f64); 24];
+
+            while let Ok(request) = sample_receiver.recv() {
+                let Some((interface_index, current_unit)) = request else {
+                    previous = None;
+                    continue;
+                };
+                let Ok((received, sent)) = system::network_counters(interface_index) else {
+                    continue;
+                };
+
+                let now = Instant::now();
+                let (download, upload) = previous
+                    .as_ref()
+                    .filter(|(old_index, old_received, old_sent, _)| {
+                        *old_index == interface_index
+                            && received >= *old_received
+                            && sent >= *old_sent
+                    })
+                    .map(|(_, old_received, old_sent, sampled_at)| {
+                        let seconds = now.duration_since(*sampled_at).as_secs_f64().max(0.001);
+                        (
+                            (received - old_received) as f64 * 8.0 / seconds / 1_000_000.0,
+                            (sent - old_sent) as f64 * 8.0 / seconds / 1_000_000.0,
+                        )
+                    })
+                    .unwrap_or((0.0, 0.0));
+                previous = Some((interface_index, received, sent, now));
+
+                samples.rotate_left(1);
+                if let Some(last) = samples.last_mut() {
+                    *last = (download, upload);
+                }
+                let peak_mbps = samples
+                    .iter()
+                    .map(|(down, up)| down.max(*up))
+                    .fold(0.5f64, f64::max);
+                let max_scale = peak_mbps * 1.15;
+                let speed_models = samples
+                    .iter()
+                    .map(|(down, up)| SpeedSample {
+                        download: (*down / max_scale).clamp(0.0, 1.0) as f32,
+                        upload: (*up / max_scale).clamp(0.0, 1.0) as f32,
+                    })
+                    .collect::<Vec<_>>();
+
+                let weak = worker_weak.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(window) = weak.upgrade().filter(|window| window.get_page() == 0)
+                    else {
+                        return;
+                    };
+                    let total = download + upload;
+                    window.set_download_speed(format_speed(download, &current_unit).into());
+                    window.set_upload_speed(format_speed(upload, &current_unit).into());
+                    let total_display = if current_unit == "kbps" {
+                        let kbps = total * 1000.0;
+                        if kbps < 10.0 {
+                            format!("{kbps:.1}")
+                        } else {
+                            format!("{kbps:.0}")
+                        }
+                    } else {
+                        format!("{total:.1}")
+                    };
+                    window.set_total_speed(total_display.into());
+
+                    let speed_history = window.get_speed_history();
+                    for (index, sample) in speed_models.into_iter().enumerate() {
+                        speed_history.set_row_data(index, sample);
+                    }
+                    window.set_graph_max_speed(format_speed(max_scale, &current_unit).into());
+                    window.set_graph_mid_speed(format_speed(max_scale / 2.0, &current_unit).into());
+
+                    let total_level = if current_unit == "kbps" {
+                        (total * 1000.0 / 10000.0).min(1.0) as f32
+                    } else {
+                        (total / max_scale).min(1.0) as f32
+                    };
+                    window.set_total_level(total_level.max((total / max_scale).min(1.0) as f32));
+                    window.set_download_level((download / max_scale).min(1.0) as f32);
+                    window.set_upload_level((upload / max_scale).min(1.0) as f32);
+                });
+            }
+        });
+
         network_timer.start(
             slint::TimerMode::Repeated,
             Duration::from_secs(1),
             move || {
-                if sampling.swap(true, Ordering::AcqRel) {
+                let Some(window) = weak.upgrade() else {
+                    return;
+                };
+                if window.get_page() != 0 {
+                    let _ = sample_sender.try_send(None);
                     return;
                 }
-                let Some(window) = weak.upgrade() else {
-                    sampling.store(false, Ordering::Release);
-                    return;
-                };
                 let index = window.get_adapter_index().max(0) as usize;
-                let adapter = adapters
+                let interface_index = adapters
                     .lock()
                     .ok()
-                    .and_then(|items| items.get(index).map(|item| item.name.clone()));
-                let Some(adapter) = adapter else {
-                    sampling.store(false, Ordering::Release);
-                    return;
-                };
-                let weak = weak.clone();
-                let previous = previous.clone();
-                let history_samples = history_samples_clone.clone();
-                let sampling = sampling.clone();
-                let current_unit = speed_unit.borrow().clone();
-                std::thread::spawn(move || {
-                    let result = system::network_counters(&adapter).map(|(received, sent)| {
-                        let now = Instant::now();
-                        let mut history = match previous.lock() {
-                            Ok(guard) => guard,
-                            Err(poisoned) => poisoned.into_inner(),
-                        };
-                        let speeds = history
-                            .as_ref()
-                            .filter(|(name, old_received, old_sent, _)| {
-                                name == &adapter && received >= *old_received && sent >= *old_sent
-                            })
-                            .map(|(_, old_received, old_sent, sampled_at)| {
-                                let seconds =
-                                    now.duration_since(*sampled_at).as_secs_f64().max(0.001);
-                                (
-                                    (received - old_received) as f64 * 8.0 / seconds / 1_000_000.0,
-                                    (sent - old_sent) as f64 * 8.0 / seconds / 1_000_000.0,
-                                )
-                            })
-                            .unwrap_or((0.0, 0.0));
-                        *history = Some((adapter, received, sent, now));
-                        speeds
-                    });
-                    sampling.store(false, Ordering::Release);
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let (Some(window), Ok((download, upload))) = (weak.upgrade(), result) {
-                            let total = download + upload;
-                            window.set_download_speed(format_speed(download, &current_unit).into());
-                            window.set_upload_speed(format_speed(upload, &current_unit).into());
-                            let total_display = if current_unit == "kbps" {
-                                let kbps = total * 1000.0;
-                                if kbps < 10.0 {
-                                    format!("{kbps:.1}")
-                                } else {
-                                    format!("{kbps:.0}")
-                                }
-                            } else {
-                                format!("{total:.1}")
-                            };
-                            window.set_total_speed(total_display.into());
-
-                            // Update scrolling 24-second history
-                            let mut samples = match history_samples.lock() {
-                                Ok(guard) => guard,
-                                Err(poisoned) => poisoned.into_inner(),
-                            };
-                            if !samples.is_empty() {
-                                samples.remove(0);
-                            }
-                            samples.push((download, upload));
-
-                            // Find peak speed across the history window (minimum 0.5 Mbps)
-                            let peak_mbps = samples
-                                .iter()
-                                .map(|(d, u)| d.max(*u))
-                                .fold(0.5f64, |a, b| a.max(b));
-                            let max_scale = peak_mbps * 1.15;
-
-                            let speed_models: Vec<SpeedSample> = samples
-                                .iter()
-                                .map(|(d, u)| SpeedSample {
-                                    download: (*d / max_scale).clamp(0.0, 1.0) as f32,
-                                    upload: (*u / max_scale).clamp(0.0, 1.0) as f32,
-                                })
-                                .collect();
-
-                            window.set_speed_history(ModelRc::from(Rc::new(VecModel::from(
-                                speed_models,
-                            ))));
-                            window
-                                .set_graph_max_speed(format_speed(max_scale, &current_unit).into());
-                            window.set_graph_mid_speed(
-                                format_speed(max_scale / 2.0, &current_unit).into(),
-                            );
-
-                            // Arc meter level based on dynamic peak or unit scale
-                            let total_level = if current_unit == "kbps" {
-                                let kbps = total * 1000.0;
-                                (kbps / 10000.0).min(1.0) as f32
-                            } else {
-                                (total / max_scale).min(1.0) as f32
-                            };
-                            window.set_total_level(
-                                total_level.max((total / max_scale).min(1.0) as f32),
-                            );
-                            window.set_download_level((download / max_scale).min(1.0) as f32);
-                            window.set_upload_level((upload / max_scale).min(1.0) as f32);
-                        }
-                    });
-                });
+                    .and_then(|items| items.get(index).map(|item| item.interface_index));
+                if let Some(interface_index) = interface_index {
+                    let current_unit = speed_unit.borrow().clone();
+                    let _ = sample_sender.try_send(Some((interface_index, current_unit)));
+                }
             },
         );
     }

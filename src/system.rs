@@ -27,6 +27,7 @@ pub struct AdapterInfo {
     pub name: String,
     pub label: String,
     pub dns: String,
+    pub interface_index: u32,
 }
 
 #[cfg(windows)]
@@ -73,7 +74,7 @@ fn powershell(script: &str) -> Result<String, String> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $d=(Get-DnsClientServerAddress -InterfaceIndex $_.ifIndex).ServerAddresses -join ', '; $p=(Get-NetConnectionProfile -InterfaceIndex $_.ifIndex -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name); $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $d) }";
+    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=$_.ifIndex; $d=(Get-DnsClientServerAddress -InterfaceIndex $i).ServerAddresses -join ', '; $p=(Get-NetConnectionProfile -InterfaceIndex $i -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name); $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $d + [char]9 + $i) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
@@ -82,10 +83,12 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
             let name = fields.next()?;
             let label = fields.next()?;
             let dns = fields.next()?;
+            let interface_index = fields.next()?.parse().ok()?;
             Some(AdapterInfo {
                 name: name.into(),
                 label: label.into(),
                 dns: dns.into(),
+                interface_index,
             })
         })
         .collect::<Vec<_>>();
@@ -102,61 +105,32 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
         name: "Default network".into(),
         label: "Default network".into(),
         dns: "System managed".into(),
+        interface_index: 0,
     }])
 }
 
 #[cfg(windows)]
-fn utf16z(buf: &[u16]) -> String {
-    let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-    String::from_utf16_lossy(&buf[..len])
-}
+pub fn network_counters(interface_index: u32) -> Result<(u64, u64), String> {
+    use windows::Win32::NetworkManagement::IpHelper::{GetIfEntry2, MIB_IF_ROW2};
 
-#[cfg(windows)]
-pub fn network_counters(adapter: &str) -> Result<(u64, u64), String> {
-    use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
-
-    let needle = adapter.trim();
-    if needle.is_empty() {
+    if interface_index == 0 {
         return Err("No network adapter was selected.".into());
     }
 
+    // SAFETY: A zeroed MIB_IF_ROW2 with InterfaceIndex populated is the documented
+    // input for GetIfEntry2. The API initializes the remaining fields in place.
     unsafe {
-        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
-        GetIfTable2(&mut table)
+        let mut row: MIB_IF_ROW2 = std::mem::zeroed();
+        row.InterfaceIndex = interface_index;
+        GetIfEntry2(&mut row)
             .ok()
             .map_err(|error| format!("Could not read adapter statistics: {error}"))?;
-        if table.is_null() {
-            return Err("Could not read adapter statistics.".into());
-        }
-
-        struct TableGuard(*mut MIB_IF_TABLE2);
-        impl Drop for TableGuard {
-            fn drop(&mut self) {
-                if !self.0.is_null() {
-                    unsafe {
-                        FreeMibTable(self.0.cast());
-                    }
-                }
-            }
-        }
-        let _guard = TableGuard(table);
-
-        let table_ref = &*table;
-        let rows =
-            std::slice::from_raw_parts(table_ref.Table.as_ptr(), table_ref.NumEntries as usize);
-        for row in rows {
-            let alias = utf16z(&row.Alias);
-            if alias.eq_ignore_ascii_case(needle) {
-                return Ok((row.InOctets, row.OutOctets));
-            }
-        }
+        Ok((row.InOctets, row.OutOctets))
     }
-
-    Err("The selected adapter was not found.".into())
 }
 
 #[cfg(not(windows))]
-pub fn network_counters(_adapter: &str) -> Result<(u64, u64), String> {
+pub fn network_counters(_interface_index: u32) -> Result<(u64, u64), String> {
     Err("Real-time network activity is currently supported on Windows only.".into())
 }
 
