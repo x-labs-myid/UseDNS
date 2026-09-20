@@ -62,7 +62,6 @@ export component Titlebar inherits Rectangle {
     callback navigate(int);
     callback toggle-theme();
     callback window-drag(int);
-    callback window-drag-debug(int);
     callback window-minimize();
     callback window-close();
 
@@ -215,12 +214,11 @@ export component Titlebar inherits Rectangle {
             TouchArea {
                 width: 100%;
                 height: 100%;
-                mouse-cursor: move;
+                mouse-cursor: default;
                 pointer-event(event) => {
-                    let kind = event.kind == PointerEventKind.down ? 0 :
-                        event.kind == PointerEventKind.up ? 1 : 2;
-                    root.window-drag(kind);
-                    root.window-drag-debug(kind);
+                    if (event.kind == PointerEventKind.down) {
+                        root.window-drag(0);
+                    }
                 }
             }
         }
