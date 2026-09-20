@@ -278,8 +278,59 @@ fn set_filtered_provider_model(
 }
 
 fn show_message(window: &AppWindow, message: impl Into<SharedString>, error: bool) {
-    window.set_toast_message(message.into());
+    let message = message.into();
+    let display_message = if error {
+        friendly_error_message(window, message.as_str())
+    } else {
+        message.to_string()
+    };
+    window.set_toast_message(display_message.into());
     window.set_toast_error(error);
+}
+
+fn friendly_error_message(window: &AppWindow, message: &str) -> String {
+    let indonesian = window.get_language().as_str() == "id";
+    let normalized = message.to_lowercase();
+
+    if normalized.contains("cancelled")
+        || normalized.contains("canceled")
+        || normalized.contains("dibatalkan")
+    {
+        return if indonesian {
+            "Izin Administrator dibatalkan. DNS tidak diubah."
+        } else {
+            "Administrator permission was cancelled. DNS was not changed."
+        }
+        .into();
+    }
+
+    if normalized.contains("administrator")
+        || normalized.contains("access to a cim resource")
+        || normalized.contains("access is denied")
+        || normalized.contains("permission")
+    {
+        return if indonesian {
+            "UseDNS memerlukan izin Administrator untuk mengubah DNS. Setujui dialog UAC lalu coba lagi."
+        } else {
+            "UseDNS needs Administrator permission to change DNS. Approve the UAC prompt and try again."
+        }
+        .into();
+    }
+
+    let first_line = message
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or(if indonesian {
+            "Operasi tidak dapat diselesaikan."
+        } else {
+            "The operation could not be completed."
+        });
+    let mut concise = first_line.chars().take(180).collect::<String>();
+    if first_line.chars().count() > 180 {
+        concise.push('…');
+    }
+    concise
 }
 
 #[cfg(windows)]

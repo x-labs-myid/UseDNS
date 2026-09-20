@@ -5172,6 +5172,7 @@ dependencies = [
 name = "usedns"
 version = "1.0.0"
 dependencies = [
+ "base64",
  "directories",
  "ico",
  "image",

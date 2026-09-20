@@ -4,6 +4,8 @@ use std::{
 };
 
 #[cfg(windows)]
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+#[cfg(windows)]
 use std::process::Command;
 
 #[cfg(windows)]
@@ -65,9 +67,54 @@ fn powershell(script: &str) -> Result<String, String> {
     } else {
         let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
         Err(if message.is_empty() {
-            "The DNS operation failed. Try running UseDNS as Administrator.".into()
+            "The PowerShell operation failed.".into()
         } else {
             message
+                .lines()
+                .next()
+                .unwrap_or("The PowerShell operation failed.")
+                .into()
+        })
+    }
+}
+
+#[cfg(windows)]
+fn elevated_powershell(script: &str) -> Result<(), String> {
+    let guarded_script =
+        format!("$ErrorActionPreference='Stop'; try {{ {script}; exit 0 }} catch {{ exit 1 }}");
+    let encoded_bytes = guarded_script
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect::<Vec<_>>();
+    let encoded_script = BASE64.encode(encoded_bytes);
+    let launcher = format!(
+        "$ErrorActionPreference='Stop'; try {{ \
+         $p=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru \
+         -ArgumentList @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-EncodedCommand','{encoded_script}'); \
+         if ($p.ExitCode -ne 0) {{ exit $p.ExitCode }} \
+         }} catch {{ Write-Error $_.Exception.Message; exit 1 }}"
+    );
+    let output = hidden_output(Command::new("powershell.exe").args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        &launcher,
+    ]))
+    .map_err(|error| format!("Could not request Administrator access: {error}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let cancelled = stderr.contains("canceled by the user")
+            || stderr.contains("cancelled by the user")
+            || stderr.contains("dibatalkan oleh pengguna");
+        Err(if cancelled {
+            "Administrator permission was cancelled. DNS was not changed.".into()
+        } else {
+            "Could not change DNS. Approve the Administrator prompt and try again.".into()
         })
     }
 }
@@ -145,10 +192,9 @@ pub fn apply_dns(adapter: &str, addresses: &[String]) -> Result<(), String> {
         .map(|address| format!("'{}'", address.replace('\'', "''")))
         .collect::<Vec<_>>()
         .join(",");
-    powershell(&format!(
-        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ServerAddresses ({quoted})"
-    ))?;
-    Ok(())
+    elevated_powershell(&format!(
+        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ServerAddresses ({quoted}) -ErrorAction Stop"
+    ))
 }
 
 #[cfg(not(windows))]
@@ -159,10 +205,9 @@ pub fn apply_dns(_adapter: &str, _addresses: &[String]) -> Result<(), String> {
 #[cfg(windows)]
 pub fn reset_dns(adapter: &str) -> Result<(), String> {
     let escaped_adapter = adapter.replace('\'', "''");
-    powershell(&format!(
-        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ResetServerAddresses"
-    ))?;
-    Ok(())
+    elevated_powershell(&format!(
+        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ResetServerAddresses -ErrorAction Stop"
+    ))
 }
 
 #[cfg(not(windows))]
