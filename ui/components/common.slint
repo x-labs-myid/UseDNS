@@ -1,6 +1,30 @@
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
 
+export component LoadingSpinner inherits Rectangle {
+    in property <color> spinner-color: Theme.accent;
+    in property <length> size: 16px;
+
+    width: root.size;
+    height: root.size;
+    property <angle> rotation: 0deg;
+
+    Timer {
+        interval: 16ms;
+        running: true;
+        triggered => { root.rotation += 12deg; }
+    }
+
+    IconDisplay {
+        width: root.size;
+        height: root.size;
+        icon: IconSet.LoaderCircle;
+        size: root.size;
+        stroke: root.spinner-color;
+        transform-rotation: root.rotation;
+    }
+}
+
 export component NavButton inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
@@ -53,6 +77,7 @@ export component AppButton inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> primary: false;
+    in property <bool> loading: false;
     callback clicked;
 
     min-width: 32px;
@@ -75,7 +100,12 @@ export component AppButton inherits Rectangle {
         padding-right: 12px;
         padding-top: 5px;
         padding-bottom: 5px;
+        spacing: root.loading ? 7px : 0px;
         alignment: center;
+        if root.loading: LoadingSpinner {
+            size: 15px;
+            spinner-color: root.primary ? white : Theme.accent;
+        }
         Text {
             text: root.text;
             color: root.primary ? white : Theme.text;

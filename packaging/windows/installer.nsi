@@ -10,9 +10,14 @@ SetCompressor /SOLID lzma
 !ifndef OUT_FILE
   !define OUT_FILE "UseDNS-Setup.exe"
 !endif
+!ifndef APP_ICON
+  !define APP_ICON "${__FILEDIR__}\UseDNS.ico"
+!endif
 
 Name "UseDNS"
 OutFile "${OUT_FILE}"
+Icon "${APP_ICON}"
+UninstallIcon "${APP_ICON}"
 InstallDir "$PROGRAMFILES64\UseDNS"
 InstallDirRegKey HKLM "Software\UseDNS" "InstallDir"
 RequestExecutionLevel admin
@@ -22,8 +27,8 @@ ShowUnInstDetails show
 !include "MUI2.nsh"
 
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\orange-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\orange-uninstall.ico"
+!define MUI_ICON "${APP_ICON}"
+!define MUI_UNICON "${APP_ICON}"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -49,8 +54,8 @@ Section "Install"
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\UseDNS" "NoRepair" 1
 
   CreateDirectory "$SMPROGRAMS\UseDNS"
-  CreateShortCut "$SMPROGRAMS\UseDNS\UseDNS.lnk" "$INSTDIR\usedns.exe"
-  CreateShortCut "$DESKTOP\UseDNS.lnk" "$INSTDIR\usedns.exe"
+  CreateShortCut "$SMPROGRAMS\UseDNS\UseDNS.lnk" "$INSTDIR\usedns.exe" "" "$INSTDIR\usedns.exe" 0
+  CreateShortCut "$DESKTOP\UseDNS.lnk" "$INSTDIR\usedns.exe" "" "$INSTDIR\usedns.exe" 0
 SectionEnd
 
 Section "Uninstall"

@@ -359,6 +359,10 @@ unsafe extern "system" {
 }
 
 fn main() -> Result<(), slint::PlatformError> {
+    if let Some(exit_code) = system::run_dns_helper_if_requested() {
+        std::process::exit(exit_code);
+    }
+
     let window = AppWindow::new()?;
 
     #[cfg(windows)]
@@ -518,7 +522,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let language_value = language.borrow().clone();
             let (query, category) = provider_filter.borrow().clone();
             if let Some(window) = weak.upgrade() {
-                window.set_busy(true);
+                window.set_refreshing(true);
                 window.set_toast_message("".into());
             }
             std::thread::spawn(move || {
@@ -553,7 +557,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     &query,
                                     &category,
                                 );
-                                window.set_busy(false);
+                                window.set_refreshing(false);
                                 let dns = selected.dns.clone();
                                 let weak_check = weak.clone();
                                 std::thread::spawn(move || {
@@ -582,14 +586,14 @@ fn main() -> Result<(), slint::PlatformError> {
                                     });
                                 });
                             } else {
-                                window.set_busy(false);
+                                window.set_refreshing(false);
                             }
                             if let Ok(mut cached) = adapters.lock() {
                                 *cached = found;
                             }
                         }
                         Err(message) => {
-                            window.set_busy(false);
+                            window.set_refreshing(false);
                             show_message(&window, message, true);
                         }
                     }
@@ -857,6 +861,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         window.set_busy(false);
                         match result {
                             Ok(()) => {
+                                window.set_profile_popup_open(false);
                                 window.set_active_provider_id(active_provider_id.into());
                                 window.set_active_provider(active_title.into());
                                 window.set_current_dns(addresses.join(", ").into());
@@ -1069,7 +1074,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 return;
             }
             if let Some(window) = weak.upgrade() {
-                window.set_busy(true);
+                window.set_testing_resolver(true);
                 window.set_toast_message("".into());
             }
             let weak = weak.clone();
@@ -1078,7 +1083,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let result = system::check_connection(&address);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(window) = weak.upgrade() {
-                        window.set_busy(false);
+                        window.set_testing_resolver(false);
                         match result {
                             Ok(ms) => show_message(
                                 &window,

@@ -779,11 +779,13 @@ export component ProvidersPage inherits Rectangle {
                     }
 
                     AppButton {
-                        text: language == "id" ? "Terapkan DNS" : "Apply DNS";
+                        text: root.busy
+                            ? (language == "id" ? "Menerapkan..." : "Applying...")
+                            : (language == "id" ? "Terapkan DNS" : "Apply DNS");
                         primary: true;
+                        loading: root.busy;
                         enabled: !root.busy;
                         clicked => {
-                            root.profile-popup-open = false;
                             root.confirm-apply-profile(root.popup-provider-id, root.selected-profile-index, root.adapter-index, root.ip-mode);
                         }
                     }

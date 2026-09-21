@@ -133,6 +133,7 @@ export component CustomDnsPage inherits VerticalLayout {
     in-out property <string> form-ipv6-secondary;
     in-out property <string> form-summary;
     in-out property <string> form-purpose: "general";
+    in property <bool> testing-resolver: false;
     callback save-provider(string, string, string, string, string, string, string, string);
     callback clear-form;
     callback test-resolver(string, string);
@@ -548,7 +549,11 @@ export component CustomDnsPage inherits VerticalLayout {
                     }
 
                     AppButton {
-                        text: language == "id" ? "Uji resolver" : "Test resolver";
+                        text: root.testing-resolver
+                            ? (language == "id" ? "Menguji..." : "Testing...")
+                            : (language == "id" ? "Uji resolver" : "Test resolver");
+                        loading: root.testing-resolver;
+                        enabled: !root.testing-resolver;
                         clicked => { root.test-resolver(root.form-ipv4-primary, root.form-ipv6-primary); }
                     }
                 }

@@ -1,4 +1,8 @@
-import { ConnectionBadge, ProviderIcon } from "../components/common.slint";
+import {
+    ConnectionBadge,
+    LoadingSpinner,
+    ProviderIcon,
+} from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "@lucide";
 import { SpeedSample } from "../types.slint";
@@ -24,6 +28,7 @@ export component HomePage inherits VerticalLayout {
     in property <string> graph-mid-speed: "500 Kbps";
     in property <bool> connection-error: false;
     in property <bool> busy: false;
+    in property <bool> refreshing: false;
 
     callback refresh;
     callback reset-dns(int);
@@ -92,12 +97,16 @@ export component HomePage inherits VerticalLayout {
                         Rectangle {
                             width: 16px;
                             height: 16px;
-                            IconDisplay {
+                            if !root.refreshing: IconDisplay {
                                 icon: IconSet.RefreshCw;
                                 size: 16px;
-                                stroke: refresh-touch.has-hover ? #0076f5 : Theme.secondary-text;
+                                stroke: refresh-touch.has-hover ? Theme.accent : Theme.secondary-text;
                                 x: (parent.width - 16px) / 2;
                                 y: (parent.height - 16px) / 2;
+                            }
+                            if root.refreshing: LoadingSpinner {
+                                size: 16px;
+                                spinner-color: Theme.accent;
                             }
                         }
                     }
@@ -105,7 +114,9 @@ export component HomePage inherits VerticalLayout {
                     VerticalLayout {
                         alignment: center;
                         Text {
-                            text: language == "id" ? "Periksa ulang" : "Refresh";
+                            text: root.refreshing
+                                ? (language == "id" ? "Memeriksa..." : "Refreshing...")
+                                : (language == "id" ? "Periksa ulang" : "Refresh");
                             color: refresh-touch.has-hover ? #0076f5 : Theme.text;
                             font-size: 12px;
                             font-weight: 600;
@@ -115,9 +126,9 @@ export component HomePage inherits VerticalLayout {
                 }
 
                 refresh-touch := TouchArea {
-                    mouse-cursor: root.busy ? default : pointer;
+                    mouse-cursor: root.refreshing ? default : pointer;
                     clicked => {
-                        if (!root.busy) { root.refresh(); }
+                        if (!root.refreshing) { root.refresh(); }
                     }
                 }
             }
@@ -920,12 +931,18 @@ export component HomePage inherits VerticalLayout {
                         Rectangle {
                             width: 18px;
                             height: 18px;
-                            IconDisplay {
+                            if !root.busy: IconDisplay {
                                 icon: IconSet.RefreshCw;
                                 size: 15px;
                                 stroke: white;
                                 x: (parent.width - 15px) / 2;
                                 y: (parent.height - 15px) / 2;
+                            }
+                            if root.busy: LoadingSpinner {
+                                size: 15px;
+                                spinner-color: white;
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
                             }
                         }
                     }
@@ -933,7 +950,9 @@ export component HomePage inherits VerticalLayout {
                     VerticalLayout {
                         alignment: center;
                         Text {
-                            text: language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS";
+                            text: root.busy
+                                ? (language == "id" ? "Memulihkan..." : "Restoring...")
+                                : (language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS");
                             color: white;
                             font-size: 12px;
                             font-weight: 600;

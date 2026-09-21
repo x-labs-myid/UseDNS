@@ -24,6 +24,18 @@ fn hidden_output(command: &mut Command) -> std::io::Result<std::process::Output>
         .output()
 }
 
+#[cfg(windows)]
+#[derive(serde::Serialize, serde::Deserialize)]
+enum ElevatedDnsOperation {
+    Apply {
+        adapter: String,
+        addresses: Vec<String>,
+    },
+    Reset {
+        adapter: String,
+    },
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct AdapterInfo {
     pub name: String,
@@ -79,49 +91,110 @@ fn powershell(script: &str) -> Result<String, String> {
 }
 
 #[cfg(windows)]
-fn elevated_powershell(script: &str) -> Result<(), String> {
-    let guarded_script =
-        format!("$ErrorActionPreference='Stop'; try {{ {script}; exit 0 }} catch {{ exit 1 }}");
-    let encoded_bytes = guarded_script
-        .encode_utf16()
-        .flat_map(u16::to_le_bytes)
-        .collect::<Vec<_>>();
-    let encoded_script = BASE64.encode(encoded_bytes);
-    let launcher = format!(
-        "$ErrorActionPreference='Stop'; try {{ \
-         $p=Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru \
-         -ArgumentList @('-NoProfile','-NonInteractive','-WindowStyle','Hidden','-EncodedCommand','{encoded_script}'); \
-         if ($p.ExitCode -ne 0) {{ exit $p.ExitCode }} \
-         }} catch {{ Write-Error $_.Exception.Message; exit 1 }}"
-    );
-    let output = hidden_output(Command::new("powershell.exe").args([
-        "-NoProfile",
-        "-NonInteractive",
-        "-WindowStyle",
-        "Hidden",
-        "-Command",
-        &launcher,
-    ]))
-    .map_err(|error| format!("Could not request Administrator access: {error}"))?;
+fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::{
+        Win32::{
+            Foundation::CloseHandle,
+            System::Threading::{GetExitCodeProcess, INFINITE, WaitForSingleObject},
+            UI::Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW},
+        },
+        core::PCWSTR,
+    };
 
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let cancelled = stderr.contains("canceled by the user")
-            || stderr.contains("cancelled by the user")
-            || stderr.contains("dibatalkan oleh pengguna");
-        Err(if cancelled {
-            "Administrator permission was cancelled. DNS was not changed.".into()
+    let payload = serde_json::to_vec(&operation)
+        .map(|bytes| BASE64.encode(bytes))
+        .map_err(|error| format!("Could not prepare the DNS operation: {error}"))?;
+    let executable =
+        std::env::current_exe().map_err(|error| format!("Could not locate UseDNS: {error}"))?;
+    let executable_wide = executable
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let parameters_wide = format!("--dns-helper {payload}")
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+
+    // SAFETY: All strings are NUL-terminated and remain alive until ShellExecuteExW
+    // returns. SEE_MASK_NOCLOSEPROCESS requests a process handle that is waited on
+    // and closed below.
+    unsafe {
+        let mut info: SHELLEXECUTEINFOW = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
+        info.fMask = SEE_MASK_NOCLOSEPROCESS;
+        info.lpVerb = windows::core::w!("runas");
+        info.lpFile = PCWSTR(executable_wide.as_ptr());
+        info.lpParameters = PCWSTR(parameters_wide.as_ptr());
+        info.nShow = 0;
+
+        ShellExecuteExW(&mut info).map_err(|error| {
+            if error.code().0 as u32 == 0x8007_04c7 {
+                "Administrator permission was cancelled. DNS was not changed.".to_string()
+            } else {
+                format!("Could not request Administrator access: {error}")
+            }
+        })?;
+        if info.hProcess.is_invalid() {
+            return Err("Could not start the elevated UseDNS helper.".into());
+        }
+
+        WaitForSingleObject(info.hProcess, INFINITE);
+        let mut exit_code = 1;
+        let exit_result = GetExitCodeProcess(info.hProcess, &mut exit_code);
+        let _ = CloseHandle(info.hProcess);
+        exit_result.map_err(|error| format!("Could not read the DNS operation result: {error}"))?;
+
+        if exit_code == 0 {
+            Ok(())
         } else {
-            "Could not change DNS. Approve the Administrator prompt and try again.".into()
-        })
+            Err("Could not change DNS with Administrator permission.".into())
+        }
     }
 }
 
 #[cfg(windows)]
+pub fn run_dns_helper_if_requested() -> Option<i32> {
+    let mut args = std::env::args();
+    let _executable = args.next();
+    if args.next().as_deref() != Some("--dns-helper") {
+        return None;
+    }
+    let result = args
+        .next()
+        .ok_or(())
+        .and_then(|payload| BASE64.decode(payload).map_err(|_| ()))
+        .and_then(|bytes| serde_json::from_slice::<ElevatedDnsOperation>(&bytes).map_err(|_| ()))
+        .and_then(|operation| {
+            let script = match operation {
+                ElevatedDnsOperation::Apply { adapter, addresses } => {
+                    let adapter = adapter.replace('\'', "''");
+                    let addresses = addresses
+                        .iter()
+                        .map(|address| format!("'{}'", address.replace('\'', "''")))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    format!("Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ServerAddresses ({addresses}) -ErrorAction Stop")
+                }
+                ElevatedDnsOperation::Reset { adapter } => {
+                    let adapter = adapter.replace('\'', "''");
+                    format!("Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ResetServerAddresses -ErrorAction Stop")
+                }
+            };
+            powershell(&script).map(|_| ()).map_err(|_| ())
+        });
+    Some(if result.is_ok() { 0 } else { 1 })
+}
+
+#[cfg(not(windows))]
+pub fn run_dns_helper_if_requested() -> Option<i32> {
+    None
+}
+
+#[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceAlias -First 1); Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.Name -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=$_.ifIndex; $d=(Get-DnsClientServerAddress -InterfaceIndex $i).ServerAddresses -join ', '; $p=(Get-NetConnectionProfile -InterfaceIndex $i -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name); $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $d + [char]9 + $i) }";
+    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
@@ -186,15 +259,10 @@ pub fn apply_dns(adapter: &str, addresses: &[String]) -> Result<(), String> {
     if addresses.is_empty() {
         return Err("No DNS address was selected.".into());
     }
-    let escaped_adapter = adapter.replace('\'', "''");
-    let quoted = addresses
-        .iter()
-        .map(|address| format!("'{}'", address.replace('\'', "''")))
-        .collect::<Vec<_>>()
-        .join(",");
-    elevated_powershell(&format!(
-        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ServerAddresses ({quoted}) -ErrorAction Stop"
-    ))
+    run_elevated_dns_operation(ElevatedDnsOperation::Apply {
+        adapter: adapter.into(),
+        addresses: addresses.to_vec(),
+    })
 }
 
 #[cfg(not(windows))]
@@ -204,10 +272,9 @@ pub fn apply_dns(_adapter: &str, _addresses: &[String]) -> Result<(), String> {
 
 #[cfg(windows)]
 pub fn reset_dns(adapter: &str) -> Result<(), String> {
-    let escaped_adapter = adapter.replace('\'', "''");
-    elevated_powershell(&format!(
-        "Set-DnsClientServerAddress -InterfaceAlias '{escaped_adapter}' -ResetServerAddresses -ErrorAction Stop"
-    ))
+    run_elevated_dns_operation(ElevatedDnsOperation::Reset {
+        adapter: adapter.into(),
+    })
 }
 
 #[cfg(not(windows))]

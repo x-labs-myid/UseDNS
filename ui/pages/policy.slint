@@ -269,7 +269,10 @@ export component PolicyPage inherits VerticalLayout {
             VerticalLayout {
                 alignment: center;
                 AppButton {
-                    text: language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS";
+                    text: root.busy
+                        ? (language == "id" ? "Memulihkan..." : "Restoring...")
+                        : (language == "id" ? "Gunakan DNS otomatis" : "Use automatic DNS");
+                    loading: root.busy;
                     enabled: !busy && adapters.length > 0;
                     clicked => { root.reset-dns(root.adapter-index); }
                 }

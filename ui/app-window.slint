@@ -1,4 +1,4 @@
-import { Palette, ProgressIndicator } from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 import { Titlebar, NavDropdownItem } from "components/titlebar.slint";
 import { HomePage } from "pages/home.slint";
 import { ProvidersPage } from "pages/providers.slint";
@@ -50,6 +50,8 @@ export component AppWindow inherits Window {
     in-out property <string> active-provider: "System / DHCP";
     in-out property <string> active-provider-id: "system";
     in-out property <bool> busy: false;
+    in-out property <bool> refreshing: false;
+    in-out property <bool> testing-resolver: false;
     in-out property <string> toast-message: "";
     in-out property <bool> toast-error: false;
     in-out property <int> ip-mode: 0;
@@ -150,6 +152,7 @@ export component AppWindow inherits Window {
                     graph-mid-speed: root.graph-mid-speed;
                     connection-error: root.toast-error;
                     busy: root.busy;
+                    refreshing: root.refreshing;
                     refresh => { root.refresh(); }
                     reset-dns(index) => { root.reset-dns(index); }
                     navigate-providers => { root.page = 1; }
@@ -199,6 +202,7 @@ export component AppWindow inherits Window {
                     form-ipv6-secondary <=> root.form-ipv6-secondary;
                     form-summary <=> root.form-summary;
                     form-purpose <=> root.form-purpose;
+                    testing-resolver: root.testing-resolver;
                     save-provider(id, name, v4-primary, v4-secondary, v6-primary, v6-secondary, summary, purpose) => {
                         root.save-provider(id, name, v4-primary, v4-secondary, v6-primary, v6-secondary, summary, purpose);
                     }
@@ -234,44 +238,6 @@ export component AppWindow inherits Window {
                     language-changed(value) => { root.language-changed(value); }
                     theme-changed(value) => { root.theme-changed(value); }
                     speed-unit-changed(value) => { root.speed-unit-changed(value); }
-                }
-            }
-        }
-    }
-
-    if root.busy: Rectangle {
-        background: Theme.overlay;
-        Rectangle {
-            width: 260px;
-            height: 120px;
-            border-radius: Theme.radius-panel;
-            background: Theme.surface-strong;
-            border-width: 1px;
-            border-color: Theme.glass-highlight;
-            drop-shadow-blur: 28px;
-            drop-shadow-color: Theme.shadow;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 12px;
-
-                HorizontalLayout {
-                    alignment: center;
-                    ProgressIndicator {
-                        width: 180px;
-                        height: 4px;
-                        indeterminate: true;
-                    }
-                }
-
-                Text {
-                    text: root.language == "id" ? "Memeriksa adapter & koneksi..." : "Checking network & connection...";
-                    color: Theme.text;
-                    font-size: 12px;
-                    font-weight: 600;
-                    horizontal-alignment: center;
                 }
             }
         }
