@@ -30,6 +30,7 @@ enum ElevatedDnsOperation {
     Apply {
         adapter: String,
         addresses: Vec<String>,
+        doh_template: Option<String>,
     },
     Reset {
         adapter: String,
@@ -168,14 +169,38 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
         .and_then(|bytes| serde_json::from_slice::<ElevatedDnsOperation>(&bytes).map_err(|_| ()))
         .and_then(|operation| {
             let script = match operation {
-                ElevatedDnsOperation::Apply { adapter, addresses } => {
+                ElevatedDnsOperation::Apply {
+                    adapter,
+                    addresses,
+                    doh_template,
+                } => {
                     let adapter = adapter.replace('\'', "''");
-                    let addresses = addresses
+                    let quoted_addresses = addresses
                         .iter()
                         .map(|address| format!("'{}'", address.replace('\'', "''")))
                         .collect::<Vec<_>>()
                         .join(",");
-                    format!("Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ServerAddresses ({addresses}) -ErrorAction Stop")
+                    let encryption_setup = if let Some(template) = doh_template {
+                        let template = template.replace('\'', "''");
+                        addresses
+                            .iter()
+                            .map(|address| {
+                                let address = address.replace('\'', "''");
+                                format!("if (Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction SilentlyContinue) {{ Set-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True }} else {{ Add-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True }}")
+                            })
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    } else {
+                        addresses
+                            .iter()
+                            .map(|address| {
+                                let address = address.replace('\'', "''");
+                                format!("Set-DnsClientDohServerAddress -ServerAddress '{address}' -AllowFallbackToUdp $True -AutoUpgrade $False -ErrorAction SilentlyContinue")
+                            })
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    };
+                    format!("{encryption_setup}; Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ServerAddresses ({quoted_addresses}) -ErrorAction Stop")
                 }
                 ElevatedDnsOperation::Reset { adapter } => {
                     let adapter = adapter.replace('\'', "''");
@@ -255,18 +280,27 @@ pub fn network_counters(_interface_index: u32) -> Result<(u64, u64), String> {
 }
 
 #[cfg(windows)]
-pub fn apply_dns(adapter: &str, addresses: &[String]) -> Result<(), String> {
+pub fn apply_dns(
+    adapter: &str,
+    addresses: &[String],
+    doh_template: Option<&str>,
+) -> Result<(), String> {
     if addresses.is_empty() {
         return Err("No DNS address was selected.".into());
     }
     run_elevated_dns_operation(ElevatedDnsOperation::Apply {
         adapter: adapter.into(),
         addresses: addresses.to_vec(),
+        doh_template: doh_template.map(str::to_owned),
     })
 }
 
 #[cfg(not(windows))]
-pub fn apply_dns(_adapter: &str, _addresses: &[String]) -> Result<(), String> {
+pub fn apply_dns(
+    _adapter: &str,
+    _addresses: &[String],
+    _doh_template: Option<&str>,
+) -> Result<(), String> {
     Err("Changing DNS is currently supported on Windows only.".into())
 }
 

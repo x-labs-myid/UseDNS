@@ -200,6 +200,32 @@ fn row(provider: &DnsProvider, language: &str, current_dns: &str) -> ProviderRow
     }
 }
 
+fn doh_template(provider_id: &str, profile_id: &str) -> &'static str {
+    match (provider_id, profile_id) {
+        ("cloudflare", "standard") => "https://cloudflare-dns.com/dns-query",
+        ("cloudflare", "security") => "https://security.cloudflare-dns.com/dns-query",
+        ("cloudflare", "family") => "https://family.cloudflare-dns.com/dns-query",
+        ("google", _) => "https://dns.google/dns-query",
+        ("quad9", "standard") => "https://dns.quad9.net/dns-query",
+        ("quad9", "ecs") => "https://dns11.quad9.net/dns-query",
+        ("quad9", "unsecured") => "https://dns10.quad9.net/dns-query",
+        ("adguard", "default") => "https://dns.adguard-dns.com/dns-query",
+        ("adguard", "family") => "https://family.adguard-dns.com/dns-query",
+        ("adguard", "non-filtering") => "https://unfiltered.adguard-dns.com/dns-query",
+        ("cleanbrowsing", "family") => "https://doh.cleanbrowsing.org/doh/family-filter/",
+        ("cleanbrowsing", "adult") => "https://doh.cleanbrowsing.org/doh/adult-filter/",
+        ("cleanbrowsing", "security") => "https://doh.cleanbrowsing.org/doh/security-filter/",
+        ("control-d", "unfiltered") => "https://freedns.controld.com/p0",
+        ("control-d", "malware") => "https://freedns.controld.com/p1",
+        ("control-d", "ads-malware") => "https://freedns.controld.com/p2",
+        ("control-d", "family" | "social") => "https://freedns.controld.com/p3",
+        ("nextdns", _) => "https://dns.nextdns.io",
+        ("opendns", "standard") => "https://doh.opendns.com/dns-query",
+        ("opendns", "familyshield") => "https://doh.familyshield.opendns.com/dns-query",
+        _ => "",
+    }
+}
+
 fn format_pair(primary: &str, secondary: &str) -> String {
     match (primary.is_empty(), secondary.is_empty()) {
         (true, _) => "—".into(),
@@ -762,15 +788,20 @@ fn main() -> Result<(), slint::PlatformError> {
                         tag: tag.as_str().into(),
                         ipv4: format_pair(&p.ipv4_primary, &p.ipv4_secondary).into(),
                         ipv6: format_pair(&p.ipv6_primary, &p.ipv6_secondary).into(),
+                        doh_template: doh_template(&provider.id, &p.id).into(),
                     }
                 })
                 .collect::<Vec<_>>();
+            let encrypted_available = profile_rows
+                .first()
+                .is_some_and(|profile| !profile.doh_template.is_empty());
 
             if let Some(window) = weak.upgrade() {
                 window.set_popup_provider_id(provider.id.into());
                 window.set_popup_provider_name(provider.name.into());
                 window.set_popup_profiles(ModelRc::from(Rc::new(VecModel::from(profile_rows))));
                 window.set_selected_profile_index(0);
+                window.set_encrypted_dns(encrypted_available);
                 window.set_ip_mode(0);
                 window.set_profile_popup_open(true);
             }
@@ -783,113 +814,119 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let provider_filter = provider_filter.clone();
         let weak = window.as_weak();
-        window.on_confirm_apply_profile(move |id, profile_index, adapter_index, mode| {
-            let provider = providers
-                .borrow()
-                .iter()
-                .find(|p| p.id == id.as_str())
-                .cloned();
-            let adapter = adapters
-                .lock()
-                .ok()
-                .and_then(|items| items.get(adapter_index.max(0) as usize).cloned());
-            let (Some(provider), Some(adapter)) = (provider, adapter) else {
-                if let Some(window) = weak.upgrade() {
-                    show_message(&window, "Select an active network adapter first.", true);
-                }
-                return;
-            };
+        window.on_confirm_apply_profile(
+            move |id, profile_index, adapter_index, mode, encrypted, doh_template| {
+                let provider = providers
+                    .borrow()
+                    .iter()
+                    .find(|p| p.id == id.as_str())
+                    .cloned();
+                let adapter = adapters
+                    .lock()
+                    .ok()
+                    .and_then(|items| items.get(adapter_index.max(0) as usize).cloned());
+                let (Some(provider), Some(adapter)) = (provider, adapter) else {
+                    if let Some(window) = weak.upgrade() {
+                        show_message(&window, "Select an active network adapter first.", true);
+                    }
+                    return;
+                };
 
-            let profiles = provider.get_profiles();
-            let selected_profile = profiles
-                .get(profile_index.max(0) as usize)
-                .or_else(|| profiles.first());
-            let Some(profile) = selected_profile else {
-                return;
-            };
+                let profiles = provider.get_profiles();
+                let selected_profile = profiles
+                    .get(profile_index.max(0) as usize)
+                    .or_else(|| profiles.first());
+                let Some(profile) = selected_profile else {
+                    return;
+                };
 
-            let mut addresses = Vec::new();
-            if mode == 0 || mode == 2 {
-                addresses.extend(
-                    [profile.ipv4_primary.clone(), profile.ipv4_secondary.clone()]
-                        .into_iter()
-                        .filter(|v| !v.is_empty()),
-                );
-            }
-            if mode == 1 || mode == 2 {
-                addresses.extend(
-                    [profile.ipv6_primary.clone(), profile.ipv6_secondary.clone()]
-                        .into_iter()
-                        .filter(|v| !v.is_empty()),
-                );
-            }
-            if addresses.is_empty() {
-                if let Some(window) = weak.upgrade() {
-                    show_message(
-                        &window,
-                        "This profile has no address for the selected IP mode.",
-                        true,
+                let mut addresses = Vec::new();
+                if mode == 0 || mode == 2 {
+                    addresses.extend(
+                        [profile.ipv4_primary.clone(), profile.ipv4_secondary.clone()]
+                            .into_iter()
+                            .filter(|v| !v.is_empty()),
                     );
                 }
-                return;
-            }
-
-            if let Some(window) = weak.upgrade() {
-                window.set_busy(true);
-                window.set_toast_message("".into());
-            }
-            let weak = weak.clone();
-            let lang = language.borrow().clone();
-            let profile_display_name = if lang == "id" {
-                profile.name_id.clone()
-            } else {
-                profile.name_en.clone()
-            };
-            let active_title = if profiles.len() > 1 {
-                format!("{} - {}", provider.name, profile_display_name)
-            } else {
-                provider.name.clone()
-            };
-            let active_provider_id = provider.id.clone();
-
-            let providers_snapshot = providers.borrow().clone();
-            let (query, category) = provider_filter.borrow().clone();
-            std::thread::spawn(move || {
-                let result = system::apply_dns(&adapter.name, &addresses);
-                let _ = slint::invoke_from_event_loop(move || {
+                if mode == 1 || mode == 2 {
+                    addresses.extend(
+                        [profile.ipv6_primary.clone(), profile.ipv6_secondary.clone()]
+                            .into_iter()
+                            .filter(|v| !v.is_empty()),
+                    );
+                }
+                if addresses.is_empty() {
                     if let Some(window) = weak.upgrade() {
-                        window.set_busy(false);
-                        match result {
-                            Ok(()) => {
-                                window.set_profile_popup_open(false);
-                                window.set_active_provider_id(active_provider_id.into());
-                                window.set_active_provider(active_title.into());
-                                window.set_current_dns(addresses.join(", ").into());
-                                set_filtered_provider_model(
-                                    &window,
-                                    &providers_snapshot,
-                                    &lang,
-                                    &addresses.join(", "),
-                                    &query,
-                                    &category,
-                                );
-                                show_message(
-                                    &window,
-                                    if lang == "id" {
-                                        "DNS berhasil diterapkan."
-                                    } else {
-                                        "DNS applied successfully."
-                                    },
-                                    false,
-                                );
-                                window.invoke_refresh();
-                            }
-                            Err(message) => show_message(&window, message, true),
-                        }
+                        show_message(
+                            &window,
+                            "This profile has no address for the selected IP mode.",
+                            true,
+                        );
                     }
+                    return;
+                }
+
+                if let Some(window) = weak.upgrade() {
+                    window.set_busy(true);
+                    window.set_toast_message("".into());
+                }
+                let weak = weak.clone();
+                let lang = language.borrow().clone();
+                let profile_display_name = if lang == "id" {
+                    profile.name_id.clone()
+                } else {
+                    profile.name_en.clone()
+                };
+                let active_title = if profiles.len() > 1 {
+                    format!("{} - {}", provider.name, profile_display_name)
+                } else {
+                    provider.name.clone()
+                };
+                let active_provider_id = provider.id.clone();
+
+                let providers_snapshot = providers.borrow().clone();
+                let (query, category) = provider_filter.borrow().clone();
+                std::thread::spawn(move || {
+                    let result = system::apply_dns(
+                        &adapter.name,
+                        &addresses,
+                        encrypted.then_some(doh_template.as_str()),
+                    );
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(window) = weak.upgrade() {
+                            window.set_busy(false);
+                            match result {
+                                Ok(()) => {
+                                    window.set_profile_popup_open(false);
+                                    window.set_active_provider_id(active_provider_id.into());
+                                    window.set_active_provider(active_title.into());
+                                    window.set_current_dns(addresses.join(", ").into());
+                                    set_filtered_provider_model(
+                                        &window,
+                                        &providers_snapshot,
+                                        &lang,
+                                        &addresses.join(", "),
+                                        &query,
+                                        &category,
+                                    );
+                                    window.invoke_refresh();
+                                    show_message(
+                                        &window,
+                                        if lang == "id" {
+                                            "DNS berhasil diterapkan."
+                                        } else {
+                                            "DNS applied successfully."
+                                        },
+                                        false,
+                                    );
+                                }
+                                Err(message) => show_message(&window, message, true),
+                            }
+                        }
+                    });
                 });
-            });
-        });
+            },
+        );
     }
 
     {
@@ -953,7 +990,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let provider_id = provider.id.clone();
             let language_value = language.borrow().clone();
             std::thread::spawn(move || {
-                let result = system::apply_dns(&adapter.name, &addresses);
+                let result = system::apply_dns(&adapter.name, &addresses, None);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(window) = weak.upgrade() {
                         window.set_busy(false);

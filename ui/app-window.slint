@@ -61,6 +61,7 @@ export component AppWindow inherits Window {
     in-out property <string> popup-provider-name: "";
     in-out property <[DnsProfileRow]> popup-profiles: [];
     in-out property <int> selected-profile-index: 0;
+    in-out property <bool> encrypted-dns: true;
 
     in-out property <string> form-id: "";
     in-out property <string> form-name: "";
@@ -77,7 +78,7 @@ export component AppWindow inherits Window {
     callback speed-unit-changed(string);
     callback apply-selected(string, int, int);
     callback request-use-provider(string);
-    callback confirm-apply-profile(string, int, int, int);
+    callback confirm-apply-profile(string, int, int, int, bool, string);
     callback filter-providers(string, string);
     callback reset-dns(int);
     callback edit-provider(string);
@@ -175,10 +176,11 @@ export component AppWindow inherits Window {
                     popup-provider-name <=> root.popup-provider-name;
                     popup-profiles <=> root.popup-profiles;
                     selected-profile-index <=> root.selected-profile-index;
+                    encrypted-dns <=> root.encrypted-dns;
                     add-provider => { root.page = 2; root.clear-form(); }
                     request-use-provider(id) => { root.request-use-provider(id); }
-                    confirm-apply-profile(id, profile-index, adapter, mode) => {
-                        root.confirm-apply-profile(id, profile-index, adapter, mode);
+                    confirm-apply-profile(id, profile-index, adapter, mode, encrypted, template) => {
+                        root.confirm-apply-profile(id, profile-index, adapter, mode, encrypted, template);
                     }
                     edit-provider(id) => { root.edit-provider(id); root.page = 2; }
                     delete-provider(id) => { root.delete-provider(id); }

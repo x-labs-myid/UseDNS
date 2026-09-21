@@ -96,6 +96,73 @@ component AddButton inherits Rectangle {
     }
 }
 
+component EncryptionOption inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    height: 52px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.accent.with-alpha(0.09) : (option-touch.has-hover ? Theme.glass-hover : transparent);
+    border-width: 1px;
+    border-color: selected ? Theme.accent.with-alpha(0.72) : transparent;
+    opacity: enabled ? 1 : 0.52;
+
+    Rectangle {
+        x: 14px;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: root.selected ? Theme.accent : transparent;
+        border-width: 2px;
+        border-color: root.selected ? Theme.accent : Theme.border;
+
+        if root.selected: Rectangle {
+            width: 6px;
+            height: 6px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            border-radius: 3px;
+            background: white;
+        }
+    }
+
+    Text {
+        x: 40px;
+        y: 9px;
+        width: parent.width - 54px;
+        height: 16px;
+        text: root.title;
+        color: root.selected ? Theme.accent : Theme.text;
+        font-size: 11px;
+        font-weight: 700;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    Text {
+        x: 40px;
+        y: 27px;
+        width: parent.width - 54px;
+        height: 14px;
+        text: root.detail;
+        color: Theme.muted-text;
+        font-size: 9px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    option-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
 component IpModeCard inherits Rectangle {
     in property <string> title;
     in property <string> detail;
@@ -105,46 +172,46 @@ component IpModeCard inherits Rectangle {
     in property <int> icon-index;
     callback clicked;
 
-    height: 86px;
+    height: 74px;
     horizontal-stretch: 1;
     border-radius: Theme.radius-control;
-    background: selected ? Theme.accent.with-alpha(0.10) : (ip-touch.has-hover ? Theme.glass-hover : Theme.surface-subtle);
-    border-width: selected ? 1.5px : 1px;
-    border-color: selected ? Theme.cyan : (ip-touch.has-hover ? Theme.cyan.with-alpha(0.3) : Theme.border);
+    background: selected ? Theme.accent.with-alpha(0.08) : (ip-touch.has-hover ? Theme.glass-hover : Theme.surface-subtle);
+    border-width: 1px;
+    border-color: selected ? Theme.accent.with-alpha(0.72) : Theme.border;
 
     VerticalLayout {
-        padding: 10px;
-        spacing: 6px;
+        padding: 9px;
+        spacing: 3px;
 
         HorizontalLayout {
-            height: 32px;
+            height: 28px;
             spacing: 8px;
 
             Rectangle {
-                width: 32px;
-                height: 32px;
-                border-radius: 16px;
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
                 background: root.selected ? Theme.cyan.with-alpha(0.15) : Theme.accent.with-alpha(0.10);
                 if root.icon-index == 0: IconDisplay {
                     icon: IconSet.Globe;
                     size: 16px;
-                    stroke: root.selected ? Theme.cyan : Theme.accent;
-                    x: 8px;
-                    y: 8px;
+                    stroke: root.selected ? Theme.accent : Theme.secondary-text;
+                    x: 6px;
+                    y: 6px;
                 }
                 if root.icon-index == 1: IconDisplay {
                     icon: IconSet.Network;
                     size: 16px;
-                    stroke: root.selected ? Theme.cyan : Theme.accent;
-                    x: 8px;
-                    y: 8px;
+                    stroke: root.selected ? Theme.accent : Theme.secondary-text;
+                    x: 6px;
+                    y: 6px;
                 }
                 if root.icon-index == 2: IconDisplay {
                     icon: IconSet.Layers;
                     size: 16px;
-                    stroke: root.selected ? Theme.cyan : Theme.accent;
-                    x: 8px;
-                    y: 8px;
+                    stroke: root.selected ? Theme.accent : Theme.secondary-text;
+                    x: 6px;
+                    y: 6px;
                 }
             }
 
@@ -161,11 +228,11 @@ component IpModeCard inherits Rectangle {
             Rectangle {
                 width: 16px;
                 height: 16px;
-                y: 8px;
+                y: 6px;
                 border-radius: 8px;
-                background: root.selected ? Theme.cyan : transparent;
+                background: root.selected ? Theme.accent : transparent;
                 border-width: 1.5px;
-                border-color: root.selected ? Theme.cyan : Theme.border;
+                border-color: root.selected ? Theme.accent : Theme.border;
                 if root.selected: IconDisplay {
                     icon: IconSet.Check;
                     size: 10px;
@@ -230,11 +297,11 @@ component ProfileCard inherits Rectangle {
     in property <bool> selected;
     callback clicked;
 
-    height: 58px;
-    border-radius: 12px;
-    background: selected ? (Theme.dark ? #11284d : #e8f3ff) : (touch.has-hover ? Theme.surface-subtle : Theme.surface);
-    border-width: selected ? 1.5px : 1px;
-    border-color: selected ? Theme.cyan : (touch.has-hover ? Theme.cyan.with-alpha(0.3) : Theme.border);
+    height: 56px;
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.accent.with-alpha(0.07) : (touch.has-hover ? Theme.glass-hover : Theme.surface);
+    border-width: 1px;
+    border-color: selected ? Theme.accent.with-alpha(0.68) : Theme.border;
 
     HorizontalLayout {
         padding-left: 14px;
@@ -249,14 +316,14 @@ component ProfileCard inherits Rectangle {
                 height: 20px;
                 border-radius: 10px;
                 border-width: 2px;
-                border-color: root.selected ? Theme.cyan : Theme.border;
-                background: root.selected ? Theme.cyan.with-alpha(0.12) : transparent;
+                border-color: root.selected ? Theme.accent : Theme.border;
+                background: root.selected ? Theme.accent.with-alpha(0.10) : transparent;
 
                 if root.selected: Rectangle {
                     width: 10px;
                     height: 10px;
                     border-radius: 5px;
-                    background: Theme.cyan;
+                    background: Theme.accent;
                     x: (parent.width - 10px) / 2;
                     y: (parent.height - 10px) / 2;
                 }
@@ -283,7 +350,7 @@ component ProfileCard inherits Rectangle {
 
                 Tag {
                     text: root.tag;
-                    tint: root.selected ? Theme.cyan : Theme.accent;
+                    tint: Theme.accent;
                 }
             }
 
@@ -316,10 +383,11 @@ export component ProvidersPage inherits Rectangle {
     in-out property <string> popup-provider-name: "";
     in-out property <[DnsProfileRow]> popup-profiles: [];
     in-out property <int> selected-profile-index: 0;
+    in-out property <bool> encrypted-dns: true;
 
     callback add-provider;
     callback request-use-provider(string);
-    callback confirm-apply-profile(string, int, int, int);
+    callback confirm-apply-profile(string, int, int, int, bool, string);
     callback edit-provider(string);
     callback delete-provider(string);
     callback filter-request(string, string);
@@ -451,9 +519,9 @@ export component ProvidersPage inherits Rectangle {
                     width: parent.width - 18px;
                     height: 96px;
                     border-radius: 16px;
-                    background: provider.active ? (Theme.dark ? #0f223f : #f0f7ff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
+                    background: provider.active ? (Theme.dark ? #12355d : #dceeff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
                     border-width: provider.active ? 1.5px : 1px;
-                    border-color: provider.active ? Theme.cyan : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
+                    border-color: provider.active ? Theme.accent : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
                     clip: true;
 
                     card-touch := TouchArea { }
@@ -506,6 +574,22 @@ export component ProvidersPage inherits Rectangle {
                                         vertical-alignment: center;
                                     }
                                 }
+
+                                if provider.active: Rectangle {
+                                    height: 20px;
+                                    width: active-badge-text.preferred-width + 16px;
+                                    border-radius: 6px;
+                                    background: Theme.accent;
+
+                                    active-badge-text := Text {
+                                        text: language == "id" ? "Digunakan" : "In use";
+                                        color: white;
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
                             }
 
                             Text {
@@ -539,44 +623,10 @@ export component ProvidersPage inherits Rectangle {
                             alignment: center;
                             spacing: 6px;
 
-                            if provider.active: Rectangle {
-                                height: 34px;
-                                border-radius: 10px;
-                                background: Theme.cyan.with-alpha(0.12);
-                                border-width: 1px;
-                                border-color: Theme.cyan.with-alpha(0.45);
-                                HorizontalLayout {
-                                    padding-left: 8px;
-                                    padding-right: 8px;
-                                    spacing: 6px;
-                                    alignment: center;
-                                    VerticalLayout {
-                                        width: 16px;
-                                        alignment: center;
-                                        Rectangle {
-                                            width: 16px;
-                                            height: 16px;
-                                            border-radius: 8px;
-                                            background: Theme.cyan;
-                                            IconDisplay {
-                                                icon: IconSet.Check;
-                                                size: 10px;
-                                                stroke: white;
-                                                x: 3px;
-                                                y: 3px;
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        text: language == "id" ? "Digunakan" : "In use";
-                                        color: Theme.cyan;
-                                        font-size: 12px;
-                                        font-weight: 700;
-                                        vertical-alignment: center;
-                                        horizontal-alignment: center;
-                                    }
-                                }
+                            if provider.active: AppButton {
+                                text: language == "id" ? "Ubah konfigurasi" : "Change config";
+                                enabled: !busy;
+                                clicked => { root.request-use-provider(provider.id); }
                             }
                             if !provider.active: AppButton {
                                 text: language == "id" ? "Gunakan" : "Use DNS";
@@ -610,15 +660,15 @@ export component ProvidersPage inherits Rectangle {
         y: 0;
         width: 100%;
         height: 100%;
-        background: #00000080;
+        background: Theme.overlay;
 
         TouchArea { }
 
         Rectangle {
-            width: 640px;
+            width: 620px;
             height: modal-layout.preferred-height;
-            border-radius: 18px;
-            background: Theme.surface;
+            border-radius: Theme.radius-card;
+            background: Theme.surface-strong;
             border-width: 1px;
             border-color: Theme.border;
             drop-shadow-blur: 24px;
@@ -628,8 +678,8 @@ export component ProvidersPage inherits Rectangle {
             y: (parent.height - self.height) / 2;
 
             modal-layout := VerticalLayout {
-                padding: 24px;
-                spacing: 18px;
+                padding: 20px;
+                spacing: 13px;
 
                 // Modal Header
                 HorizontalLayout {
@@ -642,7 +692,7 @@ export component ProvidersPage inherits Rectangle {
                         Text {
                             text: language == "id" ? ("Pilih Profil: " + root.popup-provider-name) : ("Select Profile: " + root.popup-provider-name);
                             color: Theme.text;
-                            font-size: 18px;
+                            font-size: 17px;
                             font-weight: 800;
                         }
 
@@ -675,15 +725,9 @@ export component ProvidersPage inherits Rectangle {
                     }
                 }
 
-                // Divider
-                Rectangle {
-                    height: 1px;
-                    background: Theme.border;
-                }
-
                 // Profiles Cards
                 VerticalLayout {
-                    spacing: 8px;
+                    spacing: 6px;
 
                     for profile[index] in root.popup-profiles: ProfileCard {
                         name: profile.name;
@@ -694,50 +738,88 @@ export component ProvidersPage inherits Rectangle {
                         selected: root.selected-profile-index == index;
                         clicked => {
                             root.selected-profile-index = index;
+                            if (profile.doh-template == "") { root.encrypted-dns = false; }
                         }
                     }
                 }
 
-                Text {
-                    text: language == "id" ? "Terapkan ke jaringan sebagai:" : "Apply to the network as:";
-                    color: Theme.text;
-                    font-size: 13px;
-                    font-weight: 700;
+                VerticalLayout {
+                    spacing: 7px;
+
+                    Text {
+                        text: language == "id" ? "Protokol jaringan" : "Network protocol";
+                        color: Theme.text;
+                        font-size: 13px;
+                        font-weight: 700;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        IpModeCard {
+                            icon-index: 0;
+                            title: "IPv4";
+                            detail: language == "id" ? "Cocok untuk hampir semua perangkat" : "Works on almost every device";
+                            recommended: true;
+                            badge-text: language == "id" ? "Disarankan" : "Recommended";
+                            selected: root.ip-mode == 0;
+                            clicked => { root.ip-mode = 0; }
+                        }
+
+                        IpModeCard {
+                            icon-index: 1;
+                            title: "IPv6";
+                            detail: language == "id" ? "Hanya jika jaringan mendukung IPv6" : "Only if your network supports IPv6";
+                            selected: root.ip-mode == 1;
+                            clicked => { root.ip-mode = 1; }
+                        }
+
+                        IpModeCard {
+                            icon-index: 2;
+                            title: language == "id" ? "Keduanya" : "Both";
+                            detail: language == "id" ? "IPv4 dan IPv6 sekaligus" : "IPv4 and IPv6 together";
+                            selected: root.ip-mode == 2;
+                            clicked => { root.ip-mode = 2; }
+                        }
+                    }
                 }
 
-                HorizontalLayout {
-                    spacing: 8px;
-                    IpModeCard {
-                        icon-index: 0;
-                        title: "IPv4";
-                        detail: language == "id" ? "Cocok untuk hampir semua perangkat" : "Works on almost every device";
-                        recommended: true;
-                        badge-text: language == "id" ? "Disarankan" : "Recommended";
-                        selected: root.ip-mode == 0;
-                        clicked => { root.ip-mode = 0; }
+                VerticalLayout {
+                    spacing: 7px;
+
+                    Text {
+                        text: language == "id" ? "Privasi DNS" : "DNS privacy";
+                        color: Theme.text;
+                        font-size: 13px;
+                        font-weight: 700;
                     }
 
-                    IpModeCard {
-                        icon-index: 1;
-                        title: "IPv6";
-                        detail: language == "id" ? "Hanya jika jaringan mendukung IPv6" : "Only if your network supports IPv6";
-                        selected: root.ip-mode == 1;
-                        clicked => { root.ip-mode = 1; }
-                    }
+                    Rectangle {
+                        height: 60px;
+                        border-radius: Theme.radius-card;
+                        background: Theme.surface-subtle;
+                        border-width: 1px;
+                        border-color: Theme.border;
 
-                    IpModeCard {
-                        icon-index: 2;
-                        title: language == "id" ? "Keduanya" : "Both";
-                        detail: language == "id" ? "IPv4 dan IPv6 sekaligus" : "IPv4 and IPv6 together";
-                        selected: root.ip-mode == 2;
-                        clicked => { root.ip-mode = 2; }
-                    }
-                }
+                        HorizontalLayout {
+                            padding: 4px;
+                            spacing: 4px;
 
-                // Divider
-                Rectangle {
-                    height: 1px;
-                    background: Theme.border;
+                            EncryptionOption {
+                                title: language == "id" ? "Terenkripsi (DoH) · Disarankan" : "Encrypted (DoH) · Recommended";
+                                detail: language == "id" ? "Mencegah DNS dibaca di jaringan lokal" : "Prevents DNS inspection on the local network";
+                                selected: root.encrypted-dns;
+                                enabled: root.popup-profiles.length > 0 && root.popup-profiles[root.selected-profile-index].doh-template != "";
+                                clicked => { root.encrypted-dns = true; }
+                            }
+
+                            EncryptionOption {
+                                title: language == "id" ? "Tidak terenkripsi" : "Unencrypted";
+                                detail: language == "id" ? "Lebih kompatibel, tetapi kurang privat" : "More compatible, but less private";
+                                selected: !root.encrypted-dns;
+                                clicked => { root.encrypted-dns = false; }
+                            }
+                        }
+                    }
                 }
 
                 // Modal Footer
@@ -786,7 +868,13 @@ export component ProvidersPage inherits Rectangle {
                         loading: root.busy;
                         enabled: !root.busy;
                         clicked => {
-                            root.confirm-apply-profile(root.popup-provider-id, root.selected-profile-index, root.adapter-index, root.ip-mode);
+                            root.confirm-apply-profile(
+                                root.popup-provider-id,
+                                root.selected-profile-index,
+                                root.adapter-index,
+                                root.ip-mode,
+                                root.encrypted-dns,
+                                root.popup-profiles[root.selected-profile-index].doh-template);
                         }
                     }
                 }
