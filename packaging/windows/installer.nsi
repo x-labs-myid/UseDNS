@@ -11,7 +11,7 @@ SetCompressor /SOLID lzma
   !define OUT_FILE "UseDNS-Setup.exe"
 !endif
 !ifndef APP_ICON
-  !define APP_ICON "${__FILEDIR__}\UseDNS.ico"
+  !define APP_ICON "UseDNS.ico"
 !endif
 
 Name "UseDNS"
