@@ -43,6 +43,7 @@ pub struct AdapterInfo {
     pub label: String,
     pub dns: String,
     pub interface_index: u32,
+    pub dns_automatic: bool,
 }
 
 #[cfg(windows)]
@@ -186,7 +187,7 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
                             .iter()
                             .map(|address| {
                                 let address = address.replace('\'', "''");
-                                format!("if (Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction SilentlyContinue) {{ Set-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True }} else {{ Add-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True }}")
+                                format!("$existing = Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction SilentlyContinue; if ($null -ne $existing) {{ Set-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }} else {{ Add-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }}; $configured = Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction Stop; if (-not $configured.AutoUpgrade -or $configured.AllowFallbackToUdp) {{ throw 'Windows did not enable encrypted DNS for {address}.' }}")
                             })
                             .collect::<Vec<_>>()
                             .join("; ")
@@ -219,7 +220,7 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = "$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i) }";
+    let script = r"$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; $g=$_.InterfaceGuid; $v4=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $v6=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $auto=[string]::IsNullOrWhiteSpace([string]$v4) -and [string]::IsNullOrWhiteSpace([string]$v6); Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i + [char]9 + $(if ($auto) { '1' } else { '0' })) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
@@ -229,11 +230,13 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
             let label = fields.next()?;
             let dns = fields.next()?;
             let interface_index = fields.next()?.parse().ok()?;
+            let dns_automatic = fields.next() == Some("1");
             Some(AdapterInfo {
                 name: name.into(),
                 label: label.into(),
                 dns: dns.into(),
                 interface_index,
+                dns_automatic,
             })
         })
         .collect::<Vec<_>>();
@@ -251,6 +254,7 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
         label: "Default network".into(),
         dns: "System managed".into(),
         interface_index: 0,
+        dns_automatic: true,
     }])
 }
 

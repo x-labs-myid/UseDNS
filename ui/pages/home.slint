@@ -82,7 +82,7 @@ export component HomePage inherits VerticalLayout {
                 border-radius: Theme.radius-control;
                 background: refresh-touch.has-hover ? Theme.surface-strong : Theme.surface;
                 border-width: 1px;
-                border-color: refresh-touch.has-hover ? #0076f5.with-alpha(0.35) : Theme.border;
+                border-color: refresh-touch.has-hover ? Theme.accent.with-alpha(0.42) : Theme.border;
                 animate background { duration: 150ms; }
                 animate border-color { duration: 150ms; }
 
@@ -117,7 +117,7 @@ export component HomePage inherits VerticalLayout {
                             text: root.refreshing
                                 ? (language == "id" ? "Memeriksa..." : "Refreshing...")
                                 : (language == "id" ? "Periksa ulang" : "Refresh");
-                            color: refresh-touch.has-hover ? #0076f5 : Theme.text;
+                            color: refresh-touch.has-hover ? Theme.accent : Theme.text;
                             font-size: 12px;
                             font-weight: 600;
                             vertical-alignment: center;
@@ -189,13 +189,13 @@ export component HomePage inherits VerticalLayout {
                                 width: 6px;
                                 height: 6px;
                                 border-radius: 3px;
-                                background: #10b981;
+                                background: Theme.green;
                                 y: (parent.height - self.height) / 2;
                             }
 
                             Text {
                                 text: language == "id" ? "Aktif" : "Active";
-                                color: #10b981;
+                                color: Theme.green;
                                 font-size: 10px;
                                 font-weight: 600;
                                 vertical-alignment: center;
@@ -241,7 +241,7 @@ export component HomePage inherits VerticalLayout {
                         width: 48px;
                         height: 48px;
                         border-radius: 24px;
-                        background: @linear-gradient(135deg, #0099ff 0%, #0076f5 100%);
+                        background: Theme.accent;
                         IconDisplay {
                             icon: IconSet.Wifi;
                             size: 22px;
@@ -265,7 +265,7 @@ export component HomePage inherits VerticalLayout {
 
                     Text {
                         text: root.connection-state;
-                        color: root.connection-error ? #ef4444 : (root.connection-state == "Unstable" ? #f59e0b : #10b981);
+                        color: root.connection-error ? Theme.danger : (root.connection-state == "Unstable" ? Theme.orange : Theme.green);
                         font-size: 18px;
                         font-weight: 700;
                         overflow: elide;
@@ -301,7 +301,7 @@ export component HomePage inherits VerticalLayout {
                         width: 48px;
                         height: 48px;
                         border-radius: 24px;
-                        background: @linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+                        background: Theme.purple;
                         IconDisplay {
                             icon: IconSet.Clock;
                             size: 22px;
@@ -325,7 +325,7 @@ export component HomePage inherits VerticalLayout {
 
                     Text {
                         text: root.latency;
-                        color: #6366f1;
+                        color: Theme.purple;
                         font-size: 18px;
                         font-weight: 700;
                         overflow: elide;
@@ -368,12 +368,12 @@ export component HomePage inherits VerticalLayout {
                         width: 38px;
                         height: 38px;
                         border-radius: 19px;
-                        background: #0076f5.with-alpha(0.12);
+                        background: Theme.accent.with-alpha(0.12);
                         y: (parent.height - self.height) / 2;
                         IconDisplay {
                             icon: IconSet.Gauge;
                             size: 20px;
-                            stroke: #0076f5;
+                            stroke: Theme.accent;
                             x: (parent.width - 20px) / 2;
                             y: (parent.height - 20px) / 2;
                         }
@@ -412,7 +412,7 @@ export component HomePage inherits VerticalLayout {
                         width: 6px;
                         height: 6px;
                         border-radius: 3px;
-                        background: #10b981;
+                        background: Theme.green;
                         y: (parent.height - self.height) / 2;
                     }
 
@@ -467,7 +467,7 @@ export component HomePage inherits VerticalLayout {
                                 y: -170px * (1.0 - min(1.0, max(0.02, root.total-level)));
                                 border-radius: 85px;
                                 border-width: 13px;
-                                border-color: @linear-gradient(135deg, #0076f5 0%, #00d2ff 100%);
+                                border-color: @linear-gradient(135deg, Theme.accent 0%, Theme.cyan 100%);
                                 background: transparent;
                             }
                         }
@@ -491,7 +491,7 @@ export component HomePage inherits VerticalLayout {
 
                             Text {
                                 text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
-                                color: #0076f5;
+                                color: Theme.accent;
                                 font-size: 13px;
                                 font-weight: 700;
                                 horizontal-alignment: center;
@@ -534,12 +534,12 @@ export component HomePage inherits VerticalLayout {
                                     width: 36px;
                                     height: 36px;
                                     border-radius: 18px;
-                                    background: #0076f5.with-alpha(0.12);
+                                    background: Theme.accent.with-alpha(0.12);
                                     y: (parent.height - self.height) / 2;
                                     IconDisplay {
                                         icon: IconSet.ArrowDown;
                                         size: 18px;
-                                        stroke: #0076f5;
+                                        stroke: Theme.accent;
                                         x: (parent.width - 18px) / 2;
                                         y: (parent.height - 18px) / 2;
                                     }
@@ -571,7 +571,7 @@ export component HomePage inherits VerticalLayout {
                                 Rectangle {
                                     width: 44px;
                                     height: 12px;
-                                    background: @linear-gradient(90deg, #0076f511 0%, #0076f544 100%);
+                                    background: Theme.accent.with-alpha(0.18);
                                     border-radius: 6px;
                                     y: (parent.height - self.height) / 2;
                                 }
@@ -595,12 +595,12 @@ export component HomePage inherits VerticalLayout {
                                     width: 36px;
                                     height: 36px;
                                     border-radius: 18px;
-                                    background: #8b5cf6.with-alpha(0.12);
+                                    background: Theme.purple.with-alpha(0.12);
                                     y: (parent.height - self.height) / 2;
                                     IconDisplay {
                                         icon: IconSet.ArrowUp;
                                         size: 18px;
-                                        stroke: #8b5cf6;
+                                        stroke: Theme.purple;
                                         x: (parent.width - 18px) / 2;
                                         y: (parent.height - 18px) / 2;
                                     }
@@ -632,7 +632,7 @@ export component HomePage inherits VerticalLayout {
                                 Rectangle {
                                     width: 44px;
                                     height: 12px;
-                                    background: @linear-gradient(90deg, #8b5cf611 0%, #8b5cf644 100%);
+                                    background: Theme.purple.with-alpha(0.18);
                                     border-radius: 6px;
                                     y: (parent.height - self.height) / 2;
                                 }
@@ -677,7 +677,7 @@ export component HomePage inherits VerticalLayout {
                                             width: 6px;
                                             height: 6px;
                                             border-radius: 3px;
-                                            background: #0076f5;
+                                            background: Theme.accent;
                                             y: (parent.height - self.height) / 2;
                                         }
 
@@ -696,7 +696,7 @@ export component HomePage inherits VerticalLayout {
                                             width: 6px;
                                             height: 6px;
                                             border-radius: 3px;
-                                            background: #8b5cf6;
+                                            background: Theme.purple;
                                             y: (parent.height - self.height) / 2;
                                         }
 
@@ -797,7 +797,7 @@ export component HomePage inherits VerticalLayout {
                                                 width: 6px;
                                                 height: max(3px, parent.height * min(1.0, max(0.0, sample.upload)));
                                                 border-radius: 3px;
-                                                background: #8b5cf699;
+                                                background: Theme.purple.with-alpha(0.60);
                                                 y: parent.height - self.height;
                                             }
 
@@ -806,7 +806,7 @@ export component HomePage inherits VerticalLayout {
                                                 width: 6px;
                                                 height: max(3px, parent.height * min(1.0, max(0.0, sample.download)));
                                                 border-radius: 3px;
-                                                background: #0076f5;
+                                                background: Theme.accent;
                                                 y: parent.height - self.height;
                                             }
                                         }
@@ -839,11 +839,11 @@ export component HomePage inherits VerticalLayout {
                 width: 42px;
                 height: 42px;
                 border-radius: 21px;
-                background: #0076f5.with-alpha(0.12);
+                background: Theme.accent.with-alpha(0.12);
                 IconDisplay {
                     icon: IconSet.Database;
                     size: 20px;
-                    stroke: #0076f5;
+                    stroke: Theme.accent;
                     x: (parent.width - 20px) / 2;
                     y: (parent.height - 20px) / 2;
                 }
@@ -919,8 +919,8 @@ export component HomePage inherits VerticalLayout {
                 height: 40px;
                 border-radius: 12px;
                 background: (root.busy || root.adapters.length == 0) ?
-                    #93c5fd :
-                    @linear-gradient(90deg, #0076f5 0%, #0099ff 100%);
+                    Theme.accent.with-alpha(0.42) :
+                    Theme.accent;
                 HorizontalLayout {
                     padding-left: 18px;
                     padding-right: 20px;
@@ -986,7 +986,7 @@ export component HomePage inherits VerticalLayout {
             IconDisplay {
                 icon: IconSet.Info;
                 size: 14px;
-                stroke: #0076f5;
+                stroke: Theme.accent;
                 x: (parent.width - 14px) / 2;
                 y: (parent.height - 14px) / 2;
             }
@@ -1014,7 +1014,7 @@ export component HomePage inherits VerticalLayout {
                 IconDisplay {
                     icon: IconSet.Shield;
                     size: 13px;
-                    stroke: #0076f5;
+                    stroke: Theme.accent;
                     x: (parent.width - 13px) / 2;
                     y: (parent.height - 13px) / 2;
                 }

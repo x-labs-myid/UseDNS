@@ -5,32 +5,32 @@ export global Theme {
     in-out property <bool> system-dark: false;
     out property <bool> dark: mode == "dark" || (mode == "system" && system-dark);
 
-    // Soft Fluent materials: tonal depth instead of simulated backdrop blur.
-    out property <color> background: dark ? #0d111a : #eef3f8;
-    out property <color> sidebar: dark ? #171c27 : #f7f9fc;
-    out property <color> surface: dark ? #181e29 : #f9fbfd;
-    out property <color> surface-strong: dark ? #222936 : #ffffff;
-    out property <color> surface-subtle: dark ? #141a24 : #f1f5f9;
-    out property <color> border: dark ? #303948 : #dce4ec;
-    out property <color> border-subtle: dark ? #252d39 : #e7edf3;
-    out property <color> glass-highlight: dark ? #3a4454 : #ffffff;
-    out property <color> glass-hover: dark ? #283343 : #e8f2fc;
-    out property <color> popover: dark ? #202735 : #ffffff;
-    out property <color> popover-border: dark ? #3a4454 : #d7e0e9;
-    out property <color> shadow: dark ? #00000066 : #3b526b20;
-    out property <color> text: dark ? #f5f7fb : #152033;
-    out property <color> secondary-text: dark ? #b5bdca : #526176;
-    out property <color> muted-text: dark ? #858f9f : #78879a;
-    out property <color> accent: dark ? #0a84ff : #007aff;
-    out property <color> accent-hover: dark ? #2997ff : #1687ff;
-    out property <color> accent-gradient-start: dark ? #0a84ff : #007aff;
-    out property <color> accent-gradient-end: dark ? #64d2ff : #5ac8fa;
-    out property <color> cyan: dark ? #64d2ff : #32ade6;
-    out property <color> green: dark ? #30d158 : #28a745;
-    out property <color> purple: dark ? #bf5af2 : #af52de;
-    out property <color> orange: dark ? #ff9f0a : #ff9500;
-    out property <color> danger: dark ? #ff453a : #ff3b30;
-    out property <color> overlay: dark ? #05070bb8 : #52677d45;
+    // Logo-derived materials: deep navy, clear azure, and bright cyan.
+    out property <color> background: dark ? #08111f : #f3f7fa;
+    out property <color> sidebar: dark ? #0d192a : #f7fafc;
+    out property <color> surface: dark ? #111f31 : #fbfdff;
+    out property <color> surface-strong: dark ? #17283c : #ffffff;
+    out property <color> surface-subtle: dark ? #0c1929 : #edf5fa;
+    out property <color> border: dark ? #253c56 : #d6e3eb;
+    out property <color> border-subtle: dark ? #1c3047 : #e5edf3;
+    out property <color> glass-highlight: dark ? #314b68 : #ffffff;
+    out property <color> glass-hover: dark ? #173452 : #dff1fa;
+    out property <color> popover: dark ? #14243a : #ffffff;
+    out property <color> popover-border: dark ? #31506f : #cfdee8;
+    out property <color> shadow: dark ? #00000070 : #17395724;
+    out property <color> text: dark ? #f2f7fc : #16263c;
+    out property <color> secondary-text: dark ? #b8c8d9 : #51647a;
+    out property <color> muted-text: dark ? #8499ad : #7a8b9d;
+    out property <color> accent: dark ? #238cf2 : #096fd2;
+    out property <color> accent-hover: dark ? #3ca0ff : #075fb7;
+    out property <color> accent-gradient-start: dark ? #238cf2 : #087cf0;
+    out property <color> accent-gradient-end: dark ? #40d5e8 : #24c4dc;
+    out property <color> cyan: dark ? #43d4e5 : #159fbd;
+    out property <color> green: dark ? #49c98a : #268b5d;
+    out property <color> purple: dark ? #ae9bdb : #7969a5;
+    out property <color> orange: dark ? #f3b85d : #b77a21;
+    out property <color> danger: dark ? #ff766d : #cf4d45;
+    out property <color> overlay: dark ? #020814c2 : #17395752;
 
     out property <length> radius-control: 10px;
     out property <length> radius-card: 16px;

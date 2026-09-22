@@ -378,6 +378,7 @@ export component ProvidersPage inherits Rectangle {
     in-out property <string> search-text: "";
     in-out property <string> category: "all";
     in property <bool> busy;
+    in property <string> active-provider-id: "system";
     in-out property <bool> profile-popup-open: false;
     in-out property <string> popup-provider-id: "";
     in-out property <string> popup-provider-name: "";
@@ -391,6 +392,7 @@ export component ProvidersPage inherits Rectangle {
     callback edit-provider(string);
     callback delete-provider(string);
     callback filter-request(string, string);
+    callback reset-dns(int);
 
     VerticalLayout {
         x: 0;
@@ -402,6 +404,8 @@ export component ProvidersPage inherits Rectangle {
         // Header with title and network adapter card
         HorizontalLayout {
             height: 64px;
+            spacing: 10px;
+
             VerticalLayout {
                 alignment: center;
                 spacing: 3px;
@@ -423,8 +427,28 @@ export component ProvidersPage inherits Rectangle {
                 horizontal-stretch: 1;
             }
 
-            ConnectionBadge {
-                label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
+            VerticalLayout {
+                width: 194px;
+                alignment: center;
+
+                AppButton {
+                    height: 38px;
+                    text: root.busy
+                        ? (language == "id" ? "Memulihkan..." : "Restoring...")
+                        : (language == "id" ? "Reset ke otomatis (DHCP)" : "Reset to automatic (DHCP)");
+                    danger: true;
+                    loading: root.busy;
+                    enabled: !root.busy && root.adapters.length > 0 && root.active-provider-id != "system";
+                    clicked => { root.reset-dns(root.adapter-index); }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                ConnectionBadge {
+                    label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
+                }
             }
         }
 
@@ -519,10 +543,12 @@ export component ProvidersPage inherits Rectangle {
                     width: parent.width - 18px;
                     height: 96px;
                     border-radius: 16px;
-                    background: provider.active ? (Theme.dark ? #12355d : #dceeff) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
+                    background: provider.active ? (Theme.dark ? #12365e : #dcedfb) : (card-touch.has-hover ? Theme.surface-subtle : Theme.surface);
                     border-width: provider.active ? 1.5px : 1px;
                     border-color: provider.active ? Theme.accent : (card-touch.has-hover ? Theme.cyan.with-alpha(0.4) : Theme.border);
                     clip: true;
+                    animate background { duration: 160ms; }
+                    animate border-color { duration: 160ms; }
 
                     card-touch := TouchArea { }
 
@@ -604,9 +630,9 @@ export component ProvidersPage inherits Rectangle {
                                 alignment: start;
                                 Tag {
                                     text: provider.tag;
-                                    tint: provider.id == "quad9" || provider.id == "cleanbrowsing" ? #ec4899 :
-                                        provider.id == "adguard" || provider.id == "control-d" ? #10b981 :
-                                        provider.id == "google" || provider.id == "opendns" ? #f59e0b :
+                                    tint: provider.id == "quad9" || provider.id == "cleanbrowsing" ? Theme.purple :
+                                        provider.id == "adguard" || provider.id == "control-d" ? Theme.green :
+                                        provider.id == "google" || provider.id == "opendns" ? Theme.orange :
                                         Theme.cyan;
                                 }
 
@@ -625,6 +651,7 @@ export component ProvidersPage inherits Rectangle {
 
                             if provider.active: AppButton {
                                 text: language == "id" ? "Ubah konfigurasi" : "Change config";
+                                primary: true;
                                 enabled: !busy;
                                 clicked => { root.request-use-provider(provider.id); }
                             }
@@ -665,9 +692,9 @@ export component ProvidersPage inherits Rectangle {
         TouchArea { }
 
         Rectangle {
-            width: 620px;
+            width: 680px;
             height: modal-layout.preferred-height;
-            border-radius: Theme.radius-card;
+            border-radius: Theme.radius-panel;
             background: Theme.surface-strong;
             border-width: 1px;
             border-color: Theme.border;
@@ -678,21 +705,24 @@ export component ProvidersPage inherits Rectangle {
             y: (parent.height - self.height) / 2;
 
             modal-layout := VerticalLayout {
-                padding: 20px;
-                spacing: 13px;
+                padding-left: 18px;
+                padding-right: 18px;
+                padding-top: 22px;
+                padding-bottom: 20px;
+                spacing: 15px;
 
                 // Modal Header
                 HorizontalLayout {
-                    spacing: 12px;
+                    spacing: 16px;
 
                     VerticalLayout {
                         horizontal-stretch: 1;
-                        spacing: 3px;
+                        spacing: 4px;
 
                         Text {
                             text: language == "id" ? ("Pilih Profil: " + root.popup-provider-name) : ("Select Profile: " + root.popup-provider-name);
                             color: Theme.text;
-                            font-size: 17px;
+                            font-size: 18px;
                             font-weight: 800;
                         }
 
@@ -705,9 +735,9 @@ export component ProvidersPage inherits Rectangle {
 
                     // Close (X) button
                     Rectangle {
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 8px;
+                        width: 34px;
+                        height: 34px;
+                        border-radius: Theme.radius-control;
                         background: close-touch.has-hover ? Theme.surface-subtle : transparent;
 
                         IconDisplay {
@@ -727,7 +757,7 @@ export component ProvidersPage inherits Rectangle {
 
                 // Profiles Cards
                 VerticalLayout {
-                    spacing: 6px;
+                    spacing: 8px;
 
                     for profile[index] in root.popup-profiles: ProfileCard {
                         name: profile.name;
@@ -744,7 +774,7 @@ export component ProvidersPage inherits Rectangle {
                 }
 
                 VerticalLayout {
-                    spacing: 7px;
+                    spacing: 9px;
 
                     Text {
                         text: language == "id" ? "Protokol jaringan" : "Network protocol";
@@ -784,7 +814,7 @@ export component ProvidersPage inherits Rectangle {
                 }
 
                 VerticalLayout {
-                    spacing: 7px;
+                    spacing: 9px;
 
                     Text {
                         text: language == "id" ? "Privasi DNS" : "DNS privacy";
@@ -824,7 +854,7 @@ export component ProvidersPage inherits Rectangle {
 
                 // Modal Footer
                 HorizontalLayout {
-                    spacing: 12px;
+                    spacing: 14px;
 
                     // Active connection indicator
                     HorizontalLayout {

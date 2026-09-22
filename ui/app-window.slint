@@ -123,9 +123,7 @@ export component AppWindow inherits Window {
 
             content-area := Rectangle {
                 vertical-stretch: 1;
-                background: Theme.dark
-                    ? @linear-gradient(145deg, #0d111a 0%, #111827 100%)
-                    : @linear-gradient(145deg, #f3f7fb 0%, #eaf2f9 100%);
+                background: Theme.background;
 
                 home-page := HomePage {
                     x: 24px;
@@ -171,6 +169,7 @@ export component AppWindow inherits Window {
                     adapter-index <=> root.adapter-index;
                     ip-mode <=> root.ip-mode;
                     busy: root.busy;
+                    active-provider-id: root.active-provider-id;
                     profile-popup-open <=> root.profile-popup-open;
                     popup-provider-id <=> root.popup-provider-id;
                     popup-provider-name <=> root.popup-provider-name;
@@ -185,6 +184,7 @@ export component AppWindow inherits Window {
                     edit-provider(id) => { root.edit-provider(id); root.page = 2; }
                     delete-provider(id) => { root.delete-provider(id); }
                     filter-request(query, category) => { root.filter-providers(query, category); }
+                    reset-dns(index) => { root.reset-dns(index); }
                 }
 
                 custom-dns-page := CustomDnsPage {

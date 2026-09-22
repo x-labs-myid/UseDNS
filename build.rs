@@ -39,6 +39,11 @@ fn embed_windows_icon() {
 
     winresource::WindowsResource::new()
         .set_icon(output.to_str().expect("icon path is not valid UTF-8"))
+        .set("FileDescription", "UseDNS")
+        .set("ProductName", "UseDNS")
+        .set("InternalName", "UseDNS")
+        .set("OriginalFilename", "usedns.exe")
+        .set("LegalCopyright", "Copyright © UseDNS contributors")
         .compile()
         .expect("failed to embed Windows resources");
 }

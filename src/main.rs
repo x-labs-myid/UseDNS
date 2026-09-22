@@ -164,8 +164,15 @@ fn provider_is_active(provider: &DnsProvider, current_dns: &str) -> bool {
     })
 }
 
-fn row(provider: &DnsProvider, language: &str, current_dns: &str) -> ProviderRow {
-    let is_active = provider_is_active(provider, current_dns);
+fn row(
+    provider: &DnsProvider,
+    language: &str,
+    current_dns: &str,
+    active_provider_id: &str,
+) -> ProviderRow {
+    let is_active = active_provider_id != "system"
+        && provider.id == active_provider_id
+        && provider_is_active(provider, current_dns);
 
     let profile_count = provider.get_profiles().len() as i32;
 
@@ -267,6 +274,7 @@ fn set_filtered_provider_model(
     category: &str,
 ) {
     let query_lower = query.trim().to_lowercase();
+    let active_provider_id = window.get_active_provider_id().to_string();
     let rows = providers
         .iter()
         .filter(|provider| {
@@ -298,7 +306,7 @@ fn set_filtered_provider_model(
             };
             matches_query && matches_category
         })
-        .map(|provider| row(provider, language, current_dns))
+        .map(|provider| row(provider, language, current_dns, &active_provider_id))
         .collect::<Vec<_>>();
     window.set_providers(ModelRc::from(Rc::new(VecModel::from(rows))));
 }
@@ -569,17 +577,22 @@ fn main() -> Result<(), slint::PlatformError> {
                             let selected = found.get(index).or_else(|| found.first());
                             if let Some(selected) = selected {
                                 window.set_current_dns(selected.dns.clone().into());
+                                let configured_dns = if selected.dns_automatic {
+                                    ""
+                                } else {
+                                    selected.dns.as_str()
+                                };
                                 apply_active_provider_state(
                                     &window,
                                     &providers_snapshot,
-                                    &selected.dns,
+                                    configured_dns,
                                     &language_value,
                                 );
                                 set_filtered_provider_model(
                                     &window,
                                     &providers_snapshot,
                                     &language_value,
-                                    &selected.dns,
+                                    configured_dns,
                                     &query,
                                     &category,
                                 );
@@ -865,6 +878,20 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                     return;
                 }
+                if encrypted && doh_template.trim().is_empty() {
+                    if let Some(window) = weak.upgrade() {
+                        show_message(
+                            &window,
+                            if window.get_language().as_str() == "id" {
+                                "Profil ini tidak memiliki template DNS terenkripsi."
+                            } else {
+                                "This profile does not provide an encrypted DNS template."
+                            },
+                            true,
+                        );
+                    }
+                    return;
+                }
 
                 if let Some(window) = weak.upgrade() {
                     window.set_busy(true);
@@ -909,7 +936,6 @@ fn main() -> Result<(), slint::PlatformError> {
                                         &query,
                                         &category,
                                     );
-                                    window.invoke_refresh();
                                     show_message(
                                         &window,
                                         if lang == "id" {
@@ -1008,7 +1034,6 @@ fn main() -> Result<(), slint::PlatformError> {
                                     },
                                     false,
                                 );
-                                window.invoke_refresh();
                             }
                             Err(message) => show_message(&window, message, true),
                         }
@@ -1054,6 +1079,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     }
                                     .into(),
                                 );
+                                window.invoke_refresh();
                                 show_message(
                                     &window,
                                     if language == "id" {
@@ -1063,7 +1089,6 @@ fn main() -> Result<(), slint::PlatformError> {
                                     },
                                     false,
                                 );
-                                window.invoke_refresh();
                             }
                             Err(message) => show_message(&window, message, true),
                         }

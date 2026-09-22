@@ -32,7 +32,8 @@ export component NavButton inherits Rectangle {
 
     height: 48px;
     border-radius: 12px;
-    background: selected ? @linear-gradient(90deg, #0076f5 0%, #0099ff 100%) : transparent;
+    background: selected ? Theme.accent : transparent;
+    animate background { duration: 140ms; }
     border-width: 0px;
 
     HorizontalLayout {
@@ -77,6 +78,7 @@ export component AppButton inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> primary: false;
+    in property <bool> danger: false;
     in property <bool> loading: false;
     callback clicked;
 
@@ -85,15 +87,17 @@ export component AppButton inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: Theme.radius-control;
     background: !root.enabled
-        ? (root.primary ? Theme.accent.with-alpha(0.35) : Theme.surface)
+        ? (root.danger ? Theme.danger.with-alpha(0.12) : (root.primary ? Theme.accent.with-alpha(0.35) : Theme.surface))
         : (btn-touch.pressed
-        ? (root.primary ? Theme.accent.with-alpha(0.82) : Theme.background.with-alpha(0.55))
+        ? (root.danger ? Theme.danger.with-alpha(0.82) : (root.primary ? Theme.accent.with-alpha(0.82) : Theme.background.with-alpha(0.55)))
         : (btn-touch.has-hover
-        ? (root.primary ? Theme.accent-hover : Theme.glass-hover)
-        : (root.primary ? Theme.accent : Theme.surface)));
+        ? (root.danger ? Theme.danger.with-alpha(0.90) : (root.primary ? Theme.accent-hover : Theme.glass-hover))
+        : (root.danger ? Theme.danger : (root.primary ? Theme.accent : Theme.surface))));
     border-width: 1px;
-    border-color: root.primary ? Theme.accent : Theme.border;
+    border-color: root.danger ? Theme.danger : (root.primary ? Theme.accent : Theme.border);
     opacity: root.enabled ? 1 : 0.6;
+    animate background { duration: 140ms; }
+    animate border-color { duration: 140ms; }
 
     HorizontalLayout {
         padding-left: 12px;
@@ -102,15 +106,21 @@ export component AppButton inherits Rectangle {
         padding-bottom: 5px;
         spacing: root.loading ? 7px : 0px;
         alignment: center;
-        if root.loading: LoadingSpinner {
-            size: 15px;
-            spinner-color: root.primary ? white : Theme.accent;
+        if root.loading: VerticalLayout {
+            width: 15px;
+            alignment: center;
+
+            LoadingSpinner {
+                size: 15px;
+                spinner-color: root.primary || root.danger ? white : Theme.accent;
+            }
         }
+
         Text {
             text: root.text;
-            color: root.primary ? white : Theme.text;
+            color: root.danger ? (root.enabled ? white : Theme.danger) : (root.primary ? white : Theme.text);
             font-size: 13px;
-            font-weight: root.primary ? 600 : 500;
+            font-weight: root.primary || root.danger ? 600 : 500;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
@@ -298,10 +308,10 @@ export component ProviderIcon inherits Rectangle {
     height: root.size;
     border-radius: root.round ? (root.size / 2) : (root.size * 0.26);
     background: root.provider-id == "" || root.provider-id == "system"
-        ? @linear-gradient(135deg, #10b981 0%, #059669 100%)
-        : (root.provider-id == "control-d" ? (Theme.dark ? #0b1528 : #0f172a) : (Theme.dark ? #0e1b34 : #ffffff));
+        ? Theme.accent
+        : (root.provider-id == "control-d" ? (Theme.dark ? #101710 : #1f2d20) : Theme.surface-strong);
     border-width: root.active ? 2px : 1px;
-    border-color: root.active ? Theme.cyan : (Theme.dark ? #1e355c : #e2e8f0);
+    border-color: root.active ? Theme.cyan : Theme.border;
     drop-shadow-blur: 8px;
     drop-shadow-color: Theme.dark ? #00000055 : #00000010;
     drop-shadow-offset-y: 2px;
