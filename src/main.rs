@@ -3,6 +3,8 @@
 mod models;
 mod storage;
 mod system;
+#[cfg(windows)]
+mod tray;
 
 use models::DnsProvider;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
@@ -323,6 +325,37 @@ fn set_filtered_provider_model(
     window.set_providers(ModelRc::from(Rc::new(VecModel::from(rows))));
 }
 
+#[derive(Clone, Copy)]
+struct TrayPreferences {
+    show_speed: bool,
+    show_dns: bool,
+    show_status: bool,
+    show_latency: bool,
+}
+
+fn settings_snapshot(
+    language: &str,
+    theme: &str,
+    speed_unit: &str,
+    providers: &[DnsProvider],
+    tray: TrayPreferences,
+) -> storage::Settings {
+    storage::Settings {
+        language: language.into(),
+        theme: theme.into(),
+        speed_unit: speed_unit.into(),
+        tray_show_speed: tray.show_speed,
+        tray_show_dns: tray.show_dns,
+        tray_show_status: tray.show_status,
+        tray_show_latency: tray.show_latency,
+        custom_providers: providers
+            .iter()
+            .filter(|provider| provider.custom)
+            .cloned()
+            .collect(),
+    }
+}
+
 fn show_message(window: &AppWindow, message: impl Into<SharedString>, error: bool) {
     let message = message.into();
     let display_message = if error {
@@ -402,6 +435,8 @@ unsafe extern "system" {
     ) -> i32;
     fn GetForegroundWindow() -> *mut std::ffi::c_void;
     fn GetActiveWindow() -> *mut std::ffi::c_void;
+    fn GetWindowLongPtrW(hwnd: *mut std::ffi::c_void, index: i32) -> isize;
+    fn SetWindowLongPtrW(hwnd: *mut std::ffi::c_void, index: i32, value: isize) -> isize;
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -410,6 +445,30 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     let window = AppWindow::new()?;
+    let tray_preview = TrayPreview::new()?;
+
+    #[cfg(windows)]
+    {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        if let Ok(handle) = tray_preview.window().window_handle().window_handle()
+            && let RawWindowHandle::Win32(win32) = handle.as_raw()
+        {
+            const GWL_EXSTYLE: i32 = -20;
+            const WS_EX_TOOLWINDOW: isize = 0x0000_0080;
+            const WS_EX_APPWINDOW: isize = 0x0004_0000;
+            const WS_EX_NOACTIVATE: isize = 0x0800_0000;
+            let preview_hwnd = win32.hwnd.get() as *mut std::ffi::c_void;
+            // SAFETY: preview_hwnd is owned by Slint and valid for the component lifetime.
+            unsafe {
+                let style = GetWindowLongPtrW(preview_hwnd, GWL_EXSTYLE);
+                SetWindowLongPtrW(
+                    preview_hwnd,
+                    GWL_EXSTYLE,
+                    (style | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) & !WS_EX_APPWINDOW,
+                );
+            }
+        }
+    }
 
     #[cfg(windows)]
     let hwnd: Option<isize> = {
@@ -519,8 +578,11 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     {
+        let weak = window.as_weak();
         window.on_window_close(move || {
-            std::process::exit(0);
+            if let Some(window) = weak.upgrade() {
+                let _ = window.hide();
+            }
         });
     }
 
@@ -534,6 +596,12 @@ fn main() -> Result<(), slint::PlatformError> {
     if !matches!(settings.speed_unit.as_str(), "kbps" | "mbps") {
         settings.speed_unit = "kbps".into();
     }
+    let tray_preferences = Rc::new(RefCell::new(TrayPreferences {
+        show_speed: settings.tray_show_speed,
+        show_dns: settings.tray_show_dns,
+        show_status: settings.tray_show_status,
+        show_latency: settings.tray_show_latency,
+    }));
 
     let mut initial = models::default_providers();
     initial.append(&mut settings.custom_providers);
@@ -548,6 +616,16 @@ fn main() -> Result<(), slint::PlatformError> {
     window.set_language(language.borrow().as_str().into());
     window.set_theme_mode(theme.borrow().as_str().into());
     window.set_speed_unit(speed_unit.borrow().as_str().into());
+    window.set_tray_show_speed(settings.tray_show_speed);
+    window.set_tray_show_dns(settings.tray_show_dns);
+    window.set_tray_show_status(settings.tray_show_status);
+    window.set_tray_show_latency(settings.tray_show_latency);
+    tray_preview.set_theme_mode(theme.borrow().as_str().into());
+    tray_preview.set_system_dark(window.get_system_dark());
+    tray_preview.set_show_speed(settings.tray_show_speed);
+    tray_preview.set_show_dns(settings.tray_show_dns);
+    tray_preview.set_show_status(settings.tray_show_status);
+    tray_preview.set_show_latency(settings.tray_show_latency);
     set_provider_model(&window, &providers.borrow(), &language.borrow(), "");
 
     {
@@ -658,6 +736,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let weak = window.as_weak();
         let provider_filter = provider_filter.clone();
         window.on_language_changed(move |new_language| {
@@ -678,17 +757,13 @@ fn main() -> Result<(), slint::PlatformError> {
                     &category,
                 );
             }
-            let settings = storage::Settings {
-                language: value.into(),
-                theme: theme.borrow().clone(),
-                speed_unit: speed_unit.borrow().clone(),
-                custom_providers: providers
-                    .borrow()
-                    .iter()
-                    .filter(|provider| provider.custom)
-                    .cloned()
-                    .collect(),
-            };
+            let settings = settings_snapshot(
+                value,
+                &theme.borrow(),
+                &speed_unit.borrow(),
+                &providers.borrow(),
+                *tray_preferences.borrow(),
+            );
             let _ = storage::save(&settings);
         });
     }
@@ -698,6 +773,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let weak = window.as_weak();
         window.on_theme_changed(move |new_theme| {
             let value = match new_theme.as_str() {
@@ -711,17 +787,13 @@ fn main() -> Result<(), slint::PlatformError> {
                     window.set_system_dark(system::prefers_dark_mode());
                 }
             }
-            let settings = storage::Settings {
-                language: language.borrow().clone(),
-                theme: value.into(),
-                speed_unit: speed_unit.borrow().clone(),
-                custom_providers: providers
-                    .borrow()
-                    .iter()
-                    .filter(|provider| provider.custom)
-                    .cloned()
-                    .collect(),
-            };
+            let settings = settings_snapshot(
+                &language.borrow(),
+                value,
+                &speed_unit.borrow(),
+                &providers.borrow(),
+                *tray_preferences.borrow(),
+            );
             if let Err(error) = storage::save(&settings) {
                 if let Some(window) = weak.upgrade() {
                     show_message(&window, format!("Could not save settings: {error}"), true);
@@ -735,6 +807,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let weak = window.as_weak();
         window.on_speed_unit_changed(move |new_unit| {
             let value = match new_unit.as_str() {
@@ -742,22 +815,50 @@ fn main() -> Result<(), slint::PlatformError> {
                 _ => "kbps",
             };
             *speed_unit.borrow_mut() = value.into();
-            let settings = storage::Settings {
-                language: language.borrow().clone(),
-                theme: theme.borrow().clone(),
-                speed_unit: value.into(),
-                custom_providers: providers
-                    .borrow()
-                    .iter()
-                    .filter(|provider| provider.custom)
-                    .cloned()
-                    .collect(),
-            };
+            let settings = settings_snapshot(
+                &language.borrow(),
+                &theme.borrow(),
+                value,
+                &providers.borrow(),
+                *tray_preferences.borrow(),
+            );
             if let Err(error) = storage::save(&settings) {
                 if let Some(window) = weak.upgrade() {
                     show_message(&window, format!("Could not save settings: {error}"), true);
                 }
             }
+        });
+    }
+
+    {
+        let providers = providers.clone();
+        let language = language.clone();
+        let theme = theme.clone();
+        let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
+        let preview_weak = tray_preview.as_weak();
+        window.on_tray_preview_settings_changed(move |speed, dns, status, latency| {
+            let preferences = TrayPreferences {
+                show_speed: speed,
+                show_dns: dns,
+                show_status: status,
+                show_latency: latency,
+            };
+            *tray_preferences.borrow_mut() = preferences;
+            if let Some(preview) = preview_weak.upgrade() {
+                preview.set_show_speed(speed);
+                preview.set_show_dns(dns);
+                preview.set_show_status(status);
+                preview.set_show_latency(latency);
+            }
+            let settings = settings_snapshot(
+                &language.borrow(),
+                &theme.borrow(),
+                &speed_unit.borrow(),
+                &providers.borrow(),
+                preferences,
+            );
+            let _ = storage::save(&settings);
         });
     }
 
@@ -1226,6 +1327,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let weak = window.as_weak();
         window.on_save_provider(move |id, name, v4a, v4b, v6a, v6b, summary, purpose| {
             let generated_id = if id.is_empty() {
@@ -1270,12 +1372,13 @@ fn main() -> Result<(), slint::PlatformError> {
             } else {
                 list.push(provider);
             }
-            let settings = storage::Settings {
-                language: language.borrow().clone(),
-                theme: theme.borrow().clone(),
-                speed_unit: speed_unit.borrow().clone(),
-                custom_providers: list.iter().filter(|item| item.custom).cloned().collect(),
-            };
+            let settings = settings_snapshot(
+                &language.borrow(),
+                &theme.borrow(),
+                &speed_unit.borrow(),
+                &list,
+                *tray_preferences.borrow(),
+            );
             if let Err(error) = storage::save(&settings) {
                 if let Some(window) = weak.upgrade() {
                     show_message(&window, format!("Could not save settings: {error}"), true);
@@ -1308,18 +1411,20 @@ fn main() -> Result<(), slint::PlatformError> {
         let language = language.clone();
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let weak = window.as_weak();
         window.on_delete_provider(move |id| {
             providers
                 .borrow_mut()
                 .retain(|provider| !provider.custom || provider.id != id.as_str());
             let list = providers.borrow();
-            let settings = storage::Settings {
-                language: language.borrow().clone(),
-                theme: theme.borrow().clone(),
-                speed_unit: speed_unit.borrow().clone(),
-                custom_providers: list.iter().filter(|item| item.custom).cloned().collect(),
-            };
+            let settings = settings_snapshot(
+                &language.borrow(),
+                &theme.borrow(),
+                &speed_unit.borrow(),
+                &list,
+                *tray_preferences.borrow(),
+            );
             let result = storage::save(&settings);
             if let Some(window) = weak.upgrade() {
                 set_provider_model(
@@ -1349,6 +1454,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let network_timer = slint::Timer::default();
     {
         let weak = window.as_weak();
+        let preview_weak = tray_preview.as_weak();
         let adapters = adapters.clone();
         let speed_unit = speed_unit.clone();
         // Initialize speed-history with 24 blank samples
@@ -1366,6 +1472,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let (sample_sender, sample_receiver) =
             std::sync::mpsc::sync_channel::<Option<(u32, String)>>(1);
         let worker_weak = weak.clone();
+        let worker_preview_weak = preview_weak.clone();
         std::thread::spawn(move || {
             let mut previous = None::<(u32, u64, u64, Instant)>;
             let mut samples = vec![(0.0f64, 0.0f64); 24];
@@ -1415,14 +1522,23 @@ fn main() -> Result<(), slint::PlatformError> {
                     .collect::<Vec<_>>();
 
                 let weak = worker_weak.clone();
+                let preview_weak = worker_preview_weak.clone();
                 let _ = slint::invoke_from_event_loop(move || {
-                    let Some(window) = weak.upgrade().filter(|window| window.get_page() == 0)
-                    else {
+                    let Some(window) = weak.upgrade() else {
                         return;
                     };
+                    let download_text = format_speed(download, &current_unit);
+                    let upload_text = format_speed(upload, &current_unit);
+                    window.set_download_speed(download_text.as_str().into());
+                    window.set_upload_speed(upload_text.as_str().into());
+                    if let Some(preview) = preview_weak.upgrade() {
+                        preview.set_download_speed(download_text.into());
+                        preview.set_upload_speed(upload_text.into());
+                    }
+                    if window.get_page() != 0 {
+                        return;
+                    }
                     let total = download + upload;
-                    window.set_download_speed(format_speed(download, &current_unit).into());
-                    window.set_upload_speed(format_speed(upload, &current_unit).into());
                     let total_display = if current_unit == "kbps" {
                         let kbps = total * 1000.0;
                         if kbps < 10.0 {
@@ -1461,10 +1577,6 @@ fn main() -> Result<(), slint::PlatformError> {
                 let Some(window) = weak.upgrade() else {
                     return;
                 };
-                if window.get_page() != 0 {
-                    let _ = sample_sender.try_send(None);
-                    return;
-                }
                 let index = window.get_adapter_index().max(0) as usize;
                 let interface_index = adapters
                     .lock()
@@ -1473,6 +1585,215 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Some(interface_index) = interface_index {
                     let current_unit = speed_unit.borrow().clone();
                     let _ = sample_sender.try_send(Some((interface_index, current_unit)));
+                }
+            },
+        );
+    }
+
+    #[cfg(windows)]
+    let tray_state = tray::create(&providers.borrow(), &language.borrow()).ok();
+    #[cfg(windows)]
+    let tray_dns_actions = Rc::new(
+        tray_state
+            .as_ref()
+            .map(|state| state.dns_actions.clone())
+            .unwrap_or_default(),
+    );
+    #[cfg(windows)]
+    let _tray_icon = tray_state.map(|state| state.icon);
+
+    #[cfg(windows)]
+    let tray_timer = slint::Timer::default();
+    #[cfg(windows)]
+    {
+        use std::cell::Cell;
+        use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent, menu::MenuEvent};
+
+        let app_weak = window.as_weak();
+        let preview_weak = tray_preview.as_weak();
+        let tray_providers = providers.clone();
+        let tray_adapters = adapters.clone();
+        let tray_language = language.clone();
+        let tray_filter = provider_filter.clone();
+        let tray_actions = tray_dns_actions.clone();
+        let hide_at = Rc::new(Cell::new(None::<Instant>));
+        let hide_at_for_timer = hide_at.clone();
+        tray_timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(50),
+            move || {
+                while let Ok(event) = MenuEvent::receiver().try_recv() {
+                    let id = event.id.0;
+                    if id == tray::OPEN_ID {
+                        if let Some(app) = app_weak.upgrade() {
+                            app.window().set_minimized(false);
+                            let _ = app.show();
+                        }
+                        continue;
+                    }
+                    if id == tray::CLOSE_ID {
+                        std::process::exit(0);
+                    }
+                    let Some((provider_id, profile_index)) = tray_actions.get(&id).cloned() else {
+                        continue;
+                    };
+                    if app_weak.upgrade().is_some_and(|app| app.get_busy()) {
+                        continue;
+                    }
+                    let provider = tray_providers
+                        .borrow()
+                        .iter()
+                        .find(|provider| provider.id == provider_id)
+                        .cloned();
+                    let adapter = app_weak.upgrade().and_then(|app| {
+                        let index = app.get_adapter_index().max(0) as usize;
+                        tray_adapters
+                            .lock()
+                            .ok()
+                            .and_then(|items| items.get(index).cloned())
+                    });
+                    let (Some(provider), Some(adapter)) = (provider, adapter) else {
+                        if let Some(app) = app_weak.upgrade() {
+                            let _ = app.show();
+                            show_message(&app, "Select an active network adapter first.", true);
+                        }
+                        continue;
+                    };
+                    let profiles = provider.get_profiles();
+                    let Some(profile) = profiles.get(profile_index) else {
+                        continue;
+                    };
+                    let addresses = [profile.ipv4_primary.clone(), profile.ipv4_secondary.clone()]
+                        .into_iter()
+                        .filter(|address| !address.is_empty())
+                        .collect::<Vec<_>>();
+                    if addresses.is_empty() {
+                        continue;
+                    }
+                    let lang = tray_language.borrow().clone();
+                    let profile_name = if lang == "id" {
+                        profile.name_id.clone()
+                    } else {
+                        profile.name_en.clone()
+                    };
+                    let active_title = if profiles.len() > 1 {
+                        provider.name.clone() + " - " + &profile_name
+                    } else {
+                        provider.name.clone()
+                    };
+                    let template = doh_template(&provider.id, &profile.id);
+                    let providers_snapshot = tray_providers.borrow().clone();
+                    let (query, category) = tray_filter.borrow().clone();
+                    if let Some(app) = app_weak.upgrade() {
+                        app.set_busy(true);
+                    }
+                    let weak = app_weak.clone();
+                    let preview = preview_weak.clone();
+                    let active_provider_id = provider.id.clone();
+                    std::thread::spawn(move || {
+                        let result = system::apply_dns(
+                            &adapter.name,
+                            &addresses,
+                            (!template.is_empty()).then_some(template),
+                        );
+                        let _ = slint::invoke_from_event_loop(move || {
+                            let Some(app) = weak.upgrade() else {
+                                return;
+                            };
+                            app.set_busy(false);
+                            match result {
+                                Ok(()) => {
+                                    app.set_active_provider_id(active_provider_id.into());
+                                    app.set_active_provider(active_title.clone().into());
+                                    app.set_current_dns(addresses.join(", ").into());
+                                    set_filtered_provider_model(
+                                        &app,
+                                        &providers_snapshot,
+                                        &lang,
+                                        &addresses.join(", "),
+                                        &query,
+                                        &category,
+                                    );
+                                    if let Some(preview) = preview.upgrade() {
+                                        preview.set_active_provider(active_title.into());
+                                        preview.set_current_dns(addresses.join(", ").into());
+                                    }
+                                    show_message(
+                                        &app,
+                                        if lang == "id" {
+                                            "DNS berhasil diterapkan dari tray."
+                                        } else {
+                                            "DNS applied from the tray."
+                                        },
+                                        false,
+                                    );
+                                }
+                                Err(message) => {
+                                    let _ = app.show();
+                                    show_message(&app, message, true);
+                                }
+                            }
+                        });
+                    });
+                }
+
+                while let Ok(event) = TrayIconEvent::receiver().try_recv() {
+                    match event {
+                        TrayIconEvent::Enter { rect, .. } | TrayIconEvent::Move { rect, .. } => {
+                            hide_at_for_timer.set(None);
+                            let (Some(app), Some(preview)) =
+                                (app_weak.upgrade(), preview_weak.upgrade())
+                            else {
+                                continue;
+                            };
+                            preview.set_theme_mode(app.get_theme_mode());
+                            preview.set_system_dark(app.get_system_dark());
+                            preview.set_download_speed(app.get_download_speed());
+                            preview.set_upload_speed(app.get_upload_speed());
+                            preview.set_active_provider(app.get_active_provider());
+                            preview.set_current_dns(app.get_current_dns());
+                            preview.set_connection_state(app.get_connection_state());
+                            preview.set_latency(app.get_latency());
+                            if preview.show().is_ok() {
+                                let size = preview.window().size();
+                                let right = rect.position.x + rect.size.width as f64;
+                                let x = (right - size.width as f64).round() as i32;
+                                let y = (rect.position.y - size.height as f64 - 8.0).round() as i32;
+                                preview
+                                    .window()
+                                    .set_position(slint::PhysicalPosition::new(x, y));
+                            }
+                        }
+                        TrayIconEvent::Leave { .. } => {
+                            hide_at_for_timer
+                                .set(Some(Instant::now() + Duration::from_millis(280)));
+                        }
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => {
+                            hide_at_for_timer.set(None);
+                            if let Some(preview) = preview_weak.upgrade() {
+                                let _ = preview.hide();
+                            }
+                            if let Some(app) = app_weak.upgrade() {
+                                app.window().set_minimized(false);
+                                let _ = app.show();
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                if hide_at_for_timer
+                    .get()
+                    .is_some_and(|deadline| Instant::now() >= deadline)
+                {
+                    hide_at_for_timer.set(None);
+                    if let Some(preview) = preview_weak.upgrade() {
+                        let _ = preview.hide();
+                    }
                 }
             },
         );

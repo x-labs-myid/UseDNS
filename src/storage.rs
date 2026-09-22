@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default = "default_language")]
     pub language: String,
@@ -15,6 +15,14 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_speed_unit")]
     pub speed_unit: String,
+    #[serde(default = "default_enabled")]
+    pub tray_show_speed: bool,
+    #[serde(default = "default_enabled")]
+    pub tray_show_dns: bool,
+    #[serde(default = "default_enabled")]
+    pub tray_show_status: bool,
+    #[serde(default = "default_enabled")]
+    pub tray_show_latency: bool,
     #[serde(default)]
     pub custom_providers: Vec<DnsProvider>,
 }
@@ -29,6 +37,25 @@ fn default_theme() -> String {
 
 fn default_speed_unit() -> String {
     "kbps".into()
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            language: default_language(),
+            theme: default_theme(),
+            speed_unit: default_speed_unit(),
+            tray_show_speed: true,
+            tray_show_dns: true,
+            tray_show_status: true,
+            tray_show_latency: true,
+            custom_providers: Vec::new(),
+        }
+    }
 }
 
 fn settings_path() -> Option<PathBuf> {

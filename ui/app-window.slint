@@ -5,10 +5,11 @@ import { ProvidersPage } from "pages/providers.slint";
 import { CustomDnsPage } from "pages/custom-dns.slint";
 import { PolicyPage } from "pages/policy.slint";
 import { SettingsPage } from "pages/settings.slint";
+import { TrayPreview } from "tray-preview.slint";
 import { Theme } from "theme.slint";
 import { ProviderRow, SpeedSample, DnsProfileRow } from "types.slint";
 import { IconDisplay, IconSet } from "icons.slint";
-export { ProviderRow, SpeedSample, DnsProfileRow }
+export { ProviderRow, SpeedSample, DnsProfileRow, TrayPreview }
 export component AppWindow inherits Window {
     title: "UseDNS";
     icon: @image-url("../.assets/UseDNS.png");
@@ -41,6 +42,10 @@ export component AppWindow inherits Window {
     in-out property <string> upload-speed: "0.0 Kbps";
     in-out property <string> total-speed: "0.0";
     in-out property <string> speed-unit: "kbps";
+    in-out property <bool> tray-show-speed: true;
+    in-out property <bool> tray-show-dns: true;
+    in-out property <bool> tray-show-status: true;
+    in-out property <bool> tray-show-latency: true;
     in-out property <float> download-level: 0;
     in-out property <float> upload-level: 0;
     in-out property <float> total-level: 0;
@@ -76,6 +81,7 @@ export component AppWindow inherits Window {
     callback language-changed(string);
     callback theme-changed(string);
     callback speed-unit-changed(string);
+    callback tray-preview-settings-changed(bool, bool, bool, bool);
     callback apply-selected(string, int, int);
     callback request-use-provider(string);
     callback confirm-apply-profile(string, int, int, int, bool, string);
@@ -235,11 +241,18 @@ export component AppWindow inherits Window {
                     language <=> root.language;
                     theme-mode <=> root.theme-mode;
                     speed-unit <=> root.speed-unit;
+                    tray-show-speed <=> root.tray-show-speed;
+                    tray-show-dns <=> root.tray-show-dns;
+                    tray-show-status <=> root.tray-show-status;
+                    tray-show-latency <=> root.tray-show-latency;
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     language-changed(value) => { root.language-changed(value); }
                     theme-changed(value) => { root.theme-changed(value); }
                     speed-unit-changed(value) => { root.speed-unit-changed(value); }
+                    tray-preview-settings-changed(speed, dns, status, latency) => {
+                        root.tray-preview-settings-changed(speed, dns, status, latency);
+                    }
                 }
             }
         }

@@ -1,0 +1,160 @@
+import { Theme } from "theme.slint";
+import { Icon, IconDisplay, IconSet } from "icons.slint";
+
+component MetricTile inherits Rectangle {
+    in property <Icon> icon;
+    in property <string> label;
+    in property <string> value;
+    in property <color> tint: Theme.accent;
+    in property <bool> multiline: false;
+
+    height: multiline ? 68px : 58px;
+    border-radius: Theme.radius-control;
+    background: Theme.surface-subtle;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 9px;
+
+        VerticalLayout {
+            alignment: center;
+            IconDisplay {
+                icon: root.icon;
+                size: 17px;
+                stroke: root.tint;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.label;
+                color: Theme.muted-text;
+                font-size: 10px;
+            }
+
+            Text {
+                text: root.value;
+                color: Theme.text;
+                font-size: 14px;
+                font-weight: 700;
+                height: root.multiline ? 34px : self.preferred-height;
+                wrap: root.multiline ? word-wrap : no-wrap;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component TrayPreview inherits Window {
+    title: "UseDNS Preview";
+    icon: @image-url("../.assets/UseDNS.png");
+    no-frame: true;
+    always-on-top: true;
+    width: 360px;
+    height: preview-layout.preferred-height;
+    background: transparent;
+
+    in-out property <string> theme-mode <=> Theme.mode;
+    in-out property <bool> system-dark <=> Theme.system-dark;
+    in property <string> download-speed: "0 Kbps";
+    in property <string> upload-speed: "0 Kbps";
+    in property <string> active-provider: "System / DHCP";
+    in property <string> current-dns: "—";
+    in property <string> connection-state: "Checking...";
+    in property <string> latency: "—";
+    in property <bool> show-speed: true;
+    in property <bool> show-dns: true;
+    in property <bool> show-status: true;
+    in property <bool> show-latency: true;
+
+    Rectangle {
+        border-radius: Theme.radius-panel;
+        background: Theme.surface-strong;
+        border-width: 1px;
+        border-color: Theme.popover-border;
+        drop-shadow-blur: 22px;
+        drop-shadow-color: Theme.shadow;
+        drop-shadow-offset-y: 5px;
+
+        preview-layout := VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+
+            HorizontalLayout {
+                height: 28px;
+                spacing: 9px;
+                Image {
+                    width: 24px;
+                    height: 24px;
+                    source: @image-url("../.assets/UseDNS.png");
+                    image-fit: contain;
+                }
+
+                Text {
+                    text: "UseDNS";
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 800;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: root.connection-state == "Unstable" ? Theme.danger : Theme.green;
+                }
+            }
+
+            if root.show-speed: HorizontalLayout {
+                spacing: 8px;
+                MetricTile {
+                    icon: IconSet.ArrowDown;
+                    label: "Download";
+                    value: root.download-speed;
+                    tint: Theme.accent;
+                }
+
+                MetricTile {
+                    icon: IconSet.ArrowUp;
+                    label: "Upload";
+                    value: root.upload-speed;
+                    tint: Theme.purple;
+                }
+            }
+
+            if root.show-dns: MetricTile {
+                icon: IconSet.Shield;
+                label: "DNS";
+                value: root.active-provider + " · " + root.current-dns;
+                tint: Theme.cyan;
+                multiline: true;
+            }
+
+            if root.show-status || root.show-latency: HorizontalLayout {
+                spacing: 8px;
+                if root.show-status: MetricTile {
+                    icon: IconSet.Wifi;
+                    label: "Status";
+                    value: root.connection-state;
+                    tint: root.connection-state == "Unstable" ? Theme.danger : Theme.green;
+                }
+                if root.show-latency: MetricTile {
+                    icon: IconSet.Clock;
+                    label: "Latency";
+                    value: root.latency;
+                    tint: Theme.purple;
+                }
+            }
+        }
+    }
+}

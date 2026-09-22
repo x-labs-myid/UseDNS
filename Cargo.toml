@@ -19,6 +19,8 @@ slint-build = "1.17.1"
 
 
 [target.'cfg(windows)'.dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+tray-icon = { version = "0.25", default-features = false }
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_NetworkManagement_IpHelper",

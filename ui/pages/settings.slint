@@ -166,6 +166,67 @@ component ChoiceCard inherits Rectangle {
     }
 }
 
+component ToggleSetting inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> checked;
+    callback toggled;
+
+    height: 48px;
+    border-radius: Theme.radius-control;
+    background: toggle-touch.has-hover ? Theme.surface-subtle : transparent;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 10px;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.title;
+                color: Theme.text;
+                font-size: 11px;
+                font-weight: 600;
+            }
+
+            Text {
+                text: root.detail;
+                color: Theme.muted-text;
+                font-size: 9px;
+                overflow: elide;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 38px;
+                height: 22px;
+                border-radius: 11px;
+                background: root.checked ? Theme.accent : Theme.border;
+                animate background { duration: 120ms; }
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    x: root.checked ? 19px : 3px;
+                    y: 3px;
+                    border-radius: 8px;
+                    background: white;
+                    animate x { duration: 120ms; }
+                }
+            }
+        }
+    }
+
+    toggle-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.toggled(); }
+    }
+}
+
 component InfoRow inherits HorizontalLayout {
     in property <int> icon-index;
     in property <string> title;
@@ -247,11 +308,16 @@ export component SettingsPage inherits VerticalLayout {
     in-out property <string> language;
     in-out property <string> theme-mode;
     in-out property <string> speed-unit: "kbps";
+    in-out property <bool> tray-show-speed: true;
+    in-out property <bool> tray-show-dns: true;
+    in-out property <bool> tray-show-status: true;
+    in-out property <bool> tray-show-latency: true;
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     callback language-changed(string);
     callback theme-changed(string);
     callback speed-unit-changed(string);
+    callback tray-preview-settings-changed(bool, bool, bool, bool);
 
     spacing: 10px;
     HorizontalLayout {
@@ -392,31 +458,48 @@ export component SettingsPage inherits VerticalLayout {
                         spacing: 4px;
                         SettingHeader {
                             icon-index: 0;
-                            title: language == "id" ? "Perilaku aplikasi" : "Application behavior";
-                            subtitle: language == "id" ? "Perilaku aktif pada versi MVP." : "Behavior currently active in the MVP.";
+                            title: language == "id" ? "Preview tray" : "Tray preview";
+                            subtitle: language == "id" ? "Pilih informasi yang muncul saat pointer berada di atas ikon tray." : "Choose what appears when hovering over the tray icon.";
                         }
 
-                        InfoRow {
-                            icon-index: 0;
-                            title: language == "id" ? "Mulai minim di tray" : "Start minimized in tray";
-                            detail: language == "id" ? "Dukungan system tray belum tersedia." : "System tray support is not available yet.";
-                            value: language == "id" ? "Belum tersedia" : "Not available";
+                        ToggleSetting {
+                            title: language == "id" ? "Kecepatan download & upload" : "Download & upload speed";
+                            detail: language == "id" ? "Tampilkan aktivitas internet pada preview tray." : "Show internet activity in the tray preview.";
+                            checked: root.tray-show-speed;
+                            toggled => {
+                                root.tray-show-speed = !root.tray-show-speed;
+                                root.tray-preview-settings-changed(root.tray-show-speed, root.tray-show-dns, root.tray-show-status, root.tray-show-latency);
+                            }
                         }
 
-                        InfoRow {
-                            icon-index: 1;
-                            title: language == "id" ? "Periksa koneksi saat startup" : "Check connection at startup";
-                            detail: language == "id" ? "Memeriksa resolver setelah aplikasi dibuka." : "Checks the resolver after the app opens.";
-                            value: language == "id" ? "Aktif" : "Enabled";
-                            active: true;
+                        ToggleSetting {
+                            title: language == "id" ? "DNS yang digunakan" : "Active DNS";
+                            detail: language == "id" ? "Tampilkan provider dan alamat DNS aktif." : "Show the active provider and DNS addresses.";
+                            checked: root.tray-show-dns;
+                            toggled => {
+                                root.tray-show-dns = !root.tray-show-dns;
+                                root.tray-preview-settings-changed(root.tray-show-speed, root.tray-show-dns, root.tray-show-status, root.tray-show-latency);
+                            }
                         }
 
-                        InfoRow {
-                            icon-index: 2;
-                            title: language == "id" ? "Notifikasi perubahan DNS" : "DNS change notifications";
-                            detail: language == "id" ? "Status hasil ditampilkan di dalam aplikasi." : "Results are shown inside the application.";
-                            value: language == "id" ? "Aktif" : "Enabled";
-                            active: true;
+                        ToggleSetting {
+                            title: language == "id" ? "Status koneksi" : "Connection status";
+                            detail: language == "id" ? "Tampilkan kondisi koneksi saat ini." : "Show the current connection condition.";
+                            checked: root.tray-show-status;
+                            toggled => {
+                                root.tray-show-status = !root.tray-show-status;
+                                root.tray-preview-settings-changed(root.tray-show-speed, root.tray-show-dns, root.tray-show-status, root.tray-show-latency);
+                            }
+                        }
+
+                        ToggleSetting {
+                            title: language == "id" ? "Latensi" : "Latency";
+                            detail: language == "id" ? "Tampilkan waktu respons resolver." : "Show the resolver response time.";
+                            checked: root.tray-show-latency;
+                            toggled => {
+                                root.tray-show-latency = !root.tray-show-latency;
+                                root.tray-preview-settings-changed(root.tray-show-speed, root.tray-show-dns, root.tray-show-status, root.tray-show-latency);
+                            }
                         }
                     }
                 }
