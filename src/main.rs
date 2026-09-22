@@ -581,6 +581,10 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    window
+        .window()
+        .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+
     {
         let weak = window.as_weak();
         window.on_window_close(move || {
