@@ -95,7 +95,7 @@ fn validate_pair(primary: &str, secondary: &str, ipv6: bool) -> Result<(), Strin
 }
 
 pub fn default_providers() -> Vec<DnsProvider> {
-    vec![
+    let providers = vec![
         DnsProvider {
             id: "cloudflare".into(),
             name: "Cloudflare".into(),
@@ -513,7 +513,8 @@ pub fn default_providers() -> Vec<DnsProvider> {
                 },
             ],
         },
-    ]
+    ];
+    providers
 }
 
 #[cfg(test)]
