@@ -228,7 +228,9 @@ fn doh_template(provider_id: &str, profile_id: &str) -> &'static str {
         ("control-d", "malware") => "https://freedns.controld.com/p1",
         ("control-d", "ads-malware") => "https://freedns.controld.com/p2",
         ("control-d", "family" | "social") => "https://freedns.controld.com/p3",
-        ("nextdns", _) => "https://dns.nextdns.io",
+        // NextDNS DoH requires an account-specific configuration ID. The generic
+        // IPv4 addresses cannot be registered as a Windows DoH server pair.
+        ("nextdns", _) => "",
         ("opendns", "standard") => "https://doh.opendns.com/dns-query",
         ("opendns", "familyshield") => "https://doh.familyshield.opendns.com/dns-query",
         _ => "",
@@ -916,6 +918,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     {
         let providers = providers.clone();
+        let adapters = adapters.clone();
         let language = language.clone();
         let weak = window.as_weak();
         window.on_request_use_provider(move |id| {
@@ -955,11 +958,25 @@ fn main() -> Result<(), slint::PlatformError> {
                 .is_some_and(|profile| !profile.doh_template.is_empty());
 
             if let Some(window) = weak.upgrade() {
+                let is_active_provider = window.get_active_provider_id().as_str() == provider.id;
+                let adapter_encrypted = adapters
+                    .lock()
+                    .ok()
+                    .and_then(|items| {
+                        items
+                            .get(window.get_adapter_index().max(0) as usize)
+                            .map(|adapter| adapter.dns_encrypted)
+                    })
+                    .unwrap_or(false);
                 window.set_popup_provider_id(provider.id.into());
                 window.set_popup_provider_name(provider.name.into());
                 window.set_popup_profiles(ModelRc::from(Rc::new(VecModel::from(profile_rows))));
                 window.set_selected_profile_index(0);
-                window.set_encrypted_dns(encrypted_available);
+                window.set_encrypted_dns(if is_active_provider {
+                    encrypted_available && adapter_encrypted
+                } else {
+                    encrypted_available
+                });
                 window.set_ip_mode(0);
                 window.set_profile_popup_open(true);
             }
@@ -1058,6 +1075,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 let providers_snapshot = providers.borrow().clone();
                 let (query, category) = provider_filter.borrow().clone();
+                let adapter_state = adapters.clone();
                 std::thread::spawn(move || {
                     let result = system::apply_dns(
                         &adapter.name,
@@ -1069,6 +1087,14 @@ fn main() -> Result<(), slint::PlatformError> {
                             window.set_busy(false);
                             match result {
                                 Ok(()) => {
+                                    if let Ok(mut items) = adapter_state.lock()
+                                        && let Some(item) =
+                                            items.iter_mut().find(|item| item.name == adapter.name)
+                                    {
+                                        item.dns = addresses.join(", ");
+                                        item.dns_automatic = false;
+                                        item.dns_encrypted = encrypted;
+                                    }
                                     window.set_profile_popup_open(false);
                                     window.set_active_provider_id(active_provider_id.into());
                                     window.set_active_provider(active_title.into());
@@ -1649,6 +1675,13 @@ fn main() -> Result<(), slint::PlatformError> {
             .unwrap_or_default(),
     );
     #[cfg(windows)]
+    let tray_provider_menus = Rc::new(
+        tray_state
+            .as_ref()
+            .map(|state| state.provider_menus.clone())
+            .unwrap_or_default(),
+    );
+    #[cfg(windows)]
     let _tray_icon = tray_state.map(|state| state.icon);
 
     #[cfg(windows)]
@@ -1666,6 +1699,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let tray_filter = provider_filter.clone();
         let tray_actions = tray_dns_actions.clone();
         let tray_items = tray_dns_items.clone();
+        let provider_menus = tray_provider_menus.clone();
         let last_active_menu_state =
             Rc::new(RefCell::new((String::new(), String::new(), String::new())));
         let last_active_for_timer = last_active_menu_state.clone();
@@ -1686,6 +1720,13 @@ fn main() -> Result<(), slint::PlatformError> {
                     );
                     if *last_active_for_timer.borrow() != state {
                         *last_active_for_timer.borrow_mut() = state;
+                        for (provider_id, (provider_name, provider_menu)) in provider_menus.iter() {
+                            if active_id != "system" && provider_id == &active_id {
+                                provider_menu.set_text("✓ ".to_owned() + provider_name);
+                            } else {
+                                provider_menu.set_text(provider_name);
+                            }
+                        }
                         for (item_id, (provider_id, profile_index)) in tray_actions.iter() {
                             let checked = if active_id == "system" || provider_id != &active_id {
                                 false

@@ -829,11 +829,10 @@ export component ProvidersPage inherits Rectangle {
                             padding: 4px;
                             spacing: 4px;
 
-                            EncryptionOption {
+                            if root.popup-profiles.length > 0 && root.popup-profiles[root.selected-profile-index].doh-template != "": EncryptionOption {
                                 title: language == "id" ? "Terenkripsi (DoH) · Disarankan" : "Encrypted (DoH) · Recommended";
                                 detail: language == "id" ? "Mencegah DNS dibaca di jaringan lokal" : "Prevents DNS inspection on the local network";
                                 selected: root.encrypted-dns;
-                                enabled: root.popup-profiles.length > 0 && root.popup-profiles[root.selected-profile-index].doh-template != "";
                                 clicked => { root.encrypted-dns = true; }
                             }
 

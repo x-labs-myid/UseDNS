@@ -44,6 +44,7 @@ pub struct AdapterInfo {
     pub dns: String,
     pub interface_index: u32,
     pub dns_automatic: bool,
+    pub dns_encrypted: bool,
 }
 
 #[cfg(windows)]
@@ -114,7 +115,16 @@ fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), Str
         .encode_wide()
         .chain(std::iter::once(0))
         .collect::<Vec<_>>();
-    let parameters_wide = format!("--dns-helper {payload}")
+    let result_path = std::env::temp_dir().join(format!(
+        "usedns-helper-{}-{}.result",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    let result_path_payload = BASE64.encode(result_path.to_string_lossy().as_bytes());
+    let parameters_wide = format!("--dns-helper {payload} {result_path_payload}")
         .encode_utf16()
         .chain(std::iter::once(0))
         .collect::<Vec<_>>();
@@ -148,10 +158,14 @@ fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), Str
         let _ = CloseHandle(info.hProcess);
         exit_result.map_err(|error| format!("Could not read the DNS operation result: {error}"))?;
 
+        let helper_message = std::fs::read_to_string(&result_path).unwrap_or_default();
+        let _ = std::fs::remove_file(&result_path);
         if exit_code == 0 {
             Ok(())
+        } else if helper_message.trim().is_empty() {
+            Err("The elevated DNS helper failed without an error message.".into())
         } else {
-            Err("Could not change DNS with Administrator permission.".into())
+            Err(helper_message.trim().into())
         }
     }
 }
@@ -163,11 +177,22 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
     if args.next().as_deref() != Some("--dns-helper") {
         return None;
     }
-    let result = args
+    let operation_payload = args.next();
+    let result_path = args
         .next()
-        .ok_or(())
-        .and_then(|payload| BASE64.decode(payload).map_err(|_| ()))
-        .and_then(|bytes| serde_json::from_slice::<ElevatedDnsOperation>(&bytes).map_err(|_| ()))
+        .and_then(|payload| BASE64.decode(payload).ok())
+        .and_then(|bytes| String::from_utf8(bytes).ok());
+    let result = operation_payload
+        .ok_or_else(|| "The DNS helper request is incomplete.".to_string())
+        .and_then(|payload| {
+            BASE64
+                .decode(payload)
+                .map_err(|_| "The DNS helper request is invalid.".to_string())
+        })
+        .and_then(|bytes| {
+            serde_json::from_slice::<ElevatedDnsOperation>(&bytes)
+                .map_err(|_| "The DNS helper operation is invalid.".to_string())
+        })
         .and_then(|operation| {
             let script = match operation {
                 ElevatedDnsOperation::Apply {
@@ -181,44 +206,62 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
                         .map(|address| "'".to_owned() + &address.replace('\'', "''") + "'")
                         .collect::<Vec<_>>()
                         .join(",");
-                    let encryption_setup = if let Some(template) = doh_template {
-                        let template = template.replace('\'', "''");
-                        addresses
-                            .iter()
-                            .map(|address| {
-                                let address = address.replace('\'', "''");
-                                "$existing = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction SilentlyContinue; if ($null -ne $existing) { Set-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop } else { Add-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }; $configured = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction Stop; if (-not $configured.AutoUpgrade -or $configured.AllowFallbackToUdp) { throw 'Windows did not enable encrypted DNS for __ADDRESS__.' }"
-                                    .replace("__ADDRESS__", &address)
-                                    .replace("__TEMPLATE__", &template)
-                            })
-                            .collect::<Vec<_>>()
-                            .join("; ")
-                    } else {
-                        addresses
-                            .iter()
-                            .map(|address| {
-                                let address = address.replace('\'', "''");
-                                "Set-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -AllowFallbackToUdp $True -AutoUpgrade $False -ErrorAction SilentlyContinue"
-                                    .replace("__ADDRESS__", &address)
-                            })
-                            .collect::<Vec<_>>()
-                            .join("; ")
-                    };
+                    let (encryption_setup, interface_encryption) =
+                        if let Some(template) = doh_template {
+                            let template = template.replace('\'', "''");
+                            let encryption_setup = addresses
+                                .iter()
+                                .map(|address| {
+                                    let address = address.replace('\'', "''");
+                                    "$existing = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction SilentlyContinue; if ($null -ne $existing) { Set-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop } else { Add-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }; $configured = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction Stop; if (-not $configured.AutoUpgrade -or $configured.AllowFallbackToUdp) { throw 'Windows did not enable encrypted DNS for __ADDRESS__.' }"
+                                        .replace("__ADDRESS__", &address)
+                                        .replace("__TEMPLATE__", &template)
+                                })
+                                .collect::<Vec<_>>()
+                                .join("; ");
+                            let interface_encryption = "Remove-Item -LiteralPath ($dohRoot + '\\Doh') -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath ($dohRoot + '\\Doh6') -Recurse -Force -ErrorAction SilentlyContinue; ".to_string()
+                                + &addresses
+                                    .iter()
+                                    .filter_map(|address| {
+                                        let parsed = address.parse::<IpAddr>().ok()?;
+                                        let family = if parsed.is_ipv4() { "Doh" } else { "Doh6" };
+                                        let address = address.replace('\'', "''");
+                                        Some(
+                                            "$dohKey = $dohRoot + '\\__FAMILY__\\__ADDRESS__'; New-Item -Path $dohKey -Force -ErrorAction Stop | Out-Null; New-ItemProperty -Path $dohKey -Name 'DohFlags' -PropertyType QWord -Value 17 -Force -ErrorAction Stop | Out-Null; New-ItemProperty -Path $dohKey -Name 'DohTemplate' -PropertyType String -Value '__TEMPLATE__' -Force -ErrorAction Stop | Out-Null; $saved = Get-ItemProperty -LiteralPath $dohKey -ErrorAction Stop; if ([uint64]$saved.DohFlags -ne 17 -or $saved.DohTemplate -ne '__TEMPLATE__') { throw 'Windows did not save encrypted DNS for __ADDRESS__.' }"
+                                                .replace("__FAMILY__", family)
+                                                .replace("__ADDRESS__", &address)
+                                                .replace("__TEMPLATE__", &template),
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("; ");
+                            (encryption_setup, interface_encryption)
+                        } else {
+                            let interface_encryption = "Remove-Item -LiteralPath ($dohRoot + '\\Doh') -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath ($dohRoot + '\\Doh6') -Recurse -Force -ErrorAction SilentlyContinue".to_string();
+                            ("Write-Output '' | Out-Null".to_string(), interface_encryption)
+                        };
                     encryption_setup
                         + "; Set-DnsClientServerAddress -InterfaceAlias '"
                         + &adapter
                         + "' -ServerAddresses ("
                         + &quoted_addresses
-                        + ") -ErrorAction Stop"
+                        + ") -ErrorAction Stop; $guid = (Get-NetAdapter -Name '"
+                        + &adapter
+                        + "' -ErrorAction Stop).InterfaceGuid; if ([string]::IsNullOrWhiteSpace([string]$guid)) { throw 'Could not resolve the network interface identifier.' }; $dohRoot = 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Dnscache\\InterfaceSpecificParameters\\' + $guid + '\\DohInterfaceSettings'; New-Item -Path $dohRoot -Force -ErrorAction Stop | Out-Null; "
+                        + &interface_encryption
+                        + "; Clear-DnsClientCache -ErrorAction SilentlyContinue"
                 }
                 ElevatedDnsOperation::Reset { adapter } => {
                     let adapter = adapter.replace('\'', "''");
-                    "Set-DnsClientServerAddress -InterfaceAlias '__ADAPTER__' -ResetServerAddresses -ErrorAction Stop"
+                    "Set-DnsClientServerAddress -InterfaceAlias '__ADAPTER__' -ResetServerAddresses -ErrorAction Stop; $guid = (Get-NetAdapter -Name '__ADAPTER__' -ErrorAction Stop).InterfaceGuid; $dohRoot = 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Dnscache\\InterfaceSpecificParameters\\' + $guid + '\\DohInterfaceSettings'; Remove-Item -LiteralPath $dohRoot -Recurse -Force -ErrorAction SilentlyContinue; Clear-DnsClientCache -ErrorAction SilentlyContinue"
                         .replace("__ADAPTER__", &adapter)
                 }
             };
-            powershell(&script).map(|_| ()).map_err(|_| ())
+            powershell(&script).map(|_| ())
         });
+    if let (Err(message), Some(result_path)) = (&result, result_path) {
+        let _ = std::fs::write(result_path, message);
+    }
     Some(if result.is_ok() { 0 } else { 1 })
 }
 
@@ -229,7 +272,7 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = r"$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; $g=$_.InterfaceGuid; $v4=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $v6=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $auto=[string]::IsNullOrWhiteSpace([string]$v4) -and [string]::IsNullOrWhiteSpace([string]$v6); Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i + [char]9 + $(if ($auto) { '1' } else { '0' })) }";
+    let script = r"$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; $g=$_.InterfaceGuid; $v4=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $v6=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $auto=[string]::IsNullOrWhiteSpace([string]$v4) -and [string]::IsNullOrWhiteSpace([string]$v6); $dr='HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\InterfaceSpecificParameters\' + $g; $flags=Get-ChildItem -LiteralPath ($dr + '\DohInterfaceSettings') -Recurse -ErrorAction SilentlyContinue | ForEach-Object { (Get-ItemProperty -LiteralPath $_.PSPath -Name DohFlags -ErrorAction SilentlyContinue).DohFlags }; $enc=$flags -contains 17; Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i + [char]9 + $(if ($auto) { '1' } else { '0' }) + [char]9 + $(if ($enc) { '1' } else { '0' })) }";
     let output = powershell(script)?;
     let adapters = output
         .lines()
@@ -240,12 +283,14 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
             let dns = fields.next()?;
             let interface_index = fields.next()?.parse().ok()?;
             let dns_automatic = fields.next() == Some("1");
+            let dns_encrypted = fields.next() == Some("1");
             Some(AdapterInfo {
                 name: name.into(),
                 label: label.into(),
                 dns: dns.into(),
                 interface_index,
                 dns_automatic,
+                dns_encrypted,
             })
         })
         .collect::<Vec<_>>();
@@ -264,6 +309,7 @@ pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
         dns: "System managed".into(),
         interface_index: 0,
         dns_automatic: true,
+        dns_encrypted: false,
     }])
 }
 

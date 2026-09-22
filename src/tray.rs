@@ -12,7 +12,7 @@ pub struct TrayState {
     pub icon: TrayIcon,
     pub dns_actions: HashMap<String, (String, usize)>,
     pub dns_items: HashMap<String, CheckMenuItem>,
-    pub provider_menus: HashMap<String, (Submenu, String)>,
+    pub provider_menus: HashMap<String, (String, Submenu)>,
 }
 
 pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, String> {
@@ -71,7 +71,7 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
             change_dns.append(&provider_menu).map_err(|error| {
                 "Could not build the tray DNS menu: ".to_owned() + &error.to_string()
             })?;
-            provider_menus.insert(provider.id.clone(), (provider_menu, provider.name.clone()));
+            provider_menus.insert(provider.id.clone(), (provider.name.clone(), provider_menu));
         } else {
             let id = "tray-dns:".to_owned() + &provider.id + ":0";
             let item = CheckMenuItem::with_id(&id, &provider.name, true, false, None);
