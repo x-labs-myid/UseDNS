@@ -312,10 +312,6 @@ export component ProviderIcon inherits Rectangle {
         : (root.provider-id == "control-d" ? (Theme.dark ? #101710 : #1f2d20) : Theme.surface-strong);
     border-width: root.active ? 2px : 1px;
     border-color: root.active ? Theme.cyan : Theme.border;
-    drop-shadow-blur: 8px;
-    drop-shadow-color: Theme.dark ? #00000055 : #00000010;
-    drop-shadow-offset-y: 2px;
-    clip: true;
 
     if root.provider-id == "cloudflare": Image {
         width: root.size * 0.64;

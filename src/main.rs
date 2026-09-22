@@ -119,7 +119,7 @@ fn resolve_active_provider(
                     } else {
                         &profile.name_en
                     };
-                    format!("{} - {}", provider.name, profile_name)
+                    provider.name.clone() + " - " + profile_name
                 })
                 .unwrap_or_else(|| provider.name.clone())
         } else {
@@ -241,18 +241,30 @@ fn format_pair(primary: &str, secondary: &str) -> String {
     }
 }
 
+fn format_fixed(value: f64, decimals: u32) -> String {
+    let factor = 10_i64.pow(decimals) as f64;
+    let scaled = (value * factor).round() as i64;
+    if decimals == 0 {
+        return scaled.to_string();
+    }
+
+    let whole = scaled / factor as i64;
+    let fraction = (scaled % factor as i64).abs();
+    let mut fraction_text = fraction.to_string();
+    while fraction_text.len() < decimals as usize {
+        fraction_text.insert(0, '0');
+    }
+    whole.to_string() + "." + &fraction_text
+}
+
 fn format_speed(mbps: f64, unit: &str) -> String {
     if unit == "kbps" {
         let kbps = mbps * 1000.0;
-        if kbps < 10.0 {
-            format!("{kbps:.1} Kbps")
-        } else {
-            format!("{kbps:.0} Kbps")
-        }
-    } else if mbps < 1.0 {
-        format!("{mbps:.2} Mbps")
+        let decimals = if kbps < 10.0 { 1 } else { 0 };
+        format_fixed(kbps, decimals) + " Kbps"
     } else {
-        format!("{mbps:.1} Mbps")
+        let decimals = if mbps < 1.0 { 2 } else { 1 };
+        format_fixed(mbps, decimals) + " Mbps"
     }
 }
 
@@ -905,7 +917,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     profile.name_en.clone()
                 };
                 let active_title = if profiles.len() > 1 {
-                    format!("{} - {}", provider.name, profile_display_name)
+                    provider.name.clone() + " - " + &profile_display_name
                 } else {
                     provider.name.clone()
                 };
@@ -1217,13 +1229,12 @@ fn main() -> Result<(), slint::PlatformError> {
         let weak = window.as_weak();
         window.on_save_provider(move |id, name, v4a, v4b, v6a, v6b, summary, purpose| {
             let generated_id = if id.is_empty() {
-                format!(
-                    "custom-{}",
-                    std::time::SystemTime::now()
+                "custom-".to_owned()
+                    + &std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_millis()
-                )
+                        .to_string()
             } else {
                 id.to_string()
             };
