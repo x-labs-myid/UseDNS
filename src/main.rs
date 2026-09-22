@@ -327,6 +327,7 @@ fn set_filtered_provider_model(
 
 #[derive(Clone, Copy)]
 struct TrayPreferences {
+    network_interval_secs: u32,
     show_speed: bool,
     show_dns: bool,
     show_status: bool,
@@ -344,6 +345,7 @@ fn settings_snapshot(
         language: language.into(),
         theme: theme.into(),
         speed_unit: speed_unit.into(),
+        network_interval_secs: tray.network_interval_secs,
         tray_show_speed: tray.show_speed,
         tray_show_dns: tray.show_dns,
         tray_show_status: tray.show_status,
@@ -596,7 +598,11 @@ fn main() -> Result<(), slint::PlatformError> {
     if !matches!(settings.speed_unit.as_str(), "kbps" | "mbps") {
         settings.speed_unit = "kbps".into();
     }
+    if !matches!(settings.network_interval_secs, 1 | 2 | 5) {
+        settings.network_interval_secs = 1;
+    }
     let tray_preferences = Rc::new(RefCell::new(TrayPreferences {
+        network_interval_secs: settings.network_interval_secs,
         show_speed: settings.tray_show_speed,
         show_dns: settings.tray_show_dns,
         show_status: settings.tray_show_status,
@@ -616,6 +622,7 @@ fn main() -> Result<(), slint::PlatformError> {
     window.set_language(language.borrow().as_str().into());
     window.set_theme_mode(theme.borrow().as_str().into());
     window.set_speed_unit(speed_unit.borrow().as_str().into());
+    window.set_network_interval_secs(settings.network_interval_secs as i32);
     window.set_tray_show_speed(settings.tray_show_speed);
     window.set_tray_show_dns(settings.tray_show_dns);
     window.set_tray_show_status(settings.tray_show_status);
@@ -836,9 +843,34 @@ fn main() -> Result<(), slint::PlatformError> {
         let theme = theme.clone();
         let speed_unit = speed_unit.clone();
         let tray_preferences = tray_preferences.clone();
+        window.on_network_interval_changed(move |seconds| {
+            let seconds = match seconds {
+                2 => 2,
+                5 => 5,
+                _ => 1,
+            };
+            tray_preferences.borrow_mut().network_interval_secs = seconds;
+            let settings = settings_snapshot(
+                &language.borrow(),
+                &theme.borrow(),
+                &speed_unit.borrow(),
+                &providers.borrow(),
+                *tray_preferences.borrow(),
+            );
+            let _ = storage::save(&settings);
+        });
+    }
+
+    {
+        let providers = providers.clone();
+        let language = language.clone();
+        let theme = theme.clone();
+        let speed_unit = speed_unit.clone();
+        let tray_preferences = tray_preferences.clone();
         let preview_weak = tray_preview.as_weak();
         window.on_tray_preview_settings_changed(move |speed, dns, status, latency| {
             let preferences = TrayPreferences {
+                network_interval_secs: tray_preferences.borrow().network_interval_secs,
                 show_speed: speed,
                 show_dns: dns,
                 show_status: status,
@@ -1457,6 +1489,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let preview_weak = tray_preview.as_weak();
         let adapters = adapters.clone();
         let speed_unit = speed_unit.clone();
+        let sampling_preferences = tray_preferences.clone();
+        let sampling_ticks = Rc::new(std::cell::Cell::new(0_u32));
+        let sampling_ticks_for_timer = sampling_ticks.clone();
         // Initialize speed-history with 24 blank samples
         let initial_samples: Vec<SpeedSample> = (0..24)
             .map(|_| SpeedSample {
@@ -1577,6 +1612,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 let Some(window) = weak.upgrade() else {
                     return;
                 };
+                let interval = sampling_preferences.borrow().network_interval_secs.max(1);
+                let elapsed_ticks = sampling_ticks_for_timer.get() + 1;
+                if elapsed_ticks < interval {
+                    sampling_ticks_for_timer.set(elapsed_ticks);
+                    return;
+                }
+                sampling_ticks_for_timer.set(0);
                 let index = window.get_adapter_index().max(0) as usize;
                 let interface_index = adapters
                     .lock()
@@ -1600,6 +1642,13 @@ fn main() -> Result<(), slint::PlatformError> {
             .unwrap_or_default(),
     );
     #[cfg(windows)]
+    let tray_dns_items = Rc::new(
+        tray_state
+            .as_ref()
+            .map(|state| state.dns_items.clone())
+            .unwrap_or_default(),
+    );
+    #[cfg(windows)]
     let _tray_icon = tray_state.map(|state| state.icon);
 
     #[cfg(windows)]
@@ -1616,12 +1665,59 @@ fn main() -> Result<(), slint::PlatformError> {
         let tray_language = language.clone();
         let tray_filter = provider_filter.clone();
         let tray_actions = tray_dns_actions.clone();
+        let tray_items = tray_dns_items.clone();
+        let last_active_menu_state =
+            Rc::new(RefCell::new((String::new(), String::new(), String::new())));
+        let last_active_for_timer = last_active_menu_state.clone();
         let hide_at = Rc::new(Cell::new(None::<Instant>));
         let hide_at_for_timer = hide_at.clone();
         tray_timer.start(
             slint::TimerMode::Repeated,
             Duration::from_millis(50),
             move || {
+                if let Some(app) = app_weak.upgrade() {
+                    let active_id = app.get_active_provider_id().to_string();
+                    let active_title = app.get_active_provider().to_string();
+                    let current_language = tray_language.borrow().clone();
+                    let state = (
+                        active_id.clone(),
+                        active_title.clone(),
+                        current_language.clone(),
+                    );
+                    if *last_active_for_timer.borrow() != state {
+                        *last_active_for_timer.borrow_mut() = state;
+                        for (item_id, (provider_id, profile_index)) in tray_actions.iter() {
+                            let checked = if active_id == "system" || provider_id != &active_id {
+                                false
+                            } else {
+                                tray_providers
+                                    .borrow()
+                                    .iter()
+                                    .find(|provider| provider.id == *provider_id)
+                                    .map(|provider| {
+                                        let profiles = provider.get_profiles();
+                                        if profiles.len() <= 1 {
+                                            true
+                                        } else {
+                                            profiles.get(*profile_index).is_some_and(|profile| {
+                                                let profile_name = if current_language == "id" {
+                                                    &profile.name_id
+                                                } else {
+                                                    &profile.name_en
+                                                };
+                                                active_title.ends_with(profile_name)
+                                            })
+                                        }
+                                    })
+                                    .unwrap_or(false)
+                            };
+                            if let Some(item) = tray_items.get(item_id) {
+                                item.set_checked(checked);
+                            }
+                        }
+                    }
+                }
+
                 while let Ok(event) = MenuEvent::receiver().try_recv() {
                     let id = event.id.0;
                     if id == tray::OPEN_ID {
@@ -1716,7 +1812,6 @@ fn main() -> Result<(), slint::PlatformError> {
                                     );
                                     if let Some(preview) = preview.upgrade() {
                                         preview.set_active_provider(active_title.into());
-                                        preview.set_current_dns(addresses.join(", ").into());
                                     }
                                     show_message(
                                         &app,
@@ -1751,7 +1846,6 @@ fn main() -> Result<(), slint::PlatformError> {
                             preview.set_download_speed(app.get_download_speed());
                             preview.set_upload_speed(app.get_upload_speed());
                             preview.set_active_provider(app.get_active_provider());
-                            preview.set_current_dns(app.get_current_dns());
                             preview.set_connection_state(app.get_connection_state());
                             preview.set_latency(app.get_latency());
                             if preview.show().is_ok() {

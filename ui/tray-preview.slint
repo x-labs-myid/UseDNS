@@ -64,7 +64,6 @@ export component TrayPreview inherits Window {
     in property <string> download-speed: "0 Kbps";
     in property <string> upload-speed: "0 Kbps";
     in property <string> active-provider: "System / DHCP";
-    in property <string> current-dns: "—";
     in property <string> connection-state: "Checking...";
     in property <string> latency: "—";
     in property <bool> show-speed: true;
@@ -135,7 +134,7 @@ export component TrayPreview inherits Window {
             if root.show-dns: MetricTile {
                 icon: IconSet.Shield;
                 label: "DNS";
-                value: root.active-provider + " · " + root.current-dns;
+                value: root.active-provider;
                 tint: Theme.cyan;
                 multiline: true;
             }

@@ -15,6 +15,8 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_speed_unit")]
     pub speed_unit: String,
+    #[serde(default = "default_network_interval")]
+    pub network_interval_secs: u32,
     #[serde(default = "default_enabled")]
     pub tray_show_speed: bool,
     #[serde(default = "default_enabled")]
@@ -39,6 +41,10 @@ fn default_speed_unit() -> String {
     "kbps".into()
 }
 
+fn default_network_interval() -> u32 {
+    1
+}
+
 fn default_enabled() -> bool {
     true
 }
@@ -49,6 +55,7 @@ impl Default for Settings {
             language: default_language(),
             theme: default_theme(),
             speed_unit: default_speed_unit(),
+            network_interval_secs: default_network_interval(),
             tray_show_speed: true,
             tray_show_dns: true,
             tray_show_status: true,

@@ -42,6 +42,7 @@ export component AppWindow inherits Window {
     in-out property <string> upload-speed: "0.0 Kbps";
     in-out property <string> total-speed: "0.0";
     in-out property <string> speed-unit: "kbps";
+    in-out property <int> network-interval-secs: 1;
     in-out property <bool> tray-show-speed: true;
     in-out property <bool> tray-show-dns: true;
     in-out property <bool> tray-show-status: true;
@@ -81,6 +82,7 @@ export component AppWindow inherits Window {
     callback language-changed(string);
     callback theme-changed(string);
     callback speed-unit-changed(string);
+    callback network-interval-changed(int);
     callback tray-preview-settings-changed(bool, bool, bool, bool);
     callback apply-selected(string, int, int);
     callback request-use-provider(string);
@@ -241,6 +243,7 @@ export component AppWindow inherits Window {
                     language <=> root.language;
                     theme-mode <=> root.theme-mode;
                     speed-unit <=> root.speed-unit;
+                    network-interval-secs <=> root.network-interval-secs;
                     tray-show-speed <=> root.tray-show-speed;
                     tray-show-dns <=> root.tray-show-dns;
                     tray-show-status <=> root.tray-show-status;
@@ -250,6 +253,7 @@ export component AppWindow inherits Window {
                     language-changed(value) => { root.language-changed(value); }
                     theme-changed(value) => { root.theme-changed(value); }
                     speed-unit-changed(value) => { root.speed-unit-changed(value); }
+                    network-interval-changed(value) => { root.network-interval-changed(value); }
                     tray-preview-settings-changed(speed, dns, status, latency) => {
                         root.tray-preview-settings-changed(speed, dns, status, latency);
                     }

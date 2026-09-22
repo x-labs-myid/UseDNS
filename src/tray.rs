@@ -2,7 +2,7 @@ use crate::models::DnsProvider;
 use std::collections::HashMap;
 use tray_icon::{
     Icon, TrayIcon, TrayIconBuilder,
-    menu::{Menu, MenuItem, Submenu},
+    menu::{CheckMenuItem, Menu, MenuItem, Submenu},
 };
 
 pub const OPEN_ID: &str = "tray-open";
@@ -11,6 +11,8 @@ pub const CLOSE_ID: &str = "tray-close";
 pub struct TrayState {
     pub icon: TrayIcon,
     pub dns_actions: HashMap<String, (String, usize)>,
+    pub dns_items: HashMap<String, CheckMenuItem>,
+    pub provider_menus: HashMap<String, (Submenu, String)>,
 }
 
 pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, String> {
@@ -46,6 +48,8 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
         .map_err(|error| "Could not build the tray menu: ".to_owned() + &error.to_string())?;
 
     let mut dns_actions = HashMap::new();
+    let mut dns_items = HashMap::new();
+    let mut provider_menus = HashMap::new();
     for provider in providers {
         let profiles = provider.get_profiles();
         if profiles.len() > 1 {
@@ -57,22 +61,25 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
                 } else {
                     &profile.name_en
                 };
-                let item = MenuItem::with_id(&id, label, true, None);
+                let item = CheckMenuItem::with_id(&id, label, true, false, None);
                 provider_menu.append(&item).map_err(|error| {
                     "Could not build the tray DNS menu: ".to_owned() + &error.to_string()
                 })?;
-                dns_actions.insert(id, (provider.id.clone(), index));
+                dns_actions.insert(id.clone(), (provider.id.clone(), index));
+                dns_items.insert(id, item);
             }
             change_dns.append(&provider_menu).map_err(|error| {
                 "Could not build the tray DNS menu: ".to_owned() + &error.to_string()
             })?;
+            provider_menus.insert(provider.id.clone(), (provider_menu, provider.name.clone()));
         } else {
             let id = "tray-dns:".to_owned() + &provider.id + ":0";
-            let item = MenuItem::with_id(&id, &provider.name, true, None);
+            let item = CheckMenuItem::with_id(&id, &provider.name, true, false, None);
             change_dns.append(&item).map_err(|error| {
                 "Could not build the tray DNS menu: ".to_owned() + &error.to_string()
             })?;
-            dns_actions.insert(id, (provider.id.clone(), 0));
+            dns_actions.insert(id.clone(), (provider.id.clone(), 0));
+            dns_items.insert(id, item);
         }
     }
 
@@ -87,5 +94,10 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
         .build()
         .map_err(|error| "Could not create the tray icon: ".to_owned() + &error.to_string())?;
 
-    Ok(TrayState { icon, dns_actions })
+    Ok(TrayState {
+        icon,
+        dns_actions,
+        dns_items,
+        provider_menus,
+    })
 }

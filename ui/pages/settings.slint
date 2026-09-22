@@ -227,87 +227,12 @@ component ToggleSetting inherits Rectangle {
     }
 }
 
-component InfoRow inherits HorizontalLayout {
-    in property <int> icon-index;
-    in property <string> title;
-    in property <string> detail;
-    in property <string> value;
-    in property <bool> active: false;
-
-    height: 58px;
-    spacing: 10px;
-    VerticalLayout {
-        width: 38px;
-        alignment: center;
-
-        Rectangle {
-            width: 38px;
-            height: 38px;
-            border-radius: 13px;
-            background: Theme.accent.with-alpha(0.10);
-            if root.icon-index == 0: IconDisplay {
-                icon: IconSet.Settings;
-                size: 17px;
-                stroke: Theme.accent;
-                x: 11px;
-                y: 11px;
-            }
-            if root.icon-index == 1: IconDisplay {
-                icon: IconSet.Network;
-                size: 17px;
-                stroke: Theme.accent;
-                x: 11px;
-                y: 11px;
-            }
-            if root.icon-index == 2: IconDisplay {
-                icon: IconSet.Shield;
-                size: 17px;
-                stroke: Theme.accent;
-                x: 11px;
-                y: 11px;
-            }
-        }
-    }
-
-    VerticalLayout {
-        alignment: center;
-        Text {
-            text: root.title;
-            color: Theme.text;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        Text {
-            text: root.detail;
-            color: Theme.muted-text;
-            font-size: 9px;
-        }
-    }
-
-    Rectangle {
-        horizontal-stretch: 1;
-    }
-
-    Rectangle {
-        width: status-text.preferred-width + 18px;
-        height: 28px;
-        border-radius: 14px;
-        background: root.active ? Theme.cyan.with-alpha(0.13) : Theme.background.with-alpha(0.35);
-        status-text := Text {
-            text: root.value;
-            color: root.active ? Theme.cyan : Theme.secondary-text;
-            font-size: 10px;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
-}
 
 export component SettingsPage inherits VerticalLayout {
     in-out property <string> language;
     in-out property <string> theme-mode;
     in-out property <string> speed-unit: "kbps";
+    in-out property <int> network-interval-secs: 1;
     in-out property <bool> tray-show-speed: true;
     in-out property <bool> tray-show-dns: true;
     in-out property <bool> tray-show-status: true;
@@ -317,6 +242,7 @@ export component SettingsPage inherits VerticalLayout {
     callback language-changed(string);
     callback theme-changed(string);
     callback speed-unit-changed(string);
+    callback network-interval-changed(int);
     callback tray-preview-settings-changed(bool, bool, bool, bool);
 
     spacing: 10px;
@@ -361,7 +287,7 @@ export component SettingsPage inherits VerticalLayout {
         VerticalLayout {
             width: 100%;
             spacing: 12px;
-            padding-right: 6px;
+            padding-right: 18px;
             padding-bottom: 8px;
 
             Rectangle {
@@ -474,7 +400,7 @@ export component SettingsPage inherits VerticalLayout {
 
                         ToggleSetting {
                             title: language == "id" ? "DNS yang digunakan" : "Active DNS";
-                            detail: language == "id" ? "Tampilkan provider dan alamat DNS aktif." : "Show the active provider and DNS addresses.";
+                            detail: language == "id" ? "Tampilkan nama provider dan profil DNS aktif." : "Show the active DNS provider and profile name.";
                             checked: root.tray-show-dns;
                             toggled => {
                                 root.tray-show-dns = !root.tray-show-dns;
@@ -518,12 +444,41 @@ export component SettingsPage inherits VerticalLayout {
                             subtitle: language == "id" ? "Konfigurasi pengukuran jaringan saat ini." : "Current network measurement configuration.";
                         }
 
-                        InfoRow {
-                            icon-index: 1;
-                            title: language == "id" ? "Interval aktivitas jaringan" : "Network activity interval";
-                            detail: language == "id" ? "Counter adapter diperbarui secara real-time." : "Adapter counters update in real time.";
-                            value: language == "id" ? "Setiap 1 detik" : "Every 1 second";
-                            active: true;
+                        VerticalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: language == "id" ? "Interval aktivitas jaringan:" : "Network activity interval:";
+                                color: Theme.secondary-text;
+                                font-size: 11px;
+                                font-weight: 600;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                ChoiceCard {
+                                    symbol: "speed";
+                                    title: "1s";
+                                    detail: language == "id" ? "Real-time" : "Real-time";
+                                    selected: root.network-interval-secs == 1;
+                                    clicked => { root.network-interval-secs = 1; root.network-interval-changed(1); }
+                                }
+
+                                ChoiceCard {
+                                    symbol: "speed";
+                                    title: "2s";
+                                    detail: language == "id" ? "Seimbang" : "Balanced";
+                                    selected: root.network-interval-secs == 2;
+                                    clicked => { root.network-interval-secs = 2; root.network-interval-changed(2); }
+                                }
+
+                                ChoiceCard {
+                                    symbol: "speed";
+                                    title: "5s";
+                                    detail: language == "id" ? "Lebih ringan" : "Lower usage";
+                                    selected: root.network-interval-secs == 5;
+                                    clicked => { root.network-interval-secs = 5; root.network-interval-changed(5); }
+                                }
+                            }
                         }
 
                         // Satuan kecepatan internet (Default Kbps)
