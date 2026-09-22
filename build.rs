@@ -2,14 +2,7 @@ fn main() {
     println!("cargo:rerun-if-changed=ui/app-window.slint");
     println!("cargo:rerun-if-changed=.assets/UseDNS.png");
 
-    use std::{collections::HashMap, path::PathBuf};
-
-    let lib_path = lucide_slint::lib();
-    eprintln!("LUCIDE_SLINT_LIB_PATH: {}", lib_path);
-    let library = HashMap::from([("lucide".to_string(), PathBuf::from(lib_path))]);
-    let config = slint_build::CompilerConfiguration::new().with_library_paths(library);
-    slint_build::compile_with_config("ui/app-window.slint", config)
-        .expect("failed to compile Slint UI");
+    slint_build::compile("ui/app-window.slint").expect("failed to compile Slint UI");
 
     #[cfg(windows)]
     embed_windows_icon();

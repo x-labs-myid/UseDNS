@@ -135,7 +135,7 @@ fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), Str
             if error.code().0 as u32 == 0x8007_04c7 {
                 "Administrator permission was cancelled. DNS was not changed.".to_string()
             } else {
-                format!("Could not request Administrator access: {error}")
+                "Could not request Administrator access: ".to_owned() + &error.to_string()
             }
         })?;
         if info.hProcess.is_invalid() {
@@ -178,7 +178,7 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
                     let adapter = adapter.replace('\'', "''");
                     let quoted_addresses = addresses
                         .iter()
-                        .map(|address| format!("'{}'", address.replace('\'', "''")))
+                        .map(|address| "'".to_owned() + &address.replace('\'', "''") + "'")
                         .collect::<Vec<_>>()
                         .join(",");
                     let encryption_setup = if let Some(template) = doh_template {
@@ -187,7 +187,9 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
                             .iter()
                             .map(|address| {
                                 let address = address.replace('\'', "''");
-                                format!("$existing = Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction SilentlyContinue; if ($null -ne $existing) {{ Set-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }} else {{ Add-DnsClientDohServerAddress -ServerAddress '{address}' -DohTemplate '{template}' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }}; $configured = Get-DnsClientDohServerAddress -ServerAddress '{address}' -ErrorAction Stop; if (-not $configured.AutoUpgrade -or $configured.AllowFallbackToUdp) {{ throw 'Windows did not enable encrypted DNS for {address}.' }}")
+                                "$existing = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction SilentlyContinue; if ($null -ne $existing) { Set-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop } else { Add-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -DohTemplate '__TEMPLATE__' -AllowFallbackToUdp $False -AutoUpgrade $True -ErrorAction Stop }; $configured = Get-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -ErrorAction Stop; if (-not $configured.AutoUpgrade -or $configured.AllowFallbackToUdp) { throw 'Windows did not enable encrypted DNS for __ADDRESS__.' }"
+                                    .replace("__ADDRESS__", &address)
+                                    .replace("__TEMPLATE__", &template)
                             })
                             .collect::<Vec<_>>()
                             .join("; ")
@@ -196,16 +198,23 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
                             .iter()
                             .map(|address| {
                                 let address = address.replace('\'', "''");
-                                format!("Set-DnsClientDohServerAddress -ServerAddress '{address}' -AllowFallbackToUdp $True -AutoUpgrade $False -ErrorAction SilentlyContinue")
+                                "Set-DnsClientDohServerAddress -ServerAddress '__ADDRESS__' -AllowFallbackToUdp $True -AutoUpgrade $False -ErrorAction SilentlyContinue"
+                                    .replace("__ADDRESS__", &address)
                             })
                             .collect::<Vec<_>>()
                             .join("; ")
                     };
-                    format!("{encryption_setup}; Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ServerAddresses ({quoted_addresses}) -ErrorAction Stop")
+                    encryption_setup
+                        + "; Set-DnsClientServerAddress -InterfaceAlias '"
+                        + &adapter
+                        + "' -ServerAddresses ("
+                        + &quoted_addresses
+                        + ") -ErrorAction Stop"
                 }
                 ElevatedDnsOperation::Reset { adapter } => {
                     let adapter = adapter.replace('\'', "''");
-                    format!("Set-DnsClientServerAddress -InterfaceAlias '{adapter}' -ResetServerAddresses -ErrorAction Stop")
+                    "Set-DnsClientServerAddress -InterfaceAlias '__ADAPTER__' -ResetServerAddresses -ErrorAction Stop"
+                        .replace("__ADAPTER__", &adapter)
                 }
             };
             powershell(&script).map(|_| ()).map_err(|_| ())
