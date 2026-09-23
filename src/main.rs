@@ -1773,7 +1773,8 @@ fn main() -> Result<(), slint::PlatformError> {
                         continue;
                     }
                     if id == tray::CLOSE_ID {
-                        std::process::exit(0);
+                        let _ = slint::quit_event_loop();
+                        continue;
                     }
                     let Some((provider_id, profile_index)) = tray_actions.get(&id).cloned() else {
                         continue;
@@ -1939,5 +1940,6 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     window.invoke_refresh();
-    window.run()
+    window.show()?;
+    slint::run_event_loop_until_quit()
 }
