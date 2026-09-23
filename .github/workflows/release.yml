@@ -153,8 +153,21 @@ jobs:
           VERSION: ${{ needs.meta.outputs.version }}
           PRODUCT_VERSION: ${{ needs.meta.outputs.package_version }}
         run: |
-          choco install wixtoolset --version=3.14.1 --no-progress -y
-          $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          $candle = Get-ChildItem `
+            -Path "${env:ProgramFiles(x86)}\WiX Toolset v3*\bin\candle.exe" `
+            -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $candle) {
+            choco install wixtoolset --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "WiX installation failed" }
+            $candle = Get-ChildItem `
+              -Path "${env:ProgramFiles(x86)}\WiX Toolset v3*\bin\candle.exe" `
+              -ErrorAction Stop |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+          }
+          $wixBin = $candle.DirectoryName
           $wixObject = Join-Path $env:RUNNER_TEMP "usedns-installer.wixobj"
           & "$wixBin\candle.exe" `
             -nologo `

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product
     Id="*"
@@ -6,17 +6,20 @@
     Language="1033"
     Version="$(var.ProductVersion)"
     Manufacturer="UseDNS"
-    UpgradeCode="D9A0DB36-CC48-4BB7-921B-73EC5A258C3E">
+    UpgradeCode="D9A0DB36-CC48-4BB7-921B-73EC5A258C3E"
+  >
     <Package
       InstallerVersion="500"
       Compressed="yes"
       InstallScope="perMachine"
       Platform="x64"
-      Description="UseDNS desktop DNS manager" />
+      Description="UseDNS desktop DNS manager"
+    />
 
     <MajorUpgrade
       AllowSameVersionUpgrades="yes"
-      DowngradeErrorMessage="A newer version of UseDNS is already installed." />
+      DowngradeErrorMessage="A newer version of UseDNS is already installed."
+    />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="UseDNSIcon" SourceFile="packaging\windows\UseDNS.ico" />
     <Property Id="ARPPRODUCTICON" Value="UseDNSIcon" />
@@ -25,11 +28,15 @@
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="INSTALLFOLDER" Name="UseDNS">
           <Component Id="ApplicationFiles" Guid="*" Win64="yes">
-            <File Id="UseDNSExecutable" Source="packaging\windows\usedns.exe" KeyPath="yes" />
+            <File
+              Id="UseDNSExecutable"
+              Source="packaging\windows\usedns.exe"
+              KeyPath="yes"
+            />
           </Component>
         </Directory>
       </Directory>
-      <Directory Id="ProgramMenuFolder">
+      <Directory Id="CommonProgramsFolder">
         <Directory Id="ApplicationProgramsFolder" Name="UseDNS">
           <Component Id="ProgramMenuShortcut" Guid="*" Win64="yes">
             <Shortcut
@@ -38,7 +45,8 @@
               Description="UseDNS desktop DNS manager"
               Target="[INSTALLFOLDER]usedns.exe"
               WorkingDirectory="INSTALLFOLDER"
-              Icon="UseDNSIcon" />
+              Icon="UseDNSIcon"
+            />
             <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
             <RegistryValue
               Root="HKLM"
@@ -46,11 +54,12 @@
               Name="StartMenuShortcut"
               Type="integer"
               Value="1"
-              KeyPath="yes" />
+              KeyPath="yes"
+            />
           </Component>
         </Directory>
       </Directory>
-      <Directory Id="DesktopFolder">
+      <Directory Id="CommonDesktopFolder">
         <Component Id="DesktopShortcut" Guid="*" Win64="yes">
           <Shortcut
             Id="ApplicationDesktopShortcut"
@@ -58,14 +67,16 @@
             Description="UseDNS desktop DNS manager"
             Target="[INSTALLFOLDER]usedns.exe"
             WorkingDirectory="INSTALLFOLDER"
-            Icon="UseDNSIcon" />
+            Icon="UseDNSIcon"
+          />
           <RegistryValue
             Root="HKLM"
             Key="Software\UseDNS\Installer"
             Name="DesktopShortcut"
             Type="integer"
             Value="1"
-            KeyPath="yes" />
+            KeyPath="yes"
+          />
         </Component>
       </Directory>
     </Directory>
