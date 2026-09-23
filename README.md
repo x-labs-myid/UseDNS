@@ -119,13 +119,17 @@ The workflow (`.github/workflows/release.yml`) then:
 2. Builds `--release` on Windows x64, Linux x64, and macOS. The Intel Mac binary is cross-compiled on Apple Silicon so the job does not wait on the old Intel runners.
 3. Packages installable artifacts and attaches them with `SHA256SUMS.txt` to a GitHub Release.
 
-| File                                    | What you get                                                    |
-| --------------------------------------- | --------------------------------------------------------------- |
-| `usedns-1.0.0-windows-x86_64-setup.exe` | Windows installer (Program Files, Start Menu, desktop shortcut) |
-| `usedns-1.0.0-linux-x86_64.tar.gz`      | Linux archive                                                   |
-| `usedns_1.0.0_amd64.deb`                | Debian/Ubuntu package (`sudo apt install ./usedns_*.deb`)       |
-| `usedns-1.0.0-macos-aarch64.zip`        | `UseDNS.app` for Apple Silicon                                  |
-| `usedns-1.0.0-macos-x86_64.zip`         | `UseDNS.app` for Intel Macs                                     |
+| File                                    | What you get                                                 |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `usedns-1.0.0-windows-x86_64-setup.exe` | Windows NSIS installer with Start Menu and desktop shortcuts |
+| `usedns-1.0.0-windows-x86_64.msi`       | Windows Installer package for managed deployment             |
+| `usedns-1.0.0-linux-x86_64.tar.gz`      | Portable Linux archive                                       |
+| `usedns_1.0.0_amd64.deb`                | Debian/Ubuntu package (`sudo apt install ./usedns_*.deb`)    |
+| `usedns-1.0.0-x86_64.rpm`               | Fedora/RHEL/openSUSE package                                 |
+| `usedns-1.0.0-macos-aarch64.dmg`        | macOS disk image for Apple Silicon                           |
+| `usedns-1.0.0-macos-x86_64.dmg`         | macOS disk image for Intel Macs                              |
+| `usedns-1.0.0-macos-aarch64.zip`        | Zipped `UseDNS.app` for Apple Silicon                        |
+| `usedns-1.0.0-macos-x86_64.zip`         | Zipped `UseDNS.app` for Intel Macs                           |
 
 On Windows, run the **setup** file, not a raw `.exe`. After install, start UseDNS from the Start Menu. Changing DNS still needs Administrator rights.
 

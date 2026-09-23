@@ -20,6 +20,9 @@ jobs:
       version: ${{ steps.parse.outputs.version }}
       channel: ${{ steps.parse.outputs.channel }}
       prerelease: ${{ steps.parse.outputs.prerelease }}
+      package_version: ${{ steps.parse.outputs.package_version }}
+      rpm_release: ${{ steps.parse.outputs.rpm_release }}
+      macos_build_version: ${{ steps.parse.outputs.macos_build_version }}
     steps:
       - name: Parse release tag
         id: parse
@@ -48,9 +51,20 @@ jobs:
             prerelease="true"
           fi
 
+          package_version="${version%%-*}"
+          rpm_release="1"
+          if [[ "${version}" == *"-"* ]]; then
+            prerelease_label="${version#*-}"
+            prerelease_label="${prerelease_label//-/.}"
+            rpm_release="0.1.${prerelease_label}"
+          fi
+
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "channel=${channel}" >> "${GITHUB_OUTPUT}"
           echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          echo "rpm_release=${rpm_release}" >> "${GITHUB_OUTPUT}"
+          echo "macos_build_version=${GITHUB_RUN_NUMBER}" >> "${GITHUB_OUTPUT}"
           echo "Tag ${tag} → version ${version} (${channel})"
 
   build:
@@ -133,6 +147,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "NSIS failed" }
           Get-ChildItem dist
 
+      - name: Package Windows MSI
+        if: runner.os == 'Windows'
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          PRODUCT_VERSION: ${{ needs.meta.outputs.package_version }}
+        run: |
+          choco install wixtoolset --version=3.14.1 --no-progress -y
+          $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          $wixObject = Join-Path $env:RUNNER_TEMP "usedns-installer.wixobj"
+          & "$wixBin\candle.exe" `
+            -nologo `
+            -arch x64 `
+            "-dProductVersion=$env:PRODUCT_VERSION" `
+            -out $wixObject `
+            "packaging\windows\installer.wxs"
+          if ($LASTEXITCODE -ne 0) { throw "WiX candle failed" }
+          & "$wixBin\light.exe" `
+            -nologo `
+            -sice:ICE61 `
+            -out "dist\usedns-$env:VERSION-windows-x86_64.msi" `
+            $wixObject
+          if ($LASTEXITCODE -ne 0) { throw "WiX light failed" }
+
       - name: Package Linux archive and .deb
         if: runner.os == 'Linux'
         env:
@@ -167,20 +204,68 @@ jobs:
           dpkg-deb --info "dist/usedns_${deb_version}_amd64.deb"
           ls -lh dist
 
-      - name: Package macOS app
+      - name: Package Linux RPM
+        if: runner.os == 'Linux'
+        env:
+          RPM_VERSION: ${{ needs.meta.outputs.package_version }}
+          RPM_RELEASE: ${{ needs.meta.outputs.rpm_release }}
+          RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          rpm_root="${RUNNER_TEMP}/rpmbuild"
+          mkdir -p "${rpm_root}/BUILD" "${rpm_root}/BUILDROOT" \
+            "${rpm_root}/RPMS" "${rpm_root}/SOURCES" "${rpm_root}/SPECS" "${rpm_root}/SRPMS"
+          cp "target/${{ matrix.target }}/release/usedns" "${rpm_root}/SOURCES/usedns"
+          cp packaging/linux/usedns.desktop "${rpm_root}/SOURCES/usedns.desktop"
+          cp .assets/UseDNS.png "${rpm_root}/SOURCES/usedns.png"
+          cp LICENSE README.md "${rpm_root}/SOURCES/"
+          cp packaging/linux/usedns.spec "${rpm_root}/SPECS/usedns.spec"
+          rpmbuild -bb \
+            --define "_topdir ${rpm_root}" \
+            --define "version ${RPM_VERSION}" \
+            --define "release ${RPM_RELEASE}" \
+            "${rpm_root}/SPECS/usedns.spec"
+          rpm_file="$(find "${rpm_root}/RPMS" -name '*.rpm' -type f -print -quit)"
+          test -n "${rpm_file}"
+          cp "${rpm_file}" "dist/usedns-${RELEASE_VERSION}-x86_64.rpm"
+          rpm -qip "dist/usedns-${RELEASE_VERSION}-x86_64.rpm"
+          rpm -qlp "dist/usedns-${RELEASE_VERSION}-x86_64.rpm"
+
+      - name: Package macOS app and DMG
         if: runner.os == 'macOS'
         env:
           VERSION: ${{ needs.meta.outputs.version }}
+          SHORT_VERSION: ${{ needs.meta.outputs.package_version }}
+          BUILD_VERSION: ${{ needs.meta.outputs.macos_build_version }}
         run: |
+          set -euo pipefail
           mkdir -p dist "UseDNS.app/Contents/MacOS" UseDNS.app/Contents/Resources
           cp "target/${{ matrix.target }}/release/usedns" UseDNS.app/Contents/MacOS/UseDNS
           chmod +x UseDNS.app/Contents/MacOS/UseDNS
-          sed "s/APP_VERSION/${VERSION}/g" packaging/macos/Info.plist > UseDNS.app/Contents/Info.plist
-          if [[ -f .assets/UseDNS.png ]]; then
-            mkdir -p UseDNS.app/Contents/Resources
-            cp .assets/UseDNS.png UseDNS.app/Contents/Resources/UseDNS.png
-          fi
+          sed \
+            -e "s/SHORT_VERSION/${SHORT_VERSION}/g" \
+            -e "s/BUILD_VERSION/${BUILD_VERSION}/g" \
+            packaging/macos/Info.plist > UseDNS.app/Contents/Info.plist
+
+          iconset="${RUNNER_TEMP}/UseDNS.iconset"
+          mkdir -p "${iconset}"
+          for size in 16 32 128 256 512; do
+            double=$((size * 2))
+            sips -z "${size}" "${size}" .assets/UseDNS.png --out "${iconset}/icon_${size}x${size}.png" >/dev/null
+            sips -z "${double}" "${double}" .assets/UseDNS.png --out "${iconset}/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns "${iconset}" -o UseDNS.app/Contents/Resources/UseDNS.icns
+
           ditto -c -k --keepParent UseDNS.app "dist/usedns-${VERSION}-${{ matrix.asset_suffix }}.zip"
+          dmg_stage="${RUNNER_TEMP}/usedns-dmg"
+          mkdir -p "${dmg_stage}"
+          cp -R UseDNS.app "${dmg_stage}/UseDNS.app"
+          ln -s /Applications "${dmg_stage}/Applications"
+          dmg="dist/usedns-${VERSION}-${{ matrix.asset_suffix }}.dmg"
+          hdiutil create -volname "UseDNS ${VERSION}" -srcfolder "${dmg_stage}" -ov -format UDZO "${dmg}"
+          hdiutil verify "${dmg}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -243,11 +328,13 @@ jobs:
             echo
             echo "Downloads:"
             echo
-            echo "- Windows: \`usedns-${VERSION}-windows-x86_64-setup.exe\` — run the setup wizard. It installs to Program Files and adds Start Menu / desktop shortcuts."
+            echo "- Windows (NSIS): \`usedns-${VERSION}-windows-x86_64-setup.exe\` — interactive setup with Start Menu and desktop shortcuts."
+            echo "- Windows (MSI): \`usedns-${VERSION}-windows-x86_64.msi\` — Windows Installer package for managed deployment."
             echo "- Linux (Debian/Ubuntu): \`usedns_${deb_version}_amd64.deb\` — install with \`sudo apt install ./usedns_*.deb\`."
+            echo "- Linux (Fedora/RHEL/openSUSE): \`usedns-${VERSION}-x86_64.rpm\` — install with your RPM package manager."
             echo "- Linux (tarball): \`usedns-${VERSION}-linux-x86_64.tar.gz\` — unpack and run \`./usedns\`."
-            echo "- macOS Apple Silicon: \`usedns-${VERSION}-macos-aarch64.zip\` — unzip and drop \`UseDNS.app\` in Applications."
-            echo "- macOS Intel: \`usedns-${VERSION}-macos-x86_64.zip\` — same as above, for Intel Macs."
+            echo "- macOS Apple Silicon: \`usedns-${VERSION}-macos-aarch64.dmg\` or the matching ZIP."
+            echo "- macOS Intel: \`usedns-${VERSION}-macos-x86_64.dmg\` or the matching ZIP."
             echo
             echo "SHA256 checksums are in \`SHA256SUMS.txt\`."
             echo
