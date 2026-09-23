@@ -1,0 +1,101 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Patrick+Hand&display=swap");
+
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  color: #17243a;
+  background: #edf6ff;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background:
+    radial-gradient(
+      circle at 8% 4%,
+      rgba(32, 200, 234, 0.13),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 95% 16%,
+      rgba(8, 123, 229, 0.12),
+      transparent 28rem
+    ),
+    #edf6ff;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  color: #fff;
+  background: #087be5;
+}
+
+.notebook-paper {
+  background-color: #fff;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 70px,
+      rgba(32, 200, 234, 0.23) 70px,
+      rgba(32, 200, 234, 0.23) 72px,
+      transparent 72px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 31px,
+      #dceaf7 31px,
+      #dceaf7 32px
+    );
+  background-position: 0 0;
+}
+
+.note-card {
+  position: relative;
+  border: 1px solid rgba(164, 195, 224, 0.75);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 50px -28px rgba(16, 70, 130, 0.35);
+}
+
+.note-card::before {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 76px;
+  height: 15px;
+  content: "";
+  transform: translateX(-50%) rotate(-1deg);
+  background: rgba(189, 235, 250, 0.68);
+  border: 1px solid rgba(96, 194, 229, 0.18);
+}
+
+.section-anchor {
+  scroll-margin-top: 96px;
+}
+
+.code-block {
+  scrollbar-color: #318bd8 #112544;
+}
+
+@media (max-width: 767px) {
+  .notebook-paper {
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 31px,
+      #e2edf7 31px,
+      #e2edf7 32px
+    );
+  }
+}

@@ -1,6 +1,11 @@
 {
-  "file_scan_exclusions": [
-    "**/target",
-    "..."
-  ]
+  "file_scan_exclusions": ["**/target", "**/node_modules", "**/dist", "..."],
+  "file_types": {
+    "HTML": ["vue"],
+  },
+  "languages": {
+    "CSS": {
+      "enable_language_server": false,
+    },
+  },
 }
