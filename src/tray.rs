@@ -15,14 +15,47 @@ pub struct TrayState {
     pub provider_menus: HashMap<String, (String, Submenu)>,
 }
 
+struct BuiltMenu {
+    menu: Menu,
+    dns_actions: HashMap<String, (String, usize)>,
+    dns_items: HashMap<String, CheckMenuItem>,
+    provider_menus: HashMap<String, (String, Submenu)>,
+}
+
+impl TrayState {
+    pub fn refresh(&mut self, providers: &[DnsProvider], language: &str) -> Result<(), String> {
+        let built = build_menu(providers, language)?;
+        self.icon.set_menu(Some(Box::new(built.menu)));
+        self.dns_actions = built.dns_actions;
+        self.dns_items = built.dns_items;
+        self.provider_menus = built.provider_menus;
+        Ok(())
+    }
+}
+
 pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, String> {
     let image = image::load_from_memory(include_bytes!("../.assets/UseDNS.png"))
         .map_err(|error| "Could not decode the tray icon: ".to_owned() + &error.to_string())?
         .into_rgba8();
-    let (width, height) = image.dimensions();
-    let icon = Icon::from_rgba(image.into_raw(), width, height)
+    let image = image::imageops::resize(&image, 32, 32, image::imageops::FilterType::Lanczos3);
+    let icon = Icon::from_rgba(image.into_raw(), 32, 32)
         .map_err(|error| "Could not prepare the tray icon: ".to_owned() + &error.to_string())?;
+    let built = build_menu(providers, language)?;
+    let icon = TrayIconBuilder::new()
+        .with_tooltip("UseDNS")
+        .with_icon(icon)
+        .with_menu(Box::new(built.menu))
+        .build()
+        .map_err(|error| "Could not create the tray icon: ".to_owned() + &error.to_string())?;
+    Ok(TrayState {
+        icon,
+        dns_actions: built.dns_actions,
+        dns_items: built.dns_items,
+        provider_menus: built.provider_menus,
+    })
+}
 
+fn build_menu(providers: &[DnsProvider], language: &str) -> Result<BuiltMenu, String> {
     let menu = Menu::new();
     let open = MenuItem::with_id(
         OPEN_ID,
@@ -40,7 +73,7 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
     );
     let close = MenuItem::with_id(
         CLOSE_ID,
-        if language == "id" { "Tutup" } else { "Close" },
+        if language == "id" { "Keluar" } else { "Quit" },
         true,
         None,
     );
@@ -87,15 +120,8 @@ pub fn create(providers: &[DnsProvider], language: &str) -> Result<TrayState, St
         .and_then(|_| menu.append(&close))
         .map_err(|error| "Could not build the tray menu: ".to_owned() + &error.to_string())?;
 
-    let icon = TrayIconBuilder::new()
-        .with_tooltip("UseDNS")
-        .with_icon(icon)
-        .with_menu(Box::new(menu))
-        .build()
-        .map_err(|error| "Could not create the tray icon: ".to_owned() + &error.to_string())?;
-
-    Ok(TrayState {
-        icon,
+    Ok(BuiltMenu {
+        menu,
         dns_actions,
         dns_items,
         provider_menus,

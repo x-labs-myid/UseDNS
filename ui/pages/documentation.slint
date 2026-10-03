@@ -1,0 +1,166 @@
+import { ScrollView } from "std-widgets.slint";
+import { AppButton } from "../components/common.slint";
+import { IconDisplay, IconSet } from "../icons.slint";
+import { Theme } from "../theme.slint";
+
+component FaqItem inherits Rectangle {
+    in property <string> question;
+    in property <string> answer;
+    private property <bool> expanded: false;
+    height: faq-layout.preferred-height;
+    border-radius: Theme.radius-card;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: expanded ? Theme.accent.with-alpha(0.35) : Theme.border;
+
+    faq-layout := VerticalLayout {
+        padding: 16px;
+        spacing: root.expanded ? 10px : 0px;
+        Rectangle {
+            height: 28px;
+            HorizontalLayout {
+                spacing: 12px;
+                Text {
+                    text: root.question;
+                    color: Theme.text;
+                    font-size: 13px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                IconDisplay {
+                    icon: root.expanded ? IconSet.ChevronUp : IconSet.ChevronDown;
+                    size: 16px;
+                    stroke: Theme.accent;
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.expanded = !root.expanded; }
+            }
+        }
+        if root.expanded: Text {
+            text: root.answer;
+            color: Theme.secondary-text;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}
+
+export component DocumentationPage inherits VerticalLayout {
+    in property <string> language: "en";
+    private property <int> topic: 0;
+    spacing: 14px;
+
+    VerticalLayout {
+        spacing: 6px;
+        Text {
+            text: root.language == "id" ? "Panduan & FAQ" : "Guide & FAQ";
+            color: Theme.text;
+            font-size: 28px;
+            font-weight: 800;
+        }
+        Text {
+            text: root.language == "id" ? "Kenali fitur UseDNS. Pilih topik, lalu klik pertanyaan untuk membaca jawabannya." : "Learn how UseDNS works. Choose a topic, then click a question to read the answer.";
+            color: Theme.secondary-text;
+            font-size: 13px;
+            wrap: word-wrap;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 8px;
+        height: 36px;
+        AppButton { text: root.language == "id" ? "Semua" : "All"; primary: root.topic == 0; clicked => { root.topic = 0; } }
+        AppButton { text: "DNS"; primary: root.topic == 1; clicked => { root.topic = 1; } }
+        AppButton { text: root.language == "id" ? "Pemantauan" : "Monitoring"; primary: root.topic == 2; clicked => { root.topic = 2; } }
+        AppButton { text: root.language == "id" ? "Tray & pengaturan" : "Tray & settings"; primary: root.topic == 3; clicked => { root.topic = 3; } }
+        AppButton { text: root.language == "id" ? "Bantuan" : "Help"; primary: root.topic == 4; clicked => { root.topic = 4; } }
+        Rectangle { horizontal-stretch: 1; }
+    }
+
+    ScrollView {
+        vertical-stretch: 1;
+        viewport-width: self.width;
+        VerticalLayout {
+            width: 100%;
+            padding-right: 16px;
+            padding-bottom: 16px;
+            spacing: 10px;
+
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Apa fungsi UseDNS dan bagaimana mulai menggunakannya?" : "What does UseDNS do, and how do I get started?";
+                answer: root.language == "id" ? "UseDNS mengubah resolver DNS pada adapter jaringan Windows yang Anda pilih. DNS menerjemahkan nama domain menjadi alamat IP. Pilih Wi-Fi atau Ethernet yang sedang digunakan, buka Daftar DNS, pilih penyedia dan profil, lalu Terapkan DNS. Windows dapat meminta izin administrator untuk perubahan jaringan." : "UseDNS changes the DNS resolver on your selected Windows network adapter. DNS translates domain names into IP addresses. Select your active Wi-Fi or Ethernet adapter, open DNS Providers, choose a provider and profile, then Apply DNS. Windows may request administrator permission for network changes.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Apa arti DNS aktif, adapter, dan Periksa ulang?" : "What do active DNS, adapter, and Refresh mean?";
+                answer: root.language == "id" ? "DNS aktif menunjukkan konfigurasi adapter yang dipilih. Sistem / DHCP berarti alamat resolver diperoleh otomatis dari jaringan. Gunakan pilihan adapter untuk mengganti koneksi yang dipantau; Periksa ulang membaca kembali konfigurasi Windows dan menguji respons DNS. Setelah pindah Wi-Fi atau mengaktifkan VPN, periksa kembali adapter dan DNS aktif." : "Active DNS shows the selected adapter's configuration. System / DHCP means resolver addresses are supplied automatically by the network. The adapter selector changes the monitored connection; Refresh rereads Windows configuration and checks DNS response. After changing Wi-Fi or enabling a VPN, check the adapter and active DNS again.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Bagaimana memilih penyedia dan profil DNS?" : "How do I choose a DNS provider and profile?";
+                answer: root.language == "id" ? "Gunakan pencarian atau kategori untuk menemukan penyedia. Profil menentukan kebijakan resolver, misalnya standar, blokir malware, atau keluarga. Pilih sesuai kebutuhan; filter keamanan dan keluarga dapat membuat sebagian domain tidak dapat diakses. Ubah konfigurasi membuka pilihan profil untuk penyedia yang sedang aktif. Berpindah halaman menutup modal tanpa menerapkan perubahan." : "Use search or categories to find a provider. Profiles select resolver policies such as standard, malware blocking, or family filtering. Choose the policy you need; security and family filters may block some domains. Configure reopens profile choices for the active provider. Navigating away closes the dialog without applying changes.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Apa perbedaan IPv4, IPv6, dan Keduanya?" : "What is the difference between IPv4, IPv6, and Both?";
+                answer: root.language == "id" ? "Pilihan ini menentukan keluarga alamat DNS yang akan diterapkan. IPv4 cocok untuk jaringan yang umum digunakan. Pilih IPv6 jika koneksi Anda mendukungnya, atau Keduanya untuk menerapkan alamat IPv4 dan IPv6 yang tersedia pada profil. Pilihan ini tidak menambahkan dukungan IPv6 pada jaringan yang belum mendukungnya." : "This chooses which DNS address families to apply. IPv4 suits most networks. Choose IPv6 if your connection supports it, or Both to apply the profile's available IPv4 and IPv6 addresses. This setting does not add IPv6 support to a network that lacks it.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Apa fungsi DNS terenkripsi (DoH)?" : "What does encrypted DNS (DoH) do?";
+                answer: root.language == "id" ? "DoH meminta Windows menggunakan HTTPS untuk kueri DNS pada profil yang menyediakan template DoH. Keberhasilannya bergantung pada dukungan Windows dan resolver. DoH melindungi pertukaran kueri DNS; ini bukan VPN dan tidak mengenkripsi seluruh lalu lintas aplikasi. Pilihan Tidak terenkripsi memakai mekanisme DNS biasa." : "DoH asks Windows to use HTTPS for DNS queries when the profile provides a DoH template. Availability depends on Windows and resolver support. DoH protects the DNS query exchange; it is not a VPN and does not encrypt all application traffic. Unencrypted uses ordinary DNS resolution.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Bagaimana menambah, mengedit, dan menguji DNS kustom?" : "How do I add, edit, and test custom DNS?";
+                answer: root.language == "id" ? "Tekan + di Daftar DNS atau buka DNS kustom. Isi nama, alamat IPv4/IPv6 yang valid, ringkasan, dan tujuan, lalu simpan. Uji resolver memeriksa respons alamat yang diisi; menyimpan profil tidak langsung menerapkannya. Pilih profil dari Daftar DNS untuk menerapkan. Profil kustom dapat diedit dan dihapus; penyedia bawaan tetap tersedia." : "Click + in DNS Providers or open Custom DNS. Enter a name, valid IPv4/IPv6 addresses, summary, and purpose, then save. Test resolver checks the entered address; saving a profile does not apply it immediately. Select it in DNS Providers to apply it. Custom profiles can be edited and deleted; built-in providers remain available.";
+            }
+            if root.topic == 0 || root.topic == 1: FaqItem {
+                question: root.language == "id" ? "Bagaimana mengembalikan DNS otomatis (DHCP)?" : "How do I restore automatic DNS (DHCP)?";
+                answer: root.language == "id" ? "Pilih adapter yang benar, lalu Gunakan DNS otomatis atau Reset ke otomatis (DHCP). Windows kembali meminta alamat DNS dari jaringan, yang dapat berupa router atau resolver ISP. Tindakan ini memerlukan izin perubahan jaringan seperti penerapan DNS manual." : "Select the correct adapter, then Use automatic DNS or Reset to automatic (DHCP). Windows obtains DNS addresses from the network again, often a router or ISP resolver. This requires permission to change network settings, just like applying manual DNS.";
+            }
+            if root.topic == 0 || root.topic == 2: FaqItem {
+                question: root.language == "id" ? "Apa arti Download, Upload, angka tengah, dan grafik?" : "What do Download, Upload, the center value, and graph show?";
+                answer: root.language == "id" ? "Download dan Upload adalah lalu lintas aktual adapter yang dipilih, dihitung dari selisih penghitung jaringan per waktu. Angka tengah adalah jumlah keduanya. Grafik menampilkan 24 sampel terakhir; durasinya mengikuti interval 1, 2, atau 5 detik. Skala grafik menyesuaikan aktivitas. Ini pemantau penggunaan saat ini, bukan tes kapasitas maksimum internet; angka kecil saat tidak ada aktivitas adalah normal." : "Download and Upload are actual traffic on the selected adapter, calculated from network-counter changes over time. The center value is their sum. The graph shows the latest 24 samples; its duration follows the 1, 2, or 5 second interval. Its scale adapts to activity. This monitors current usage, not your connection's maximum capacity; low readings while idle are normal.";
+            }
+            if root.topic == 0 || root.topic == 2: FaqItem {
+                question: root.language == "id" ? "Mengapa satuan kecepatan berubah otomatis?" : "Why do speed units change automatically?";
+                answer: root.language == "id" ? "Setiap nilai memilih satuannya sendiri: di bawah 1000 Kbps tampil dalam Kbps, mulai 1000 Kbps menjadi Mbps, dan mulai 1000 Mbps menjadi Gbps. Contoh: 999 Kbps, 1 Mbps, dan 10792 Kbps menjadi 10.79 Mbps. Angka dibulatkan ke bawah saat dipadatkan agar tidak tampil 1000 Kbps. Satuan memakai bit per detik: 8 bit = 1 byte, sehingga Mbps berbeda dari MB/s pada pengunduh." : "Each value selects its own unit: below 1000 Kbps it uses Kbps, from 1000 Kbps it uses Mbps, and from 1000 Mbps it uses Gbps. Examples: 999 Kbps, 1 Mbps, and 10792 Kbps becomes 10.79 Mbps. Compact readings round down so 1000 Kbps is never displayed. Units are bits per second: 8 bits = 1 byte, so Mbps differs from MB/s in download managers.";
+            }
+            if root.topic == 0 || root.topic == 2: FaqItem {
+                question: root.language == "id" ? "Bagaimana rating respons DNS 1–5 bintang dihitung?" : "How is the 1–5 star DNS response rating calculated?";
+                answer: root.language == "id" ? "Rating mengikuti latensi kueri DNS terakhir yang berhasil:\n★★★★★ 5 — Sangat bagus: ≤50 ms\n★★★★☆ 4 — Bagus: 51–100 ms\n★★★☆☆ 3 — Cukup: 101–250 ms\n★★☆☆☆ 2 — Buruk: 251–500 ms\n★☆☆☆☆ 1 — Sangat buruk: >500 ms\nAmbang ini adalah panduan UseDNS, bukan standar kualitas internet. Pemeriksaan mencoba kueri DNS UDP langsung ke resolver yang dikonfigurasi, dapat mencoba domain/resolver lain, dan diulang sekitar 15 detik. Hasilnya bukan pengukuran kecepatan download, ping game, stabilitas menyeluruh, atau latensi DoH." : "The rating uses the latest successful DNS query latency:\n★★★★★ 5 — Excellent: ≤50 ms\n★★★★☆ 4 — Good: 51–100 ms\n★★★☆☆ 3 — Fair: 101–250 ms\n★★☆☆☆ 2 — Poor: 251–500 ms\n★☆☆☆☆ 1 — Very poor: >500 ms\nThese thresholds are UseDNS guidance, not an internet-quality standard. Checks send direct UDP DNS queries to configured resolvers, may try another domain/resolver, and repeat about every 15 seconds. Results do not measure download speed, game ping, overall stability, or DoH latency.";
+            }
+            if root.topic == 0 || root.topic == 2: FaqItem {
+                question: root.language == "id" ? "Apa arti latensi, Memeriksa, dan Belum terukur?" : "What do latency, Checking, and Not measured mean?";
+                answer: root.language == "id" ? "Latensi adalah waktu respons kueri DNS dalam milidetik; lebih kecil berarti kueri tersebut dijawab lebih cepat. Memeriksa berarti hasil masih ditunggu. Belum terukur dan bintang kosong berarti belum ada kueri yang berhasil diverifikasi, bukan otomatis koneksi terputus. Jaringan dapat memblokir UDP DNS meskipun DoH atau aplikasi lain tetap bekerja. Tekan Periksa ulang dan periksa adapter yang dipilih." : "Latency is DNS query response time in milliseconds; lower means that query was answered sooner. Checking means a result is pending. Not measured and empty stars mean no successful verified query is available, not that the connection is necessarily offline. A network may block UDP DNS while DoH or other applications still work. Refresh and check the selected adapter.";
+            }
+            if root.topic == 0 || root.topic == 3: FaqItem {
+                question: root.language == "id" ? "Apa yang dilakukan Network Booster?" : "What does Network Booster do?";
+                answer: root.language == "id" ? "Di Pengaturan, jalankan booster untuk membandingkan respons DNS beberapa kandidat melalui kueri UDP. Hasil menampilkan keberhasilan dari tiga percobaan dan median latensi; resolver yang lebih andal diprioritaskan sebelum kecepatannya. Tinjau rekomendasi membuka pilihan profil, lalu Anda memutuskan apakah akan menerapkannya. Booster tidak mengubah DNS tanpa penerapan dan tidak menambah bandwidth paket internet." : "In Settings, run the booster to compare candidate DNS responses using UDP queries. Results show successes out of three attempts and median latency; reliability takes priority over speed. Review recommendation opens profile choices, then you decide whether to apply. The booster does not change DNS without applying a profile and does not increase your internet plan's bandwidth.";
+            }
+            if root.topic == 0 || root.topic == 3: FaqItem {
+                question: root.language == "id" ? "Apa perbedaan Quit dan Jalankan di belakang layar?" : "What is the difference between Quit and Run in background?";
+                answer: root.language == "id" ? "Tombol tutup dan Alt+F4 menampilkan pilihan. Quit menghentikan aplikasi. Jalankan di belakang layar menyembunyikan jendela utama, tetapi pemantauan dan tray tetap berjalan. Pilihan ini tersedia jika tray berhasil dibuat. Batal kembali ke aplikasi. Perubahan DNS Windows tetap berlaku setelah Quit sampai Anda menggantinya atau mengembalikan DHCP." : "Close and Alt+F4 show a choice. Quit exits the application. Run in background hides the main window while monitoring and the tray continue. This is available when the tray was created successfully. Cancel returns to the application. Windows DNS changes remain after Quit until you change them or restore DHCP.";
+            }
+            if root.topic == 0 || root.topic == 3: FaqItem {
+                question: root.language == "id" ? "Bagaimana mini display dan menu system tray bekerja?" : "How do the mini display and system tray menu work?";
+                answer: root.language == "id" ? "Hover ikon tray untuk melihat mini display. Tampilan tetap terbuka saat kursor berada di ikon atau mini display, lalu hilang sekitar 150–200 ms setelah meninggalkan keduanya. Preview tidak mengambil fokus atau membuat tombol taskbar. Gunakan menu tray untuk membuka jendela utama, memilih DNS, atau keluar. Pengaturan memungkinkan Anda memilih apakah kecepatan, DNS, rating, dan latensi ditampilkan." : "Hover the tray icon to see the mini display. It stays open over the icon or preview, then hides about 150–200 ms after leaving both. The preview does not take focus or create a taskbar button. Use the tray menu to open the main window, choose DNS, or quit. Settings let you show or hide speed, DNS, rating, and latency.";
+            }
+            if root.topic == 0 || root.topic == 3: FaqItem {
+                question: root.language == "id" ? "Bagaimana pengaturan startup, tema, bahasa, dan interval bekerja?" : "How do startup, theme, language, and interval settings work?";
+                answer: root.language == "id" ? "Jalankan saat Windows dimulai nonaktif secara bawaan. Jika diaktifkan, UseDNS mulai di tray saat akun Windows Anda masuk; jaga lokasi executable tetap sama. Tema dapat mengikuti sistem, terang, atau gelap; bahasa tersedia dalam Indonesia dan Inggris. Interval 1/2/5 detik mengatur frekuensi pengambilan sampel aktivitas; interval lebih panjang memperbarui tampilan lebih jarang. Satuan kecepatan selalu otomatis. Preferensi disimpan secara lokal." : "Start with Windows is off by default. When enabled, UseDNS starts in the tray when your Windows account signs in; keep the executable in the same location. Theme can follow the system, light, or dark; Indonesian and English are available. The 1/2/5 second interval controls traffic sampling; longer intervals refresh less often. Speed units are always automatic. Preferences are saved locally.";
+            }
+            if root.topic == 0 || root.topic == 4: FaqItem {
+                question: root.language == "id" ? "Mengapa penerapan DNS gagal atau terasa lama?" : "Why does applying DNS fail or take time?";
+                answer: root.language == "id" ? "Perubahan memerlukan izin administrator, adapter yang masih tersedia, dan alamat DNS valid. Penolakan UAC, adapter yang berganti, atau ketidakcocokan dukungan DoH dapat menggagalkan operasi. Tunggu operasi aktif selesai, baca pesan kesalahan, Periksa ulang, lalu coba pada adapter yang benar. Untuk kembali ke konfigurasi jaringan, gunakan Reset ke otomatis (DHCP)." : "Changes require administrator permission, an available adapter, and valid DNS addresses. Declining UAC, changing adapters, or unsupported DoH settings can cause failure. Wait for the current operation, read the error, refresh, and retry with the correct adapter. Use Reset to automatic (DHCP) to restore the network-provided configuration.";
+            }
+            if root.topic == 0 || root.topic == 4: FaqItem {
+                question: root.language == "id" ? "Mengapa angka kecepatan nol atau tidak sesuai speed test?" : "Why is traffic zero or different from a speed test?";
+                answer: root.language == "id" ? "Saat idle tidak ada banyak data yang lewat, sehingga angka nol atau kecil adalah normal. Pemantauan memakai adapter yang dipilih dan seluruh lalu lintas pada adapter itu, termasuk aplikasi lain. Jika jaringan baru tersambung, sampel pertama membangun titik awal. Periksa adapter, mulai unduhan atau aktivitas jaringan, dan tunggu satu interval. Speed test sengaja memenuhi koneksi untuk mengukur kapasitas; UseDNS hanya mengamati aktivitas." : "Idle connections carry little data, so zero or small readings are normal. Monitoring covers all traffic on the selected adapter, including other applications. The first sample after connecting establishes a baseline. Check the adapter, start network activity, and wait one interval. A speed test deliberately loads the connection to measure capacity; UseDNS observes current activity.";
+            }
+            if root.topic == 0 || root.topic == 4: FaqItem {
+                question: root.language == "id" ? "Di mana informasi privasi dan data aplikasi dijelaskan?" : "Where can I read about privacy and application data?";
+                answer: root.language == "id" ? "Buka Kebijakan untuk penjelasan penanganan konfigurasi jaringan dan data. Pengaturan serta profil kustom disimpan pada akun Windows Anda. Pemantauan membaca penghitung adapter; pemeriksaan dan booster mengirim kueri ke resolver DNS. Penyedia yang Anda pilih mempunyai kebijakan privasinya sendiri. Mengganti DNS dapat memengaruhi akses nama domain pada jaringan kantor atau VPN." : "Open Policy for details about network settings and data handling. Settings and custom profiles are stored under your Windows account. Monitoring reads adapter counters; checks and the booster send queries to DNS resolvers. Your chosen provider has its own privacy policy. Changing DNS can affect name resolution on workplace networks or VPNs.";
+            }
+        }
+    }
+}

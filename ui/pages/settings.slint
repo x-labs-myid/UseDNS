@@ -1,5 +1,5 @@
 import { ScrollView } from "std-widgets.slint";
-import { ConnectionBadge } from "../components/common.slint";
+import { ConnectionBadge, AppButton } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "../icons.slint";
 
@@ -167,6 +167,7 @@ component ChoiceCard inherits Rectangle {
 }
 
 component ToggleSetting inherits Rectangle {
+    in property <bool> enabled: true;
     in property <string> title;
     in property <string> detail;
     in property <bool> checked;
@@ -222,6 +223,7 @@ component ToggleSetting inherits Rectangle {
     }
 
     toggle-touch := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.toggled(); }
     }
@@ -231,17 +233,24 @@ component ToggleSetting inherits Rectangle {
 export component SettingsPage inherits VerticalLayout {
     in-out property <string> language;
     in-out property <string> theme-mode;
-    in-out property <string> speed-unit: "kbps";
     in-out property <int> network-interval-secs: 1;
     in-out property <bool> tray-show-speed: true;
     in-out property <bool> tray-show-dns: true;
     in-out property <bool> tray-show-status: true;
     in-out property <bool> tray-show-latency: true;
+    in property <bool> start-with-windows: false;
+    in property <bool> startup-supported: false;
+    in property <bool> busy: false;
+    in property <bool> booster-running: false;
+    in property <string> booster-results;
+    in property <bool> booster-can-review: false;
+    callback startup-changed(bool);
+    callback run-booster;
+    callback review-booster;
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     callback language-changed(string);
     callback theme-changed(string);
-    callback speed-unit-changed(string);
     callback network-interval-changed(int);
     callback tray-preview-settings-changed(bool, bool, bool, bool);
 
@@ -289,6 +298,68 @@ export component SettingsPage inherits VerticalLayout {
             spacing: 12px;
             padding-right: 18px;
             padding-bottom: 8px;
+
+            Rectangle {
+                height: 100px;
+                border-radius: 20px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                VerticalLayout {
+                    padding: 16px;
+                    ToggleSetting {
+                        title: language == "id" ? "Jalankan saat Windows dimulai" : "Start with Windows";
+                        detail: language == "id" ? "Bawaan: nonaktif. Saat aktif, UseDNS dimulai di system tray." : "Off by default. When enabled, UseDNS starts in the system tray.";
+                        checked: root.start-with-windows;
+                        enabled: root.startup-supported && !root.busy;
+                        toggled => { root.startup-changed(!root.start-with-windows); }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: booster-layout.preferred-height;
+                border-radius: 20px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                booster-layout := VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+                    SettingHeader {
+                        icon-index: 2;
+                        title: "Network booster";
+                        subtitle: language == "id" ? "Uji respons DNS dan tinjau rekomendasi sebelum menerapkan." : "Measure DNS responses and review a recommendation before applying.";
+                    }
+                    Text {
+                        text: language == "id" ? "Membandingkan DNS IPv4 aktif dan profil bawaan provider melalui 3 kueri DNS publik. Hasil dapat berubah; bukan tes bandwidth. Profil rekomendasi dapat memiliki filter berbeda dari DNS Anda." : "Compares active IPv4 DNS and default provider profiles using 3 public DNS queries. Results vary; this is not a bandwidth test. Recommended profiles may have different filtering from your DNS.";
+                        wrap: word-wrap;
+                        color: Theme.secondary-text;
+                        font-size: 12px;
+                    }
+                    if root.booster-results != "": Text {
+                        text: root.booster-results;
+                        wrap: word-wrap;
+                        color: Theme.text;
+                        font-size: 12px;
+                    }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        AppButton {
+                            text: root.booster-running ? (language == "id" ? "Menguji DNS..." : "Testing DNS...") : (language == "id" ? "Uji & cari rekomendasi" : "Test & find recommendation");
+                            primary: true;
+                            loading: root.booster-running;
+                            enabled: !root.booster-running && !root.busy;
+                            clicked => { root.run-booster(); }
+                        }
+                        AppButton {
+                            text: language == "id" ? "Tinjau rekomendasi" : "Review recommendation";
+                            enabled: root.booster-can-review && !root.booster-running && !root.busy;
+                            clicked => { root.review-booster(); }
+                        }
+                    }
+                }
+            }
 
             Rectangle {
                 height: 154px;
@@ -409,8 +480,8 @@ export component SettingsPage inherits VerticalLayout {
                         }
 
                         ToggleSetting {
-                            title: language == "id" ? "Status koneksi" : "Connection status";
-                            detail: language == "id" ? "Tampilkan kondisi koneksi saat ini." : "Show the current connection condition.";
+                            title: language == "id" ? "Rating respons DNS" : "DNS response rating";
+                            detail: language == "id" ? "Tampilkan rating 1–5 bintang berdasarkan latensi DNS." : "Show a 1–5 star rating based on DNS latency.";
                             checked: root.tray-show-status;
                             toggled => {
                                 root.tray-show-status = !root.tray-show-status;
@@ -481,42 +552,11 @@ export component SettingsPage inherits VerticalLayout {
                             }
                         }
 
-                        // Satuan kecepatan internet (Default Kbps)
-                VerticalLayout {
-                            spacing: 6px;
-                            padding-top: 4px;
-                            padding-bottom: 4px;
-                            Text {
-                                text: language == "id" ? "Satuan Kecepatan Internet:" : "Internet Speed Unit:";
-                                color: Theme.secondary-text;
-                                font-size: 11px;
-                                font-weight: 600;
-                            }
-
-                            HorizontalLayout {
-                                spacing: 8px;
-                                ChoiceCard {
-                                    symbol: "speed";
-                                    title: "Kbps";
-                                    detail: language == "id" ? "Kilobit/detik (Default)" : "Kilobits/sec (Default)";
-                                    selected: root.speed-unit == "kbps";
-                                    clicked => {
-                                        root.speed-unit = "kbps";
-                                        root.speed-unit-changed("kbps");
-                                    }
-                                }
-
-                                ChoiceCard {
-                                    symbol: "speed";
-                                    title: "Mbps";
-                                    detail: language == "id" ? "Megabit/detik" : "Megabits/sec";
-                                    selected: root.speed-unit == "mbps";
-                                    clicked => {
-                                        root.speed-unit = "mbps";
-                                        root.speed-unit-changed("mbps");
-                                    }
-                                }
-                            }
+                        Text {
+                            text: language == "id" ? "Satuan otomatis: 1000 Kbps = 1 Mbps, 1000 Mbps = 1 Gbps." : "Automatic units: 1000 Kbps = 1 Mbps, 1000 Mbps = 1 Gbps.";
+                            color: Theme.muted-text;
+                            font-size: 11px;
+                            wrap: word-wrap;
                         }
                     }
                 }

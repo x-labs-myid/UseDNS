@@ -1,5 +1,6 @@
 import { Theme } from "theme.slint";
 import { Icon, IconDisplay, IconSet } from "icons.slint";
+import { DnsStatus, ResponseRating } from "components/common.slint";
 
 component MetricTile inherits Rectangle {
     in property <Icon> icon;
@@ -7,6 +8,8 @@ component MetricTile inherits Rectangle {
     in property <string> value;
     in property <color> tint: Theme.accent;
     in property <bool> multiline: false;
+    in property <bool> rating: false;
+    in property <string> response-state: "Checking...";
 
     height: multiline ? 68px : 58px;
     border-radius: Theme.radius-control;
@@ -37,7 +40,7 @@ component MetricTile inherits Rectangle {
                 font-size: 10px;
             }
 
-            Text {
+            if !root.rating: Text {
                 text: root.value;
                 color: Theme.text;
                 font-size: 14px;
@@ -45,6 +48,10 @@ component MetricTile inherits Rectangle {
                 height: root.multiline ? 34px : self.preferred-height;
                 wrap: root.multiline ? word-wrap : no-wrap;
                 overflow: elide;
+            }
+            if root.rating: ResponseRating {
+                state: root.response-state;
+                compact: true;
             }
         }
     }
@@ -62,6 +69,7 @@ export component TrayPreview inherits Window {
     in-out property <string> theme-mode <=> Theme.mode;
     in-out property <bool> system-dark <=> Theme.system-dark;
     in property <string> download-speed: "0 Kbps";
+    in property <string> language: "en";
     in property <string> upload-speed: "0 Kbps";
     in property <string> active-provider: "System / DHCP";
     in property <string> connection-state: "Checking...";
@@ -110,7 +118,7 @@ export component TrayPreview inherits Window {
                     width: 8px;
                     height: 8px;
                     border-radius: 4px;
-                    background: root.connection-state == "Unstable" ? Theme.danger : Theme.green;
+                    background: DnsStatus.tint(root.connection-state);
                 }
             }
 
@@ -143,13 +151,14 @@ export component TrayPreview inherits Window {
                 spacing: 8px;
                 if root.show-status: MetricTile {
                     icon: IconSet.Wifi;
-                    label: "Status";
-                    value: root.connection-state;
-                    tint: root.connection-state == "Unstable" ? Theme.danger : Theme.green;
+                    label: root.language == "id" ? "Respons DNS" : "DNS response";
+                    rating: true;
+                    response-state: root.connection-state;
+                    tint: DnsStatus.tint(root.connection-state);
                 }
                 if root.show-latency: MetricTile {
                     icon: IconSet.Clock;
-                    label: "Latency";
+                    label: root.language == "id" ? "Latensi" : "Latency";
                     value: root.latency;
                     tint: Theme.purple;
                 }

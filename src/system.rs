@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, SocketAddr, TcpStream},
+    net::IpAddr,
     time::{Duration, Instant},
 };
 
@@ -16,12 +16,65 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[cfg(windows)]
 fn hidden_output(command: &mut Command) -> std::io::Result<std::process::Output> {
-    command
+    hidden_output_with_timeout(command, Duration::from_secs(45))
+}
+
+#[cfg(windows)]
+fn hidden_output_with_timeout(
+    command: &mut Command,
+    timeout: Duration,
+) -> std::io::Result<std::process::Output> {
+    use std::io::{self, Read};
+    let mut child = command
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output()
+        .spawn()?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("missing stdout pipe"))?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| io::Error::other("missing stderr pipe"))?;
+    // Drain both pipes concurrently so a full stderr pipe cannot deadlock PowerShell.
+    let read_stdout = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.read_to_end(&mut bytes).map(|_| bytes)
+    });
+    let read_stderr = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr.read_to_end(&mut bytes).map(|_| bytes)
+    });
+    let started = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Ok(status),
+            Ok(None) if started.elapsed() < timeout => {
+                std::thread::sleep(Duration::from_millis(20))
+            }
+            result => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break Err(result.err().unwrap_or_else(|| {
+                    io::Error::new(io::ErrorKind::TimedOut, "PowerShell operation timed out")
+                }));
+            }
+        }
+    };
+    let stdout = read_stdout
+        .join()
+        .map_err(|_| io::Error::other("stdout reader failed"))?;
+    let stderr = read_stderr
+        .join()
+        .map_err(|_| io::Error::other("stderr reader failed"))?;
+    Ok(std::process::Output {
+        status: status?,
+        stdout: stdout?,
+        stderr: stderr?,
+    })
 }
 
 #[cfg(windows)]
@@ -49,16 +102,26 @@ pub struct AdapterInfo {
 
 #[cfg(windows)]
 pub fn prefers_dark_mode() -> bool {
-    hidden_output(Command::new("reg.exe").args([
-        "query",
-        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-        "/v",
-        "AppsUseLightTheme",
-    ]))
-    .ok()
-    .filter(|output| output.status.success())
-    .map(|output| String::from_utf8_lossy(&output.stdout).contains("0x0"))
-    .unwrap_or(false)
+    use windows::{
+        Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW},
+        core::w,
+    };
+    let mut light: u32 = 1;
+    let mut length = std::mem::size_of::<u32>() as u32;
+    // SAFETY: Windows writes at most length bytes into a valid DWORD.
+    unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+            w!("AppsUseLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&mut light as *mut u32).cast()),
+            Some(&mut length),
+        )
+        .is_ok()
+            && light == 0
+    }
 }
 
 #[cfg(not(windows))]
@@ -347,6 +410,16 @@ pub fn apply_dns(
     if addresses.is_empty() {
         return Err("No DNS address was selected.".into());
     }
+    if adapter.trim().is_empty()
+        || addresses
+            .iter()
+            .any(|address| address.parse::<IpAddr>().is_err())
+    {
+        return Err("The network adapter or DNS addresses are invalid.".into());
+    }
+    if doh_template.is_some_and(|template| !template.starts_with("https://")) {
+        return Err("Encrypted DNS requires an HTTPS template.".into());
+    }
     run_elevated_dns_operation(ElevatedDnsOperation::Apply {
         adapter: adapter.into(),
         addresses: addresses.to_vec(),
@@ -376,20 +449,81 @@ pub fn reset_dns(_adapter: &str) -> Result<(), String> {
 }
 
 pub fn check_connection(target: &str) -> Result<u128, String> {
-    let clean_target = target
+    check_configured_resolvers(target, crate::booster::resolver_latency)
+}
+
+fn check_configured_resolvers(
+    target: &str,
+    mut probe: impl FnMut(IpAddr) -> Result<u128, String>,
+) -> Result<u128, String> {
+    let mut addresses = Vec::new();
+    for ip in target
         .split([',', ';', ' ', '\t'])
-        .map(str::trim)
-        .find(|part| !part.is_empty() && *part != "—")
-        .unwrap_or("1.1.1.1");
-    let ip: IpAddr = clean_target
-        .parse()
-        .map_err(|_| format!("Could not check the resolver address '{clean_target}'."))?;
-    let started = Instant::now();
-    for port in [53_u16, 443] {
-        let addr = SocketAddr::new(ip, port);
-        if TcpStream::connect_timeout(&addr, Duration::from_secs(2)).is_ok() {
-            return Ok(started.elapsed().as_millis().max(1));
+        .filter_map(|part| part.trim().parse::<IpAddr>().ok())
+    {
+        if !addresses.contains(&ip) {
+            addresses.push(ip);
         }
     }
-    Err("The DNS resolver did not respond.".into())
+    if addresses.is_empty() {
+        return Err("No configured DNS resolver is available to test.".into());
+    }
+    for ip in addresses.into_iter().take(4) {
+        if let Ok(ms) = probe(ip) {
+            return Ok(ms);
+        }
+    }
+    Err(
+        "Could not verify the configured DNS resolvers. UDP DNS may be unavailable or blocked."
+            .into(),
+    )
+}
+
+#[cfg(test)]
+mod resolver_tests {
+    use super::*;
+
+    #[test]
+    fn tries_secondary_dns_when_router_probe_fails() {
+        let mut tested = Vec::new();
+        let result = check_configured_resolvers("192.168.1.1, 192.168.1.1; ::1", |ip| {
+            tested.push(ip);
+            if ip.is_ipv6() {
+                Ok(12)
+            } else {
+                Err("no response".into())
+            }
+        });
+        assert_eq!(result.unwrap(), 12);
+        assert_eq!(tested.len(), 2);
+    }
+
+    #[test]
+    fn missing_dns_never_tests_an_unconfigured_public_resolver() {
+        let result =
+            check_configured_resolvers("—", |_| panic!("must not probe unconfigured DNS"));
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn terminates_a_stalled_powershell_process() {
+        let error = hidden_output_with_timeout(
+            Command::new("powershell.exe").args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                "Start-Sleep -Seconds 10",
+            ]),
+            Duration::from_millis(100),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+    }
 }

@@ -1,6 +1,52 @@
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "../icons.slint";
 
+export global DnsStatus {
+    public pure function rating(state: string) -> int {
+        return state == "Excellent" ? 5 : state == "Good" ? 4
+            : state == "Fair" ? 3 : state == "Poor" ? 2 : state == "Slow" ? 1 : 0;
+    }
+    public pure function label(state: string, language: string) -> string {
+        return state == "Excellent" ? (language == "id" ? "Sangat bagus" : "Excellent")
+            : state == "Good" ? (language == "id" ? "Bagus" : "Good")
+            : state == "Fair" ? (language == "id" ? "Cukup" : "Fair")
+            : state == "Poor" ? (language == "id" ? "Buruk" : "Poor")
+            : state == "Slow" ? (language == "id" ? "Sangat buruk" : "Very poor")
+            : state == "Checking..." ? (language == "id" ? "Memeriksa..." : "Checking...")
+            : (language == "id" ? "Belum terukur" : "Not measured");
+    }
+
+    public pure function tint(state: string) -> color {
+        return state == "Excellent" || state == "Good" ? Theme.green
+            : state == "Slow" ? Theme.danger
+            : state == "Fair" || state == "Poor" ? Theme.orange : Theme.muted-text;
+    }
+}
+
+export component ResponseRating inherits HorizontalLayout {
+    in property <string> state: "Checking...";
+    in property <bool> compact: false;
+    private property <int> score: DnsStatus.rating(root.state);
+    private property <color> rating-color: DnsStatus.tint(root.state);
+    spacing: compact ? 1px : 3px;
+    height: compact ? 18px : 22px;
+    for star in [1, 2, 3, 4, 5]: Text {
+        text: root.score >= star ? "★" : "☆";
+        color: root.score >= star ? root.rating-color : Theme.muted-text;
+        font-size: root.compact ? 15px : 20px;
+        horizontal-stretch: 0;
+        vertical-alignment: center;
+    }
+    Text {
+        text: root.score > 0 ? (root.score + "/5") : "—";
+        color: Theme.secondary-text;
+        font-size: root.compact ? 10px : 12px;
+        horizontal-stretch: 0;
+        vertical-alignment: center;
+    }
+    Rectangle { horizontal-stretch: 1; }
+}
+
 export component LoadingSpinner inherits Rectangle {
     in property <color> spinner-color: Theme.accent;
     in property <length> size: 16px;

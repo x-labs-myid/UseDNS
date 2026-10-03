@@ -19,6 +19,7 @@ slint-build = "1.17.1"
 
 
 [target.'cfg(windows)'.dependencies]
+i-slint-backend-winit = "=1.17.1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 tray-icon = { version = "0.25", default-features = false }
 windows = { version = "0.62", features = [

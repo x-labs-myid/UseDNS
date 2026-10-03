@@ -2,6 +2,8 @@ import {
     ConnectionBadge,
     LoadingSpinner,
     ProviderIcon,
+    DnsStatus,
+    ResponseRating,
 } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "../icons.slint";
@@ -14,19 +16,19 @@ export component HomePage inherits VerticalLayout {
     in property <string> active-provider: "System / DHCP";
     in property <string> active-provider-id: "system";
     in property <string> current-dns: "—";
-    in property <string> connection-state: "Stable";
+    in property <string> connection-state: "Checking...";
     in property <string> latency: "—";
     in property <string> download-speed: "0.0 Kbps";
     in property <string> upload-speed: "0.0 Kbps";
     in property <string> total-speed: "0.0";
-    in property <string> speed-unit: "kbps";
+    in property <string> total-speed-unit: "Kbps";
+    in property <int> network-interval-secs: 1;
     in property <float> download-level: 0;
     in property <float> upload-level: 0;
     in property <float> total-level: 0;
     in property <[SpeedSample]> speed-history: [];
     in property <string> graph-max-speed: "1.0 Mbps";
     in property <string> graph-mid-speed: "500 Kbps";
-    in property <bool> connection-error: false;
     in property <bool> busy: false;
     in property <bool> refreshing: false;
 
@@ -257,22 +259,16 @@ export component HomePage inherits VerticalLayout {
                     spacing: 3px;
                     horizontal-stretch: 1;
                     Text {
-                        text: language == "id" ? "KONEKSI" : "CONNECTION";
+                        text: language == "id" ? "RESPONS DNS" : "DNS RESPONSE";
                         color: Theme.secondary-text;
                         font-size: 11px;
                         font-weight: 700;
                     }
 
-                    Text {
-                        text: root.connection-state;
-                        color: root.connection-error ? Theme.danger : (root.connection-state == "Unstable" ? Theme.orange : Theme.green);
-                        font-size: 18px;
-                        font-weight: 700;
-                        overflow: elide;
-                    }
+                    ResponseRating { state: root.connection-state; }
 
                     Text {
-                        text: language == "id" ? "Berdasarkan latensi DNS" : "Based on DNS latency";
+                        text: DnsStatus.label(root.connection-state, root.language);
                         color: Theme.muted-text;
                         font-size: 10.5px;
                         overflow: elide;
@@ -332,7 +328,7 @@ export component HomePage inherits VerticalLayout {
                     }
 
                     Text {
-                        text: language == "id" ? "Waktu respons rata-rata" : "Average response time";
+                        text: language == "id" ? "Waktu respons kueri DNS" : "DNS query response time";
                         color: Theme.muted-text;
                         font-size: 10.5px;
                         overflow: elide;
@@ -417,7 +413,7 @@ export component HomePage inherits VerticalLayout {
                     }
 
                     Text {
-                        text: language == "id" ? "Diperbarui setiap 1 detik" : "Updated every 1 second";
+                        text: language == "id" ? ("Diperbarui setiap " + root.network-interval-secs + " detik") : ("Updated every " + root.network-interval-secs + " s");
                         color: Theme.muted-text;
                         font-size: 10.5px;
                         vertical-alignment: center;
@@ -490,7 +486,7 @@ export component HomePage inherits VerticalLayout {
                             }
 
                             Text {
-                                text: root.speed-unit == "kbps" ? "Kbps" : "Mbps";
+                                text: root.total-speed-unit;
                                 color: Theme.accent;
                                 font-size: 13px;
                                 font-weight: 700;

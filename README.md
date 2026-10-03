@@ -26,8 +26,14 @@ UseDNS is a lightweight desktop utility for discovering, comparing, and applying
 - Monitor resolver reachability, approximate latency, and live adapter throughput
 - Switch between English and Indonesian, with English as the default
 - Choose a glass-inspired light or dark appearance, or follow the Windows theme
-- Display speed in Kbps (default) or Mbps
+- Adapt speed units automatically: Kbps → Mbps → Gbps at each decimal 1000 boundary
+- Rate successful DNS responses from 1 to 5 stars, with unmeasured results left unrated
+- Read the built-in bilingual **Guide & FAQ** by topic
 - Keep preferences and custom profiles on the local device
+- Choose **Quit**, **Background**, or **Cancel** when closing the main window
+- Keep the tray preview visible while hovering over either the icon or the preview
+- Opt into **Start with Windows** in Settings (disabled by default)
+- Compare real DNS response times with **Network booster**, then review before applying
 
 ## Included DNS Providers
 
@@ -182,13 +188,27 @@ UseDNS calls the Windows `Set-DnsClientServerAddress` PowerShell command to appl
 
 ## Data and Privacy
 
+### Background mode, Windows startup, and Network booster
+
+Closing the main window asks whether to quit or keep UseDNS running in the system tray. Background mode is offered only when the tray is available. The preview follows the actual cursor position and disappears about 150–200 ms after leaving both the icon and preview, allowing time to cross the gap between them. Hovering the tray shows a non-activating preview without a taskbar button; only the main window appears in the taskbar.
+
+**Settings → Start with Windows** registers the current executable for the current user's Windows sign-in. It is off by default, requires no administrator privileges, and uses `--background` so the main window stays hidden when a tray is available. Turning it off removes UseDNS's entry. Keep the executable at the same location after enabling it; disable startup before uninstalling a portable copy.
+
+**Settings → Network booster** sends three ordinary IPv4 DNS queries (`example.com`, `www.microsoft.com`, and `www.cloudflare.com`) to the active IPv4 resolver and each bundled provider's default primary IPv4 resolver. Identical addresses are tested once. Tests run in the background, with at most four candidates at a time and a 700 ms timeout per query. Results favor successful responses, then median latency; candidates need at least two successful responses to qualify.
+
+**Review recommendation** opens the existing provider/profile dialog. DNS changes still require explicit Apply and Windows UAC. Default profiles may have different filtering from your current profile. This measures UDP DNS resolution, rather than encrypted DNS performance or bandwidth, and does not promise faster downloads. Windows already caches DNS answers; cache clearing is reserved for DNS changes rather than periodic optimization. See [Microsoft's DNS query and caching documentation](https://learn.microsoft.com/en-us/windows-server/networking/dns/queries-lookups), [Windows startup registration](https://learn.microsoft.com/windows/win32/setupapi/run-and-runonce-registry-keys), and [TCP tuning guidance](https://learn.microsoft.com/en-us/windows-server/networking/technologies/network-subsystem/net-sub-performance-tuning-nics).
+
 UseDNS does not operate a DNS resolver and does not inspect, record, or sell DNS queries. Queries are handled directly by the provider selected by the user. Each provider has independent logging, filtering, privacy, and retention policies.
 
 Custom DNS profiles and language preferences are serialized to the operating system's local application configuration directory. UseDNS does not upload this data.
 
-The connection indicator checks resolver reachability and approximate ping latency. It is not a bandwidth test and does not send test files to a third-party speed-testing service.
+The DNS response indicator sends an actual UDP DNS query to configured resolvers, including DNS proxies on home routers, and checks again every 15 seconds. It tries another test domain or a configured secondary resolver when needed. Latency is the successful DNS query's response time. Ratings use UseDNS's own guidance: 5 stars for ≤50 ms, 4 for 51–100 ms, 3 for 101–250 ms, 2 for 251–500 ms, and 1 for >500 ms. No verified response shows **Not measured** and empty stars, which does not establish that the internet is disconnected; UDP DNS can be blocked while encrypted DNS still works. The rating does not measure DoH latency, bandwidth, or overall connection stability. Background diagnostic failures do not generate operation-error toasts. Explicit **Test resolver** actions still report their result.
+
+Each traffic reading now chooses its own unit: 999 Kbps stays in Kbps, 1000 Kbps becomes 1 Mbps, and 10792 Kbps becomes 10.79 Mbps. The center gauge and graph labels use the same decimal conversion, with Gbps from 1000 Mbps. Manual unit selection has been removed; older settings files still load and their obsolete `speed_unit` field is ignored. Traffic readings measure current adapter usage rather than maximum connection capacity.
 
 ## Documentation
+
+Open **Guide & FAQ** from the application's navigation dropdown. The offline page supports English and Indonesian, topic filters, and expandable answers covering DNS profiles, protocols, DoH, custom DNS, DHCP, monitoring, ratings, booster, tray, startup, appearance, and troubleshooting. For background on encrypted DNS, see [Microsoft's DoH client documentation](https://learn.microsoft.com/en-us/windows-server/networking/dns/doh-client-support).
 
 The complete MVP product specification, implementation inventory, known limitations, acceptance checklist, and roadmap are available in [`docs/spec/MVP_SPECIFICATION.md`](docs/spec/MVP_SPECIFICATION.md).
 
@@ -201,7 +221,7 @@ cargo fmt --all -- --check
 cargo test
 ```
 
-The current tests cover validation of bundled DNS profiles and rejection of addresses with an incorrect IP version.
+Tests cover bundled profile validation, IP versions, tray hover transitions, DNS packet validation and a local UDP exchange, backward-compatible startup defaults, and recovery of interrupted/corrupt settings writes. Run `cargo clippy --all-targets -- -D warnings` for lint checks. Implementation findings and the manual Windows checklist are in [the code audit](docs/spec/CODE_AUDIT.md).
 
 ## Roadmap
 

@@ -5,10 +5,12 @@ import { ProvidersPage } from "pages/providers.slint";
 import { CustomDnsPage } from "pages/custom-dns.slint";
 import { PolicyPage } from "pages/policy.slint";
 import { SettingsPage } from "pages/settings.slint";
+import { DocumentationPage } from "pages/documentation.slint";
 import { TrayPreview } from "tray-preview.slint";
 import { Theme } from "theme.slint";
 import { ProviderRow, SpeedSample, DnsProfileRow } from "types.slint";
 import { IconDisplay, IconSet } from "icons.slint";
+import { AppButton } from "components/common.slint";
 export { ProviderRow, SpeedSample, DnsProfileRow, TrayPreview }
 export component AppWindow inherits Window {
     title: "UseDNS";
@@ -38,10 +40,14 @@ export component AppWindow inherits Window {
     in-out property <string> current-dns: "—";
     in-out property <string> connection-state: "Checking...";
     in-out property <string> latency: "—";
+    changed current-dns => {
+        root.connection-state = "Checking...";
+        root.latency = "—";
+    }
     in-out property <string> download-speed: "0.0 Kbps";
     in-out property <string> upload-speed: "0.0 Kbps";
     in-out property <string> total-speed: "0.0";
-    in-out property <string> speed-unit: "kbps";
+    in-out property <string> total-speed-unit: "Kbps";
     in-out property <int> network-interval-secs: 1;
     in-out property <bool> tray-show-speed: true;
     in-out property <bool> tray-show-dns: true;
@@ -58,6 +64,15 @@ export component AppWindow inherits Window {
     in-out property <bool> busy: false;
     in-out property <bool> refreshing: false;
     in-out property <bool> testing-resolver: false;
+    in-out property <bool> start-with-windows: false;
+    in-out property <bool> startup-supported: false;
+    in-out property <bool> booster-running: false;
+    in-out property <string> booster-results: "";
+    in-out property <string> booster-provider-id: "";
+    in-out property <bool> close-dialog-open: false;
+    in-out property <bool> tray-available: false;
+    in-out property <int> tray-menu-revision: 0;
+    changed language => { root.tray-menu-revision += 1; }
     in-out property <string> toast-message: "";
     in-out property <bool> toast-error: false;
     in-out property <int> ip-mode: 0;
@@ -79,9 +94,9 @@ export component AppWindow inherits Window {
     in-out property <string> form-purpose: "general";
 
     callback refresh;
+    callback check-connection;
     callback language-changed(string);
     callback theme-changed(string);
-    callback speed-unit-changed(string);
     callback network-interval-changed(int);
     callback tray-preview-settings-changed(bool, bool, bool, bool);
     callback apply-selected(string, int, int);
@@ -98,6 +113,19 @@ export component AppWindow inherits Window {
 
     callback window-minimize;
     callback window-close;
+    callback close-choice(bool);
+    callback startup-changed(bool);
+    callback run-booster;
+    callback review-booster;
+    // Close transient overlays synchronously before changing pages. This also
+    // permits actions such as booster review to open a fresh modal afterwards.
+    callback navigate(int);
+    navigate(index) => {
+        root.profile-popup-open = false;
+        root.close-dialog-open = false;
+        root.nav-menu-open = false;
+        root.page = index;
+    }
 
     window-frame := Rectangle {
         width: 100%;
@@ -116,7 +144,7 @@ export component AppWindow inherits Window {
                 page: root.page;
                 menu-open <=> root.nav-menu-open;
                 navigate(index) => {
-                    root.page = index;
+                    root.navigate(index);
                     if (index == 2) { root.clear-form(); }
                 }
                 toggle-theme() => {
@@ -150,19 +178,19 @@ export component AppWindow inherits Window {
                     download-speed: root.download-speed;
                     upload-speed: root.upload-speed;
                     total-speed: root.total-speed;
-                    speed-unit: root.speed-unit;
+                    total-speed-unit: root.total-speed-unit;
+                    network-interval-secs: root.network-interval-secs;
                     download-level: root.download-level;
                     upload-level: root.upload-level;
                     total-level: root.total-level;
                     speed-history: root.speed-history;
                     graph-max-speed: root.graph-max-speed;
                     graph-mid-speed: root.graph-mid-speed;
-                    connection-error: root.toast-error;
                     busy: root.busy;
                     refreshing: root.refreshing;
                     refresh => { root.refresh(); }
                     reset-dns(index) => { root.reset-dns(index); }
-                    navigate-providers => { root.page = 1; }
+                    navigate-providers => { root.navigate(1); }
                 }
 
                 providers-page := ProvidersPage {
@@ -184,12 +212,12 @@ export component AppWindow inherits Window {
                     popup-profiles <=> root.popup-profiles;
                     selected-profile-index <=> root.selected-profile-index;
                     encrypted-dns <=> root.encrypted-dns;
-                    add-provider => { root.page = 2; root.clear-form(); }
+                    add-provider => { root.navigate(2); root.clear-form(); }
                     request-use-provider(id) => { root.request-use-provider(id); }
                     confirm-apply-profile(id, profile-index, adapter, mode, encrypted, template) => {
                         root.confirm-apply-profile(id, profile-index, adapter, mode, encrypted, template);
                     }
-                    edit-provider(id) => { root.edit-provider(id); root.page = 2; }
+                    edit-provider(id) => { root.edit-provider(id); root.navigate(2); }
                     delete-provider(id) => { root.delete-provider(id); }
                     filter-request(query, category) => { root.filter-providers(query, category); }
                     reset-dns(index) => { root.reset-dns(index); }
@@ -230,7 +258,7 @@ export component AppWindow inherits Window {
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     busy: root.busy;
-                    navigate-providers => { root.page = 1; }
+                    navigate-providers => { root.navigate(1); }
                     reset-dns(index) => { root.reset-dns(index); }
                 }
 
@@ -242,21 +270,36 @@ export component AppWindow inherits Window {
                     visible: root.page == 4;
                     language <=> root.language;
                     theme-mode <=> root.theme-mode;
-                    speed-unit <=> root.speed-unit;
                     network-interval-secs <=> root.network-interval-secs;
                     tray-show-speed <=> root.tray-show-speed;
                     tray-show-dns <=> root.tray-show-dns;
                     tray-show-status <=> root.tray-show-status;
                     tray-show-latency <=> root.tray-show-latency;
+                    start-with-windows: root.start-with-windows;
+                    startup-supported: root.startup-supported;
+                    busy: root.busy;
+                    booster-running: root.booster-running;
+                    booster-results: root.booster-results;
+                    booster-can-review: root.booster-provider-id != "";
+                    startup-changed(value) => { root.startup-changed(value); }
+                    run-booster => { root.run-booster(); }
+                    review-booster => { root.review-booster(); }
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     language-changed(value) => { root.language-changed(value); }
                     theme-changed(value) => { root.theme-changed(value); }
-                    speed-unit-changed(value) => { root.speed-unit-changed(value); }
                     network-interval-changed(value) => { root.network-interval-changed(value); }
                     tray-preview-settings-changed(speed, dns, status, latency) => {
                         root.tray-preview-settings-changed(speed, dns, status, latency);
                     }
+                }
+                DocumentationPage {
+                    x: 24px;
+                    y: 24px;
+                    width: parent.width - 48px;
+                    height: parent.height - 48px;
+                    visible: root.page == 5;
+                    language: root.language;
                 }
             }
         }
@@ -381,8 +424,7 @@ export component AppWindow inherits Window {
                     label: root.language == "id" ? "Beranda" : "Home";
                     selected: root.page == 0;
                     clicked => {
-                        root.nav-menu-open = false;
-                        root.page = 0;
+                        root.navigate(0);
                     }
                     IconDisplay {
                         icon: IconSet.House;
@@ -397,8 +439,7 @@ export component AppWindow inherits Window {
                     label: root.language == "id" ? "Daftar DNS" : "DNS Providers";
                     selected: root.page == 1;
                     clicked => {
-                        root.nav-menu-open = false;
-                        root.page = 1;
+                        root.navigate(1);
                     }
                     IconDisplay {
                         icon: IconSet.List;
@@ -413,8 +454,7 @@ export component AppWindow inherits Window {
                     label: root.language == "id" ? "DNS kustom" : "Custom DNS";
                     selected: root.page == 2;
                     clicked => {
-                        root.nav-menu-open = false;
-                        root.page = 2;
+                        root.navigate(2);
                         root.clear-form();
                     }
                     IconDisplay {
@@ -430,8 +470,7 @@ export component AppWindow inherits Window {
                     label: root.language == "id" ? "Kebijakan" : "Policy";
                     selected: root.page == 3;
                     clicked => {
-                        root.nav-menu-open = false;
-                        root.page = 3;
+                        root.navigate(3);
                     }
                     IconDisplay {
                         icon: IconSet.Shield;
@@ -451,8 +490,7 @@ export component AppWindow inherits Window {
                     label: root.language == "id" ? "Pengaturan" : "Settings";
                     selected: root.page == 4;
                     clicked => {
-                        root.nav-menu-open = false;
-                        root.page = 4;
+                        root.navigate(4);
                     }
                     IconDisplay {
                         icon: IconSet.Settings;
@@ -460,6 +498,76 @@ export component AppWindow inherits Window {
                         stroke: root.page == 4 ? Theme.accent : Theme.secondary-text;
                         x: 1px;
                         y: 1px;
+                    }
+                }
+                NavDropdownItem {
+                    label: root.language == "id" ? "Panduan & FAQ" : "Guide & FAQ";
+                    selected: root.page == 5;
+                    clicked => { root.navigate(5); }
+                    IconDisplay {
+                        icon: IconSet.Info;
+                        size: 16px;
+                        stroke: root.page == 5 ? Theme.accent : Theme.secondary-text;
+                        x: 1px;
+                        y: 1px;
+                    }
+                }
+            }
+        }
+    }
+    if root.close-dialog-open: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080;
+        TouchArea { }
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(520px, parent.width - 48px);
+            height: 240px;
+            border-radius: Theme.radius-panel;
+            background: Theme.surface-strong;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+                Text {
+                    text: root.language == "id" ? "Tutup UseDNS?" : "Close UseDNS?";
+                    color: Theme.text;
+                    font-size: 22px;
+                    font-weight: 700;
+                }
+                Text {
+                    text: root.busy
+                        ? (root.language == "id" ? "Tunggu hingga operasi selesai sebelum menutup aplikasi." : "Wait for the current operation to finish before closing.")
+                        : (root.language == "id" ? "Keluar dari aplikasi, atau tetap berjalan di system tray?" : "Quit the application, or keep running in the system tray?");
+                    wrap: word-wrap;
+                    color: Theme.secondary-text;
+                    font-size: 13px;
+                }
+                if !root.tray-available: Text {
+                    text: root.language == "id" ? "System tray tidak tersedia." : "System tray is unavailable.";
+                    color: Theme.secondary-text;
+                    font-size: 12px;
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    AppButton {
+                        text: root.language == "id" ? "Batal" : "Cancel";
+                        clicked => { root.close-dialog-open = false; }
+                    }
+                    AppButton {
+                        text: root.language == "id" ? "Latar belakang" : "Background";
+                        primary: true;
+                        enabled: root.tray-available && !root.busy;
+                        clicked => { root.close-choice(true); }
+                    }
+                    AppButton {
+                        text: root.language == "id" ? "Keluar" : "Quit";
+                        danger: true;
+                        enabled: !root.busy;
+                        clicked => { root.close-choice(false); }
                     }
                 }
             }

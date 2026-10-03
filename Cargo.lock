@@ -5216,6 +5216,7 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "directories",
+ "i-slint-backend-winit",
  "ico",
  "image",
  "raw-window-handle",
