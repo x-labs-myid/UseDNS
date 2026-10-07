@@ -8,10 +8,10 @@ import { SettingsPage } from "pages/settings.slint";
 import { DocumentationPage } from "pages/documentation.slint";
 import { TrayPreview } from "tray-preview.slint";
 import { Theme } from "theme.slint";
-import { ProviderRow, SpeedSample, DnsProfileRow } from "types.slint";
+import { ProviderRow, SpeedSample, DnsProfileRow, DnsScanRow } from "types.slint";
 import { IconDisplay, IconSet } from "icons.slint";
 import { AppButton } from "components/common.slint";
-export { ProviderRow, SpeedSample, DnsProfileRow, TrayPreview }
+export { ProviderRow, SpeedSample, DnsProfileRow, DnsScanRow, TrayPreview }
 export component AppWindow inherits Window {
     title: "UseDNS";
     icon: @image-url("../.assets/UseDNS.png");
@@ -67,7 +67,12 @@ export component AppWindow inherits Window {
     in-out property <bool> start-with-windows: false;
     in-out property <bool> startup-supported: false;
     in-out property <bool> booster-running: false;
+    in-out property <int> booster-generation: 0;
+    in-out property <int> booster-completed: 0;
+    in-out property <int> booster-total: 0;
     in-out property <string> booster-results: "";
+    in-out property <[DnsScanRow]> booster-rows: [];
+    in-out property <bool> booster-current-best: false;
     in-out property <string> booster-provider-id: "";
     in-out property <bool> close-dialog-open: false;
     in-out property <bool> tray-available: false;
@@ -121,6 +126,17 @@ export component AppWindow inherits Window {
     // permits actions such as booster review to open a fresh modal afterwards.
     callback navigate(int);
     navigate(index) => {
+        if root.page != index {
+            // Invalidate queued updates from a scan started on the previous page.
+            root.booster-generation += 1;
+            root.booster-running = false;
+            root.booster-completed = 0;
+            root.booster-total = 0;
+            root.booster-results = "";
+            root.booster-rows = [];
+            root.booster-current-best = false;
+            root.booster-provider-id = "";
+        }
         root.profile-popup-open = false;
         root.close-dialog-open = false;
         root.nav-menu-open = false;
@@ -206,6 +222,15 @@ export component AppWindow inherits Window {
                     ip-mode <=> root.ip-mode;
                     busy: root.busy;
                     active-provider-id: root.active-provider-id;
+                    booster-running: root.booster-running;
+                    booster-results: root.booster-results;
+                    booster-rows: root.booster-rows;
+                    booster-current-best: root.booster-current-best;
+                    booster-can-review: root.booster-provider-id != "";
+                    booster-completed: root.booster-completed;
+                    booster-total: root.booster-total;
+                    run-booster => { root.run-booster(); }
+                    review-booster => { root.review-booster(); }
                     profile-popup-open <=> root.profile-popup-open;
                     popup-provider-id <=> root.popup-provider-id;
                     popup-provider-name <=> root.popup-provider-name;
@@ -278,12 +303,7 @@ export component AppWindow inherits Window {
                     start-with-windows: root.start-with-windows;
                     startup-supported: root.startup-supported;
                     busy: root.busy;
-                    booster-running: root.booster-running;
-                    booster-results: root.booster-results;
-                    booster-can-review: root.booster-provider-id != "";
                     startup-changed(value) => { root.startup-changed(value); }
-                    run-booster => { root.run-booster(); }
-                    review-booster => { root.review-booster(); }
                     adapters: root.adapters;
                     adapter-index <=> root.adapter-index;
                     language-changed(value) => { root.language-changed(value); }

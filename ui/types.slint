@@ -27,3 +27,13 @@ export struct SpeedSample {
     download: float,
     upload: float,
 }
+
+export struct DnsScanRow {
+    name: string,
+    address: string,
+    latency: string,
+    successful: int,
+    qualified: bool,
+    best: bool,
+    current: bool,
+}

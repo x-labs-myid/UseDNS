@@ -74,7 +74,7 @@ def main():
                                          0x08000000, None, None,
                                          ctypes.byref(startup), ctypes.byref(process)):
                 raise ctypes.WinError(ctypes.get_last_error())
-            wait = kernel.WaitForSingleObject(process.hProcess, 30000)
+            wait = kernel.WaitForSingleObject(process.hProcess, 60000)
             if wait != 0:
                 kernel.TerminateProcess(process.hProcess, 1)
                 kernel.WaitForSingleObject(process.hProcess, 5000)

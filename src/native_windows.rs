@@ -90,6 +90,7 @@ pub fn show_preview(preview: &TrayPreview) -> Result<(), slint::PlatformError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slint::Model;
     use winit::platform::windows::EventLoopBuilderExtWindows;
 
     fn extended_style(window: &slint::Window) -> isize {
@@ -105,6 +106,9 @@ mod tests {
     }
 
     fn snapshot(window: &slint::Window, name: &str) {
+        // Capture the settled theme rather than the first animation frame.
+        std::thread::sleep(std::time::Duration::from_millis(180));
+        slint::platform::update_timers_and_animations();
         let pixels = window.take_snapshot().unwrap();
         std::fs::create_dir_all("target/ui-review").unwrap();
         image::save_buffer(
@@ -143,6 +147,8 @@ mod tests {
         let main_weak = main.as_weak();
         let preview_weak = preview.as_weak();
         slint::Timer::single_shot(std::time::Duration::from_millis(100), move || {
+            // Snapshot settling advances timers, so run outside a timer callback.
+            slint::invoke_from_event_loop(move || {
             let main = main_weak.unwrap();
             let preview = preview_weak.unwrap();
             main.set_theme_mode("light".into());
@@ -169,6 +175,51 @@ mod tests {
             snapshot(main.window(), "faq-rating-id");
             main.set_language("en".into());
             snapshot(main.window(), "faq-en");
+            // Review the scan summary and ranked rows without sending DNS queries.
+            main.invoke_navigate(1);
+            main.set_adapters(slint::ModelRc::new(slint::VecModel::from(vec!["Wi-Fi".into()])));
+            main.set_booster_total(3);
+            main.set_booster_completed(3);
+            main.set_booster_current_best(true);
+            main.set_booster_provider_id("cloudflare".into());
+            main.set_booster_results("DNS saat ini sudah terbaik pada pengujian ini".into());
+            main.set_booster_rows(slint::ModelRc::new(slint::VecModel::from(vec![
+                crate::DnsScanRow {
+                    name: "Current DNS".into(), address: "192.168.1.1".into(),
+                    latency: "16.7 ms".into(), successful: 3, qualified: true,
+                    best: true, current: true,
+                },
+                crate::DnsScanRow {
+                    name: "Cloudflare".into(), address: "1.1.1.1".into(),
+                    latency: "19.4 ms".into(), successful: 3, qualified: true,
+                    best: false, current: false,
+                },
+                crate::DnsScanRow {
+                    name: "AdGuard DNS".into(), address: "94.140.14.14".into(),
+                    latency: "—".into(), successful: 1, qualified: false,
+                    best: false, current: false,
+                },
+            ])));
+            main.set_language("id".into());
+            snapshot(main.window(), "scan-summary-id");
+            click(main.window(), 1100.0, 225.0);
+            snapshot(main.window(), "scan-results-id");
+            main.set_theme_mode("dark".into());
+            snapshot(main.window(), "scan-results-dark-id");
+            main.set_language("en".into());
+            main.set_booster_current_best(false);
+            main.set_booster_results("Recommendation: Cloudflare".into());
+            snapshot(main.window(), "scan-recommendation-en");
+            main.set_booster_provider_id("".into());
+            main.set_booster_results("No DNS qualified in this test. Try scanning again.".into());
+            snapshot(main.window(), "scan-unavailable-en");
+            main.set_booster_results("".into());
+            main.set_booster_running(true);
+            main.set_booster_total(8);
+            main.set_booster_completed(4);
+            snapshot(main.window(), "scan-progress-en");
+            main.set_booster_running(false);
+            main.set_theme_mode("light".into());
             main.invoke_navigate(4);
             snapshot(main.window(), "settings-en");
             main.window()
@@ -192,6 +243,7 @@ mod tests {
             main.hide().unwrap();
             preview.hide().unwrap();
             slint::quit_event_loop().unwrap();
+            }).unwrap();
         });
         slint::run_event_loop_until_quit().unwrap();
     }
@@ -224,6 +276,36 @@ mod tests {
                     "returning must not reopen modal"
                 );
             }
+        }
+        // Leaving the providers page resets both finished and in-flight scans.
+        for running in [false, true] {
+            main.invoke_navigate(1);
+            main.set_booster_running(running);
+            main.set_booster_results("Recommendation: Cloudflare".into());
+            main.set_booster_provider_id("cloudflare".into());
+            main.set_booster_current_best(true);
+            main.set_booster_completed(4);
+            main.set_booster_total(8);
+            main.set_booster_rows(slint::ModelRc::new(slint::VecModel::from(vec![
+                crate::DnsScanRow::default(),
+            ])));
+            let generation = main.get_booster_generation();
+            // Reviewing a recommendation on the same page must retain its result.
+            main.invoke_navigate(1);
+            assert_eq!(main.get_booster_generation(), generation);
+            assert!(!main.get_booster_results().is_empty());
+            main.invoke_navigate(0);
+            assert_ne!(main.get_booster_generation(), generation);
+            assert!(!main.get_booster_running());
+            assert!(main.get_booster_results().is_empty());
+            assert!(main.get_booster_provider_id().is_empty());
+            assert!(!main.get_booster_current_best());
+            assert_eq!(main.get_booster_completed(), 0);
+            assert_eq!(main.get_booster_total(), 0);
+            assert_eq!(main.get_booster_rows().row_count(), 0);
+            main.invoke_navigate(1);
+            assert!(!main.get_booster_running());
+            assert!(main.get_booster_results().is_empty());
         }
         // Booster review navigates first, then deliberately opens a new modal.
         main.invoke_navigate(4);

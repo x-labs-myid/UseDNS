@@ -22,6 +22,15 @@ pub struct Measurement {
     pub successful: usize,
 }
 
+/// Results are already ranked by reliability and latency. The first qualifying
+/// provider is either the recommendation or an alternative to the current DNS.
+pub fn review_candidate(results: &[Measurement]) -> Option<&Candidate> {
+    results
+        .iter()
+        .find(|result| result.median_ms.is_some() && !result.candidate.provider_id.is_empty())
+        .map(|result| &result.candidate)
+}
+
 fn query(id: u16, domain: &str) -> Vec<u8> {
     let mut bytes = Vec::from(id.to_be_bytes());
     bytes.extend_from_slice(&[1, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
@@ -161,7 +170,7 @@ fn measure(candidate: &Candidate) -> Measurement {
     }
 }
 
-pub fn benchmark(candidates: Vec<Candidate>) -> Vec<Measurement> {
+pub fn benchmark(candidates: Vec<Candidate>, mut progress: impl FnMut(usize)) -> Vec<Measurement> {
     let mut measurements = Vec::with_capacity(candidates.len());
     // Bound concurrent sockets/threads and avoid blocking the UI event loop.
     for chunk in candidates.chunks(4) {
@@ -176,6 +185,7 @@ pub fn benchmark(candidates: Vec<Candidate>) -> Vec<Measurement> {
                 }
             }
         });
+        progress(measurements.len());
     }
     measurements.sort_by(|a, b| {
         b.successful.cmp(&a.successful).then_with(|| {
@@ -190,6 +200,30 @@ pub fn benchmark(candidates: Vec<Candidate>) -> Vec<Measurement> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn review_offers_qualified_alternative_when_current_dns_wins() {
+        let measurement = |provider_id: &str, median_ms| Measurement {
+            candidate: Candidate {
+                provider_id: provider_id.into(),
+                name: provider_id.into(),
+                address: "1.1.1.1".parse().unwrap(),
+            },
+            median_ms,
+            successful: if median_ms.is_some() { 3 } else { 1 },
+        };
+        let mut results = vec![
+            measurement("", Some(16.7)),
+            measurement("cloudflare", Some(19.4)),
+            measurement("google", Some(30.1)),
+            measurement("adguard", None),
+        ];
+        assert_eq!(review_candidate(&results).unwrap().provider_id, "cloudflare");
+        results.remove(0);
+        assert_eq!(review_candidate(&results).unwrap().provider_id, "cloudflare");
+        results.drain(..2);
+        assert!(review_candidate(&results).is_none());
+        assert!(review_candidate(&[]).is_none());
+    }
     #[test]
     fn ignores_unrelated_packet_before_accepting_dns_answer() {
         let server = UdpSocket::bind("127.0.0.1:0").unwrap();

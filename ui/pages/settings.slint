@@ -1,5 +1,5 @@
 import { ScrollView } from "std-widgets.slint";
-import { ConnectionBadge, AppButton } from "../components/common.slint";
+import { ConnectionBadge } from "../components/common.slint";
 import { Theme } from "../theme.slint";
 import { IconDisplay, IconSet } from "../icons.slint";
 
@@ -241,12 +241,7 @@ export component SettingsPage inherits VerticalLayout {
     in property <bool> start-with-windows: false;
     in property <bool> startup-supported: false;
     in property <bool> busy: false;
-    in property <bool> booster-running: false;
-    in property <string> booster-results;
-    in property <bool> booster-can-review: false;
     callback startup-changed(bool);
-    callback run-booster;
-    callback review-booster;
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     callback language-changed(string);
@@ -313,50 +308,6 @@ export component SettingsPage inherits VerticalLayout {
                         checked: root.start-with-windows;
                         enabled: root.startup-supported && !root.busy;
                         toggled => { root.startup-changed(!root.start-with-windows); }
-                    }
-                }
-            }
-
-            Rectangle {
-                height: booster-layout.preferred-height;
-                border-radius: 20px;
-                background: Theme.surface;
-                border-width: 1px;
-                border-color: Theme.border;
-                booster-layout := VerticalLayout {
-                    padding: 16px;
-                    spacing: 12px;
-                    SettingHeader {
-                        icon-index: 2;
-                        title: "Network booster";
-                        subtitle: language == "id" ? "Uji respons DNS dan tinjau rekomendasi sebelum menerapkan." : "Measure DNS responses and review a recommendation before applying.";
-                    }
-                    Text {
-                        text: language == "id" ? "Membandingkan DNS IPv4 aktif dan profil bawaan provider melalui 3 kueri DNS publik. Hasil dapat berubah; bukan tes bandwidth. Profil rekomendasi dapat memiliki filter berbeda dari DNS Anda." : "Compares active IPv4 DNS and default provider profiles using 3 public DNS queries. Results vary; this is not a bandwidth test. Recommended profiles may have different filtering from your DNS.";
-                        wrap: word-wrap;
-                        color: Theme.secondary-text;
-                        font-size: 12px;
-                    }
-                    if root.booster-results != "": Text {
-                        text: root.booster-results;
-                        wrap: word-wrap;
-                        color: Theme.text;
-                        font-size: 12px;
-                    }
-                    HorizontalLayout {
-                        spacing: 10px;
-                        AppButton {
-                            text: root.booster-running ? (language == "id" ? "Menguji DNS..." : "Testing DNS...") : (language == "id" ? "Uji & cari rekomendasi" : "Test & find recommendation");
-                            primary: true;
-                            loading: root.booster-running;
-                            enabled: !root.booster-running && !root.busy;
-                            clicked => { root.run-booster(); }
-                        }
-                        AppButton {
-                            text: language == "id" ? "Tinjau rekomendasi" : "Review recommendation";
-                            enabled: root.booster-can-review && !root.booster-running && !root.busy;
-                            clicked => { root.review-booster(); }
-                        }
                     }
                 }
             }

@@ -4,9 +4,10 @@ import {
     Tag,
     AppButton,
     ProviderIcon,
+    LoadingSpinner,
 } from "../components/common.slint";
 import { Theme } from "../theme.slint";
-import { ProviderRow, DnsProfileRow } from "../types.slint";
+import { ProviderRow, DnsProfileRow, DnsScanRow } from "../types.slint";
 import { IconDisplay, IconSet } from "../icons.slint";
 
 component FilterButton inherits Rectangle {
@@ -378,6 +379,18 @@ export component ProvidersPage inherits Rectangle {
     in-out property <string> search-text: "";
     in-out property <string> category: "all";
     in property <bool> busy;
+    in property <bool> booster-running;
+    in property <string> booster-results;
+    in property <[DnsScanRow]> booster-rows;
+    in property <bool> booster-current-best;
+    in property <bool> booster-can-review;
+    in property <int> booster-completed;
+    in property <int> booster-total;
+    private property <bool> results-expanded: false;
+    changed booster-results => { root.results-expanded = false; }
+    changed booster-running => { if !root.booster-running { root.results-expanded = false; } }
+    callback run-booster;
+    callback review-booster;
     in property <string> active-provider-id: "system";
     in-out property <bool> profile-popup-open: false;
     in-out property <string> popup-provider-id: "";
@@ -448,6 +461,232 @@ export component ProvidersPage inherits Rectangle {
 
                 ConnectionBadge {
                     label: adapters.length > 0 && adapter-index >= 0 ? adapters[adapter-index] : (language == "id" ? "Tidak ada koneksi" : "No connection");
+                }
+            }
+        }
+
+        // DNS discovery stays beside the providers it helps users choose.
+        Rectangle {
+            height: scan-layout.preferred-height;
+            border-radius: 18px;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: Theme.accent.with-alpha(0.25);
+            scan-layout := VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+                HorizontalLayout {
+                    spacing: 12px;
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 12px;
+                        background: root.booster-current-best ? Theme.green.with-alpha(0.12) : Theme.accent.with-alpha(0.12);
+                        if !root.booster-running: IconDisplay {
+                            icon: root.booster-current-best ? IconSet.Check : IconSet.Gauge;
+                            size: 22px;
+                            stroke: root.booster-current-best ? Theme.green : Theme.accent;
+                            x: 9px;
+                            y: 9px;
+                        }
+                        if root.booster-running: LoadingSpinner {
+                            size: 22px;
+                            x: 9px;
+                            y: 9px;
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 3px;
+                        Text {
+                            text: root.booster-running
+                                ? (root.language == "id" ? "Memindai DNS..." : "Scanning DNS...")
+                                : (root.booster-results != ""
+                                    ? (root.booster-current-best ? (root.language == "id" ? "DNS saat ini unggul pada uji ini" : "Current DNS leads in this test") : root.booster-results)
+                                        + (root.booster-rows.length > 0 && root.booster-rows[0].best
+                                            ? " · " + root.booster-rows[0].latency : "")
+                                    : (root.language == "id" ? "Cari DNS terbaik saat ini" : "Find the best DNS right now"));
+                            color: Theme.text;
+                            font-size: 16px;
+                            font-weight: 800;
+                            wrap: word-wrap;
+                        }
+                        Text {
+                            text: root.booster-running
+                                ? root.booster-completed + "/" + root.booster-total + (root.language == "id" ? " DNS selesai diuji" : " DNS tested")
+                                : (root.booster-results != ""
+                                    ? (root.booster-current-best
+                                        ? (root.booster-can-review ? (root.language == "id" ? "Respons terbaik pada uji ini. Alternatif tetap bisa ditinjau." : "Best response in this test. You can still review an alternative.") : (root.language == "id" ? "DNS saat ini unggul; belum ada alternatif yang lolos uji." : "Current DNS leads; no alternative passed the test."))
+                                        : (root.booster-can-review ? (root.language == "id" ? "Tinjau profil dan filternya sebelum menerapkan." : "Review the profile and its filters before applying.") : (root.language == "id" ? "Respons belum cukup; coba pindai ulang." : "Not enough responses; try scanning again.")))
+                                    : (root.language == "id" ? "Bandingkan keandalan dan waktu respons pada koneksi Anda." : "Compare reliability and response times on your connection."));
+                            color: Theme.secondary-text;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+                    }
+                    if root.booster-results == "": VerticalLayout {
+                        width: 180px;
+                        alignment: center;
+                        AppButton {
+                            height: 36px;
+                            text: root.booster-running ? (root.language == "id" ? "Memindai..." : "Scanning...") : (root.language == "id" ? "Mulai pemindaian" : "Start scan");
+                            primary: true;
+                            enabled: !root.booster-running && !root.busy && root.adapters.length > 0;
+                            clicked => { root.results-expanded = false; root.run-booster(); }
+                        }
+                    }
+                    if root.booster-results != "": VerticalLayout {
+                        width: 36px;
+                        alignment: center;
+                        Rectangle {
+                            height: 36px;
+                            width: 36px;
+                            border-radius: Theme.radius-control;
+                            background: rescan-touch.has-hover ? Theme.glass-hover : Theme.surface-subtle;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            opacity: !root.booster-running && !root.busy && root.adapters.length > 0 ? 1 : 0.5;
+                            accessible-role: button;
+                            accessible-label: root.language == "id" ? "Pindai ulang" : "Scan again";
+                            IconDisplay {
+                                icon: IconSet.RefreshCw;
+                                size: 18px;
+                                stroke: Theme.accent;
+                                x: 9px;
+                                y: 9px;
+                            }
+                            rescan-touch := TouchArea {
+                                enabled: !root.booster-running && !root.busy && root.adapters.length > 0;
+                                mouse-cursor: self.enabled ? pointer : default;
+                                clicked => { root.results-expanded = false; root.run-booster(); }
+                            }
+                        }
+                    }
+                    if root.booster-results != "" && root.booster-can-review: VerticalLayout {
+                        width: 180px;
+                        alignment: center;
+                        AppButton {
+                            height: 36px;
+                            text: root.booster-current-best ? (root.language == "id" ? "Tinjau alternatif" : "Review alternative") : (root.language == "id" ? "Tinjau rekomendasi" : "Review recommendation");
+                            primary: !root.booster-current-best;
+                            enabled: !root.booster-running && !root.busy;
+                            clicked => { root.review-booster(); }
+                        }
+                    }
+                }
+                if root.booster-running: Rectangle {
+                    height: 4px;
+                    border-radius: 2px;
+                    background: Theme.accent.with-alpha(0.12);
+                    Rectangle {
+                        height: parent.height;
+                        width: root.booster-total > 0 ? parent.width * root.booster-completed / root.booster-total : 0px;
+                        border-radius: 2px;
+                        background: Theme.accent;
+                        animate width { duration: 180ms; }
+                    }
+                }
+                if root.booster-results == "": Text {
+                    text: root.language == "id" ? "Uji DNS IPv4 aktif & profil bawaan penyedia. DNS diterapkan setelah Anda menyetujui." : "Tests active IPv4 DNS & default provider profiles. Applying DNS needs your approval.";
+                    color: Theme.muted-text;
+                    font-size: 10px;
+                    wrap: word-wrap;
+                }
+                if root.booster-results != "": HorizontalLayout {
+                    height: 28px;
+                    spacing: 12px;
+                    Text {
+                        text: root.booster-total + (root.language == "id" ? " DNS diuji · 3 kueri / DNS" : " DNS tested · 3 queries / DNS");
+                        color: Theme.secondary-text;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    Rectangle {
+                        width: toggle-label.preferred-width + 20px;
+                        height: 28px;
+                        border-radius: 8px;
+                        background: results-toggle.has-hover ? Theme.glass-hover : transparent;
+                        toggle-label := Text {
+                            text: root.results-expanded ? (root.language == "id" ? "Sembunyikan hasil" : "Hide results") : (root.language == "id" ? "Lihat hasil" : "View results");
+                            color: Theme.accent;
+                            font-size: 11px;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        results-toggle := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.results-expanded = !root.results-expanded; }
+                        }
+                    }
+                }
+                if root.booster-results != "" && root.results-expanded: ListView {
+                    height: 144px;
+                    for result[index] in root.booster-rows: Rectangle {
+                        height: 48px;
+                        Rectangle {
+                            width: parent.width - 14px;
+                            height: 44px;
+                            border-radius: 10px;
+                            background: result.best ? Theme.green.with-alpha(0.07) : Theme.surface-subtle;
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 12px;
+                                Text {
+                                    width: 20px;
+                                    text: index + 1;
+                                    color: result.best ? Theme.green : Theme.muted-text;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Text {
+                                        text: result.current ? (root.language == "id" ? "DNS saat ini" : "Current DNS") : result.name;
+                                        color: Theme.text;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: result.address;
+                                        color: Theme.muted-text;
+                                        font-size: 10px;
+                                    }
+                                }
+                                if result.best: VerticalLayout {
+                                    alignment: center;
+                                    Tag {
+                                        text: root.language == "id" ? "Terbaik saat diuji" : "Best in this test";
+                                        tint: Theme.green;
+                                    }
+                                }
+                                Text {
+                                    width: 100px;
+                                    text: result.latency;
+                                    color: result.qualified ? Theme.text : Theme.muted-text;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                    horizontal-alignment: right;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    width: 140px;
+                                    text: result.successful + "/3 " + (result.qualified ? (root.language == "id" ? "respons berhasil" : "successful replies") : (root.language == "id" ? "respons · belum cukup" : "replies · insufficient"));
+                                    color: result.qualified ? Theme.green : Theme.orange;
+                                    font-size: 10px;
+                                    horizontal-alignment: right;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
