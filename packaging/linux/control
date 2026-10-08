@@ -5,9 +5,9 @@ Priority: optional
 Architecture: amd64
 Maintainer: UseDNS <usedns@x-labs.my.id>
 Homepage: https://github.com/x-labs-myid/UseDNS
-Depends: libc6, libfontconfig1, libfreetype6, libxkbcommon0, libxcb1, libxcb-shape0, libxcb-xfixes0, libxcb-render0
+Depends: curl, libcurl4 | libcurl4t64, libssl3 | libssl3t64, lsof, network-manager, pkexec | policykit-1, libc6, libfontconfig1, libfreetype6, libxkbcommon0, libxcb1, libxcb-shape0, libxcb-xfixes0, libxcb-render0
 Description: Desktop utility for choosing and applying DNS resolvers
  UseDNS is a lightweight desktop app for comparing public DNS
  providers and applying them from a simple interface.
- Changing system DNS is currently supported on Windows only;
- the Linux build runs the UI.
+ DNS changes use NetworkManager. Network Tools provide speedtest
+ and local port inspection with process termination.

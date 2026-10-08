@@ -7,11 +7,19 @@ mod metrics;
 mod models;
 #[cfg(windows)]
 mod native_windows;
+mod network_tools;
+mod speedtest;
 mod startup;
 mod storage;
 mod system;
 #[cfg(windows)]
 mod tray;
+#[cfg(any(not(windows), test))]
+mod unix_dns;
+#[cfg(windows)]
+mod windows_adapters;
+#[cfg(windows)]
+mod windows_ports;
 
 use metrics::format_speed;
 use models::DnsProvider;
@@ -443,6 +451,8 @@ fn main() -> Result<(), slint::PlatformError> {
     #[cfg(not(windows))]
     let (window, tray_preview) = (AppWindow::new()?, TrayPreview::new()?);
 
+    network_tools::bind(&window);
+
     #[cfg(windows)]
     let hwnd: Option<isize> = {
         use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -683,28 +693,47 @@ fn main() -> Result<(), slint::PlatformError> {
         let weak = window.as_weak();
         let providers = providers.clone();
         window.on_run_booster(move || {
-            let Some(window) = weak.upgrade() else { return; };
-            if window.get_booster_running() || window.get_busy() || window.get_page() != 1 { return; }
+            let Some(window) = weak.upgrade() else {
+                return;
+            };
+            if window.get_booster_running() || window.get_busy() || window.get_page() != 1 {
+                return;
+            }
             let generation = window.get_booster_generation().wrapping_add(1);
             window.set_booster_generation(generation);
             let indonesian = window.get_language() == "id";
             let mut candidates = Vec::new();
-            if let Some(address) = window.get_current_dns().split([',', ';', ' ', '\t'])
-                .find_map(|part| part.trim().parse::<std::net::Ipv4Addr>().ok()) {
+            if let Some(address) = window
+                .get_current_dns()
+                .split([',', ';', ' ', '\t'])
+                .find_map(|part| part.trim().parse::<std::net::Ipv4Addr>().ok())
+            {
                 candidates.push(booster::Candidate {
                     provider_id: String::new(),
-                    name: if indonesian { "DNS saat ini" } else { "Current DNS" }.into(),
+                    name: if indonesian {
+                        "DNS saat ini"
+                    } else {
+                        "Current DNS"
+                    }
+                    .into(),
                     address: address.into(),
                 });
             }
             for provider in providers.borrow().iter().filter(|p| !p.custom) {
                 if let Some(profile) = provider.get_profiles().first()
-                    && let Ok(address) = profile.ipv4_primary.parse::<std::net::Ipv4Addr>() {
-                    if candidates.iter().any(|candidate| candidate.address == std::net::IpAddr::V4(address)) {
+                    && let Ok(address) = profile.ipv4_primary.parse::<std::net::Ipv4Addr>()
+                {
+                    if candidates
+                        .iter()
+                        .any(|candidate| candidate.address == std::net::IpAddr::V4(address))
+                    {
                         continue;
                     }
-                    candidates.push(booster::Candidate { provider_id: provider.id.clone(),
-                        name: provider.name.clone(), address: address.into() });
+                    candidates.push(booster::Candidate {
+                        provider_id: provider.id.clone(),
+                        name: provider.name.clone(),
+                        address: address.into(),
+                    });
                 }
             }
             window.set_booster_running(true);
@@ -722,13 +751,16 @@ fn main() -> Result<(), slint::PlatformError> {
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(window) = weak.upgrade()
                             && window.get_booster_generation() == generation
-                            && window.get_page() == 1 {
+                            && window.get_page() == 1
+                        {
                             window.set_booster_completed(completed as i32);
                         }
                     });
                 });
                 let _ = slint::invoke_from_event_loop(move || {
-                    let Some(window) = weak.upgrade() else { return; };
+                    let Some(window) = weak.upgrade() else {
+                        return;
+                    };
                     if window.get_booster_generation() != generation || window.get_page() != 1 {
                         return;
                     }
@@ -740,25 +772,48 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Some(best) = results.first().filter(|r| r.median_ms.is_some()) {
                         if best.candidate.provider_id.is_empty() {
                             window.set_booster_current_best(true);
-                            summary = if indonesian { "DNS saat ini unggul pada pengujian ini" }
-                                else { "Current DNS leads in this test" }.to_string();
+                            summary = if indonesian {
+                                "DNS saat ini unggul pada pengujian ini"
+                            } else {
+                                "Current DNS leads in this test"
+                            }
+                            .to_string();
                         } else {
-                            summary = format!("{}: {}", if indonesian { "Rekomendasi" } else { "Recommendation" }, best.candidate.name);
+                            summary = format!(
+                                "{}: {}",
+                                if indonesian {
+                                    "Rekomendasi"
+                                } else {
+                                    "Recommendation"
+                                },
+                                best.candidate.name
+                            );
                         }
                     } else {
-                        summary = if indonesian { "Belum ada DNS yang lolos pengujian. Coba pindai ulang." }
-                            else { "No DNS qualified in this test. Try scanning again." }.to_string();
+                        summary = if indonesian {
+                            "Belum ada DNS yang lolos pengujian. Coba pindai ulang."
+                        } else {
+                            "No DNS qualified in this test. Try scanning again."
+                        }
+                        .to_string();
                     }
-                    let rows = results.iter().enumerate().map(|(index, result)| DnsScanRow {
-                        name: result.candidate.name.as_str().into(),
-                        address: result.candidate.address.to_string().into(),
-                        latency: result.median_ms.map(|ms| format!("{ms:.1} ms"))
-                            .unwrap_or_else(|| "—".into()).into(),
-                        successful: result.successful as i32,
-                        qualified: result.median_ms.is_some(),
-                        best: index == 0 && result.median_ms.is_some(),
-                        current: result.candidate.provider_id.is_empty(),
-                    }).collect::<Vec<_>>();
+                    let rows = results
+                        .iter()
+                        .enumerate()
+                        .map(|(index, result)| DnsScanRow {
+                            name: result.candidate.name.as_str().into(),
+                            address: result.candidate.address.to_string().into(),
+                            latency: result
+                                .median_ms
+                                .map(|ms| format!("{ms:.1} ms"))
+                                .unwrap_or_else(|| "—".into())
+                                .into(),
+                            successful: result.successful as i32,
+                            qualified: result.median_ms.is_some(),
+                            best: index == 0 && result.median_ms.is_some(),
+                            current: result.candidate.provider_id.is_empty(),
+                        })
+                        .collect::<Vec<_>>();
                     window.set_booster_rows(ModelRc::new(VecModel::from(rows)));
                     window.set_booster_results(summary.into());
                 });
@@ -1104,7 +1159,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         tag: tag.as_str().into(),
                         ipv4: format_pair(&p.ipv4_primary, &p.ipv4_secondary).into(),
                         ipv6: format_pair(&p.ipv6_primary, &p.ipv6_secondary).into(),
-                        doh_template: doh_template(&provider.id, &p.id).into(),
+                        doh_template: if cfg!(windows) {
+                            doh_template(&provider.id, &p.id).into()
+                        } else {
+                            "".into()
+                        },
                     }
                 })
                 .collect::<Vec<_>>();

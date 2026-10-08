@@ -217,9 +217,15 @@ mod tests {
             measurement("google", Some(30.1)),
             measurement("adguard", None),
         ];
-        assert_eq!(review_candidate(&results).unwrap().provider_id, "cloudflare");
+        assert_eq!(
+            review_candidate(&results).unwrap().provider_id,
+            "cloudflare"
+        );
         results.remove(0);
-        assert_eq!(review_candidate(&results).unwrap().provider_id, "cloudflare");
+        assert_eq!(
+            review_candidate(&results).unwrap().provider_id,
+            "cloudflare"
+        );
         results.drain(..2);
         assert!(review_candidate(&results).is_none());
         assert!(review_candidate(&[]).is_none());

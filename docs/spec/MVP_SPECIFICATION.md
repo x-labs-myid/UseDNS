@@ -1,3 +1,5 @@
+> Platform DNS and Network Tools additions are documented in [NETWORK_TOOLS.md](NETWORK_TOOLS.md); platform limitations in this original MVP specification describe the earlier release.
+
 # UseDNS MVP — Product and Technical Specification
 
 **Document status:** Implemented MVP baseline (synced with current UI)  

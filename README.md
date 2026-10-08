@@ -6,14 +6,14 @@
 
 <p align="center"><strong>Choose. Switch. Connect.</strong></p>
 
-UseDNS is a lightweight desktop utility for discovering, comparing, and applying DNS resolvers without manually editing Windows network settings. It is built with [Rust](https://www.rust-lang.org/) and [Slint](https://slint.dev/).
+UseDNS is a lightweight desktop utility for discovering, comparing, and applying DNS resolvers without manually editing network settings. It is built with [Rust](https://www.rust-lang.org/) and [Slint](https://slint.dev/).
 
 <p align="center">
   <img src=".assets/screenshots/dashboard.png" alt="UseDNS dashboard showing active DNS, connection status, and live network activity" width="900">
 </p>
 
 > [!NOTE]
-> UseDNS is currently an MVP. DNS changes are supported on Windows; additional platform backends are planned.
+> UseDNS is currently an MVP. DNS changes support Windows, Linux with NetworkManager, and macOS network services. Linux/macOS backends still need validation on their respective systems.
 
 ## Highlights
 
@@ -52,12 +52,12 @@ Built-in providers are read-only so their verified configuration stays intact. U
 
 ## Requirements
 
-- Windows 10 or Windows 11
-- PowerShell with the `DnsClient` module
-- Administrator privileges when applying or resetting DNS
+- Windows 10/11 with PowerShell `DnsClient`, Linux with NetworkManager (`nmcli`, `pkexec`, and a graphical authorization agent), or macOS with `networksetup`
+- Authorization when applying/resetting DNS or restarting WinNAT
+- libcurl with system TLS support for speedtest; `lsof` and `ps` for Unix port inspection
 - Rust 1.92 or newer when building from source
 
-Reading network status does not require elevation. Windows only requires Administrator privileges when UseDNS writes DNS settings.
+Reading network status does not require elevation. DNS writes and Windows WinNAT restart request elevated access; process termination respects the current user's permissions.
 
 ## Getting Started
 
@@ -74,7 +74,7 @@ Run the development build:
 cargo run
 ```
 
-To apply or reset DNS, launch the terminal as **Administrator** before running the command.
+DNS changes request platform authorization when needed; the main application can run as a regular user.
 
 Create an optimized executable:
 
@@ -139,7 +139,7 @@ The workflow (`.github/workflows/release.yml`) then:
 
 On Windows, run the **setup** file, not a raw `.exe`. After install, start UseDNS from the Start Menu. Changing DNS still needs Administrator rights.
 
-DNS apply/reset remains a Windows feature in this MVP. Linux and macOS builds produce the UI; changing system DNS on those platforms is not implemented yet.
+DNS apply/reset uses the existing Windows backend, NetworkManager (`nmcli` and `pkexec`) on Linux, and `networksetup` with the macOS administrator prompt. Linux distributions without NetworkManager are unsupported. Plain DNS is available on Linux/macOS; the encrypted DNS option remains Windows-only.
 
 ## Usage
 
@@ -228,7 +228,7 @@ Tests cover bundled profile validation, IP versions, tray hover transitions, DNS
 Potential follow-up work includes:
 
 - Native elevation flow for DNS operations
-- Linux and macOS DNS backends
+- Validate Linux and macOS DNS backends on physical systems
 - DNS response benchmarking and recommendation ranking
 - Confirmation and rollback of the previous adapter configuration
 - Signed Windows installers and release automation
@@ -242,3 +242,16 @@ Changing DNS does not make a connection anonymous or completely private. Availab
 ## License
 
 UseDNS is available under the [MIT License](LICENSE).
+
+## Network Tools
+
+Open **Network Tools / Alat Jaringan** from navigation. These tools run only on explicit user actions:
+
+- **Speedtest:** measures aggregate throughput to Cloudflare with four reusable parallel libcurl sessions, three seconds of warmup and ten seconds of measurement per direction. Request sizes adapt to connection speed; live byte measurements update approximately every 250 ms. Data consumption scales with speed and can reach gigabytes. HTTP latency is the median of six response samples after warmup, excluding connection setup; it includes server processing and is not ICMP ping. This is a Cloudflare throughput estimate, separate from DNS benchmarking, and does not implement Ookla's algorithm. Cancel stops all transfers; connection and request timeouts are five and twenty seconds. TLS verification remains enabled. Cloudflare sees your public IP and handles requests under its own policies. No history is stored.
+- **Ports:** lists local TCP listeners and UDP endpoints, with PID and process name. Linux/macOS require `lsof`; processes hidden by OS permissions may not appear. The list loads when Network Tools opens; Refresh also runs in the background.
+- **Stop process:** confirmation shows the selected process and explains that all its connections and unsaved work may be affected. UseDNS rechecks the selected port before requesting termination, blocks itself and low system PIDs, checks the process start time to detect PID reuse, and does not elevate this operation. Normal stop uses SIGTERM on Unix and taskkill without `/F` on Windows. **Force** has an additional warning and uses SIGKILL or taskkill `/F`; try normal stop first. Some processes require other permissions.
+- **Restart WinNAT:** Windows-only, separate from process termination. Confirmation explains possible interruption to VM/container networking; UAC requests Administrator access. It stops then starts WinNAT and reports failures. It is not a universal fix for port conflicts and does not delete reserved port ranges.
+
+Linux DNS uses the active NetworkManager connection UUID, changes DNS settings, and reapplies the device without restarting networking. If reapply fails, it attempts to restore the prior DNS settings and reports rollback failures. `pkexec` requires a working graphical authorization agent. macOS applies DNS to the selected active network service; automatic DNS display uses interface-scoped system resolvers, with DHCP IPv4 DNS as a fallback. Automatic reset clears manual DNS settings in both IP families. No backend overwrites `/etc/resolv.conf`.
+
+Platform references: [NetworkManager settings](https://networkmanager.pages.freedesktop.org/NetworkManager/NetworkManager/nm-settings-nmcli.html), [Cloudflare speedtest endpoints](https://github.com/cloudflare/speedtest), [WinNAT](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/setup-nat-network).

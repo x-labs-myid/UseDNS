@@ -1,0 +1,241 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { AppButton, LoadingSpinner } from "../components/common.slint";
+
+component ToolTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+    width: 160px; height: 40px;
+    border-radius: Theme.radius-control;
+    background: selected ? Theme.surface-strong : (touch.has-hover ? Theme.glass-hover : transparent);
+    border-width: selected ? 1px : 0px;
+    border-color: Theme.border;
+    Text { text: root.label; color: root.selected ? Theme.accent : Theme.secondary-text; font-size: 13px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+component TestActivity inherits Rectangle {
+    in property <int> phase;
+    in property <string> value;
+    in property <string> language;
+    in property <bool> active;
+    private property <int> frame: 0;
+    private property <int> elapsed: 0;
+    private property <color> tint: phase == 3 ? Theme.cyan : (phase == 1 ? Theme.purple : Theme.accent);
+    private property <string> stage: phase == 1 ? (language == "id" ? "Mengukur latensi" : "Measuring latency") : (phase == 2 ? (language == "id" ? "Menguji download" : "Testing download") : (language == "id" ? "Menguji upload" : "Testing upload"));
+    height: 152px;
+    background: Theme.surface;
+    border-radius: Theme.radius-panel;
+    border-width: 1px; border-color: root.tint.with-alpha(0.35);
+    changed active => { root.elapsed = 0; root.frame = 0; }
+    Timer { interval: 45ms; running: root.active; triggered => { root.frame = Math.mod(root.frame + 1, 36); } }
+    Timer { interval: 1s; running: root.active; triggered => { root.elapsed += 1; } }
+    HorizontalLayout {
+        padding: 20px; spacing: 24px;
+        Rectangle {
+            width: 112px; height: 112px; horizontal-stretch: 0;
+            for segment in 36: Rectangle {
+                x: 53px + 48px * Math.cos(segment * 10deg);
+                y: 53px + 48px * Math.sin(segment * 10deg);
+                width: 6px; height: 6px; border-radius: 3px;
+                background: root.tint;
+                opacity: Math.mod(segment - root.frame + 36, 36) < 10 ? 1 : 0.15;
+                animate opacity { duration: 90ms; }
+            }
+            VerticalLayout {
+                alignment: center; spacing: 4px;
+                Text { text: root.value; color: root.tint; font-size: 20px; font-weight: 800; horizontal-alignment: center; }
+                Text { text: root.phase == 1 ? "ms" : "Mbps"; color: root.tint; font-size: 11px; horizontal-alignment: center; }
+                Text { text: root.elapsed + " s"; color: Theme.secondary-text; font-size: 12px; horizontal-alignment: center; }
+            }
+        }
+        VerticalLayout {
+            spacing: 10px; alignment: center;
+            Text { text: root.stage; color: Theme.text; font-size: 20px; font-weight: 700; }
+            Text { text: root.language == "id" ? "Tahap " + root.phase + " dari 3 · Cloudflare" : "Stage " + root.phase + " of 3 · Cloudflare"; color: Theme.secondary-text; font-size: 12px; }
+            HorizontalLayout {
+                height: 6px; spacing: 6px;
+                for step in [1, 2, 3]: Rectangle {
+                    border-radius: 3px;
+                    background: root.phase >= step ? root.tint : Theme.border-subtle;
+                    animate background { duration: 180ms; }
+                }
+            }
+            Text { text: root.language == "id" ? "Pemanasan 3 detik, lalu pengukuran 10 detik per transfer." : "3-second warmup, then 10-second measurement per direction."; color: Theme.muted-text; font-size: 11px; wrap: word-wrap; }
+        }
+    }
+}
+component TestMetric inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <string> unit;
+    in property <color> tint;
+    in property <bool> measuring: false;
+    background: Theme.surface;
+    border-radius: Theme.radius-card;
+    border-width: 1px; border-color: Theme.border;
+    min-width: 150px; height: 156px;
+    VerticalLayout {
+        padding: 22px; spacing: 12px;
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: root.label; color: root.measuring ? root.tint : Theme.secondary-text; font-size: 13px; font-weight: 600; }
+            if root.measuring: LoadingSpinner { size: 16px; spinner-color: root.tint; }
+        }
+        Text { text: root.value; color: root.tint; font-size: 36px; font-weight: 800; }
+        Text { text: root.unit; color: Theme.muted-text; font-size: 12px; }
+    }
+}
+export component NetworkToolsPage inherits Rectangle {
+    in property <string> language;
+    in property <bool> running;
+    in property <int> phase;
+    in property <string> result;
+    in property <string> download: "—";
+    in property <string> upload: "—";
+    in property <string> latency: "—";
+    in property <bool> busy;
+    in property <string> status;
+    in property <[string]> ports;
+    in property <bool> winnat;
+    in-out property <int> tab: 0;
+    property <int> pending: -1;
+    property <bool> force: false;
+    property <bool> nat-confirm: false;
+    changed visible => { root.pending = -1; root.nat-confirm = false; }
+    callback start;
+    callback cancel;
+    callback refresh;
+    callback stop(int, bool);
+    callback restart;
+    callback clear-confirmations;
+    clear-confirmations => { root.pending = -1; root.nat-confirm = false; root.force = false; }
+    VerticalLayout {
+        spacing: 18px;
+        VerticalLayout {
+            spacing: 4px; height: 52px;
+            Text { text: root.language == "id" ? "Alat Jaringan" : "Network Tools"; color: Theme.text; font-size: 24px; font-weight: 800; }
+            Text { text: root.language == "id" ? "Ukur koneksi dan kelola aktivitas jaringan lokal." : "Measure your connection and manage local network activity."; color: Theme.secondary-text; font-size: 11.5px; }
+        }
+        Rectangle {
+            height: 48px; background: Theme.surface-subtle; border-radius: Theme.radius-card;
+            HorizontalLayout {
+                padding: 4px; spacing: 4px;
+                ToolTab { label: "Speedtest"; selected: root.tab == 0; clicked => { root.tab = 0; root.clear-confirmations(); } }
+                ToolTab { label: root.language == "id" ? "Port & Proses" : "Ports & Processes"; selected: root.tab == 1; clicked => { root.tab = 1; root.clear-confirmations(); } }
+                if root.winnat: ToolTab { label: "WinNAT"; selected: root.tab == 2; clicked => { root.tab = 2; root.clear-confirmations(); } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+        if root.tab == 0: ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+            spacing: 18px;
+            Rectangle {
+                background: Theme.surface; border-radius: Theme.radius-panel; border-width: 1px; border-color: Theme.border;
+                height: 112px;
+                HorizontalLayout {
+                    padding: 24px; spacing: 18px;
+                    VerticalLayout {
+                        spacing: 8px; alignment: center;
+                        Text { text: root.language == "id" ? "Kecepatan internet" : "Internet speed"; color: Theme.text; font-size: 19px; font-weight: 700; }
+                        Text { text: root.language == "id" ? "Uji download, upload, dan waktu respons melalui Cloudflare." : "Test download, upload, and response time with Cloudflare."; color: Theme.secondary-text; font-size: 12px; wrap: word-wrap; }
+                    }
+                    if !root.running: AppButton { width: 174px; height: 40px; vertical-stretch: 0; primary: true; text: root.language == "id" ? "Mulai speedtest" : "Start speedtest"; clicked => { root.start(); } }
+                    if root.running: Rectangle {
+                        width: 174px; height: 40px; vertical-stretch: 0; background: Theme.accent.with-alpha(0.10); border-radius: Theme.radius-control;
+                        HorizontalLayout {
+                            padding: 10px; spacing: 8px; alignment: center;
+                            LoadingSpinner { size: 18px; spinner-color: Theme.accent; }
+                            Text { text: root.language == "id" ? "Sedang menguji" : "Testing"; color: Theme.accent; font-size: 13px; font-weight: 600; vertical-alignment: center; }
+                        }
+                    }
+                    if root.running: AppButton { width: 100px; height: 40px; vertical-stretch: 0; text: root.language == "id" ? "Batalkan" : "Cancel"; clicked => { root.cancel(); } }
+                }
+            }
+            if root.running: TestActivity { phase: root.phase; value: root.phase == 1 ? root.latency : (root.phase == 2 ? root.download : root.upload); language: root.language; active: root.running && root.visible && root.tab == 0; }
+            HorizontalLayout {
+                spacing: 16px;
+                TestMetric { label: "Download"; value: root.download; unit: "Mbps"; tint: Theme.accent; measuring: root.running && root.phase == 2; }
+                TestMetric { label: "Upload"; value: root.upload; unit: "Mbps"; tint: Theme.cyan; measuring: root.running && root.phase == 3; }
+                TestMetric { label: root.language == "id" ? "Latensi HTTP" : "HTTP latency"; value: root.latency; unit: "ms"; tint: Theme.purple; measuring: root.running && root.phase == 1; }
+            }
+            Rectangle {
+                height: 70px; background: Theme.surface-subtle; border-radius: Theme.radius-card;
+                VerticalLayout {
+                    padding: 16px; spacing: 6px;
+                    Text { text: root.running ? (root.language == "id" ? "Pengujian berlangsung · kecepatan diperbarui langsung" : "Test in progress · live speed updates") : (root.phase == 0 && root.result != "" ? (root.language == "id" ? "Pengujian terhenti" : "Test interrupted") : (root.download == "—" ? (root.language == "id" ? "Siap mengukur koneksi Anda" : "Ready to measure your connection") : (root.language == "id" ? "Pengujian selesai" : "Test complete"))); color: Theme.text; font-weight: 600; font-size: 12px; }
+                    Text { text: root.language == "id" ? "4 koneksi paralel · data sesuai kecepatan, dapat mencapai GB · bukan benchmark DNS." : "4 parallel connections · data scales with speed, may reach GB · separate from DNS benchmarking."; color: Theme.secondary-text; font-size: 11px; wrap: word-wrap; }
+                }
+            }
+            if root.result != "": Text { text: root.result; color: Theme.danger; wrap: word-wrap; }
+            }
+        }
+        if root.tab == 1: VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                height: 48px;
+                VerticalLayout {
+                    spacing: 5px;
+                    Text { text: root.language == "id" ? "Port yang digunakan" : "Ports in use"; font-size: 18px; font-weight: 700; color: Theme.text; }
+                    Text { text: root.language == "id" ? "TCP listening & UDP · " + root.ports.length + " endpoint lokal" : "TCP listening & UDP · " + root.ports.length + " local endpoints"; color: Theme.secondary-text; font-size: 12px; }
+                }
+                AppButton { width: 160px; height: 38px; vertical-stretch: 0; text: root.language == "id" ? "Muat ulang port" : "Refresh ports"; loading: root.busy; enabled: !root.busy; clicked => { root.pending = -1; root.refresh(); } }
+            }
+            Rectangle {
+                background: Theme.surface; border-radius: Theme.radius-card; border-width: 1px; border-color: Theme.border;
+                vertical-stretch: 1; min-height: 80px;
+                VerticalLayout {
+                    padding: 12px; spacing: 8px;
+                    HorizontalLayout {
+                        height: 26px;
+                        Text { text: root.language == "id" ? "PROTOKOL / ALAMAT / PID / PROSES" : "PROTOCOL / ADDRESS / PID / PROCESS"; color: Theme.muted-text; font-size: 10px; font-weight: 600; }
+                        Text { width: 260px; text: root.language == "id" ? "TINDAKAN" : "ACTIONS"; color: Theme.muted-text; font-size: 10px; font-weight: 600; }
+                    }
+                    ScrollView {
+                        min-height: 64px; vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: 4px;
+                            if root.ports.length == 0: Text { text: root.language == "id" ? "Belum ada data port. Klik Muat ulang port untuk memeriksa proses lokal." : "No port data yet. Click Refresh ports to inspect local processes."; color: Theme.secondary-text; min-height: 80px; wrap: word-wrap; vertical-alignment: center; }
+                            for label[index] in root.ports: Rectangle {
+                                height: 48px; background: Math.mod(index, 2) == 0 ? Theme.surface-subtle : transparent; border-radius: 8px;
+                                HorizontalLayout {
+                                    padding-left: 12px; padding-right: 8px; spacing: 8px;
+                                    Text { text: label; color: Theme.text; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; overflow: elide; }
+                                    AppButton { width: 150px; height: 34px; vertical-stretch: 0; text: root.language == "id" ? "Hentikan proses" : "Stop process"; enabled: !root.busy; clicked => { root.pending = index; root.force = false; root.nat-confirm = false; } }
+                                    AppButton { width: 100px; height: 34px; vertical-stretch: 0; text: root.language == "id" ? "Paksa..." : "Force..."; enabled: !root.busy; clicked => { root.pending = index; root.force = true; root.nat-confirm = false; } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if root.tab == 2 && root.winnat: VerticalLayout {
+            spacing: 16px;
+            Rectangle {
+                height: 208px; background: Theme.surface; border-radius: Theme.radius-panel; border-width: 1px; border-color: Theme.border;
+                VerticalLayout {
+                    padding: 24px; spacing: 14px;
+                    Text { text: "Windows NAT"; color: Theme.text; font-size: 20px; font-weight: 700; }
+                    Text { text: root.language == "id" ? "Restart layanan WinNAT untuk menangani masalah jaringan virtual di Windows." : "Restart the WinNAT service to address virtual networking issues on Windows."; color: Theme.secondary-text; wrap: word-wrap; }
+                    Text { text: root.language == "id" ? "Koneksi VM dan container dapat terputus sementara. Memerlukan Administrator." : "VM and container connections may be temporarily interrupted. Requires Administrator."; color: Theme.orange; wrap: word-wrap; }
+                    AppButton { width: 190px; height: 38px; horizontal-stretch: 0; text: "Restart WinNAT..."; enabled: !root.busy; clicked => { root.nat-confirm = true; root.pending = -1; } }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+        if root.pending >= 0 || root.nat-confirm: VerticalLayout {
+            spacing: 8px;
+            Text { text: root.nat-confirm ? (root.language == "id" ? "Restart WinNAT dapat memutus koneksi VM/container. Memerlukan Administrator." : "Restarting WinNAT can interrupt VM/container connections. Requires Administrator.") : (root.language == "id" ? "Hentikan proses ini? Semua koneksinya dapat terputus dan pekerjaan belum tersimpan dapat hilang." : "Stop this process? All its connections may close and unsaved work may be lost."); color: Theme.text; wrap: word-wrap; }
+            if root.pending >= 0 && root.force: Text { text: root.language == "id" ? "Penghentian paksa tidak memberi aplikasi kesempatan menyimpan pekerjaan." : "Force termination gives the application no opportunity to save work."; color: Theme.danger; wrap: word-wrap; }
+            if root.pending >= 0: Text { text: root.ports[root.pending]; color: Theme.secondary-text; }
+            HorizontalLayout {
+                height: 38px; spacing: 10px;
+                AppButton { text: root.language == "id" ? "Konfirmasi" : "Confirm"; danger: true; enabled: !root.busy; clicked => { if root.nat-confirm { root.restart(); } else { root.stop(root.pending, root.force); } root.pending = -1; root.nat-confirm = false; } }
+                AppButton { text: root.language == "id" ? "Batal" : "Cancel"; clicked => { root.pending = -1; root.nat-confirm = false; } }
+            }
+        }
+        if root.status != "": Text { text: root.status; color: Theme.secondary-text; wrap: word-wrap; }
+    }
+}

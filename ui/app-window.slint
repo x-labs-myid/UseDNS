@@ -6,6 +6,7 @@ import { CustomDnsPage } from "pages/custom-dns.slint";
 import { PolicyPage } from "pages/policy.slint";
 import { SettingsPage } from "pages/settings.slint";
 import { DocumentationPage } from "pages/documentation.slint";
+import { NetworkToolsPage } from "pages/network-tools.slint";
 import { TrayPreview } from "tray-preview.slint";
 import { Theme } from "theme.slint";
 import { ProviderRow, SpeedSample, DnsProfileRow, DnsScanRow } from "types.slint";
@@ -98,6 +99,22 @@ export component AppWindow inherits Window {
     in-out property <string> form-summary: "";
     in-out property <string> form-purpose: "general";
 
+    in-out property <int> speedtest-phase: 0;
+    in-out property <bool> speedtest-running: false;
+    in-out property <string> speedtest-result: "";
+    in-out property <string> speedtest-download: "—";
+    in-out property <string> speedtest-upload: "—";
+    in-out property <string> speedtest-latency: "—";
+    in-out property <int> network-tool-tab: 0;
+    in-out property <bool> tools-busy: false;
+    in-out property <string> tools-status: "";
+    in-out property <[string]> port-labels: [];
+    in-out property <bool> winnat-supported: false;
+    callback start-speedtest;
+    callback cancel-speedtest;
+    callback refresh-ports;
+    callback stop-port(int, bool);
+    callback restart-winnat;
     callback refresh;
     callback check-connection;
     callback language-changed(string);
@@ -127,6 +144,7 @@ export component AppWindow inherits Window {
     callback navigate(int);
     navigate(index) => {
         if root.page != index {
+            network-tools-page.clear-confirmations();
             // Invalidate queued updates from a scan started on the previous page.
             root.booster-generation += 1;
             root.booster-running = false;
@@ -141,6 +159,7 @@ export component AppWindow inherits Window {
         root.close-dialog-open = false;
         root.nav-menu-open = false;
         root.page = index;
+        if index == 6 { root.refresh-ports(); }
     }
 
     window-frame := Rectangle {
@@ -312,6 +331,27 @@ export component AppWindow inherits Window {
                     tray-preview-settings-changed(speed, dns, status, latency) => {
                         root.tray-preview-settings-changed(speed, dns, status, latency);
                     }
+                }
+                network-tools-page := NetworkToolsPage {
+                    tab <=> root.network-tool-tab;
+                    x: 24px; y: 24px; width: parent.width - 48px; height: parent.height - 48px;
+                    visible: root.page == 6;
+                    language: root.language;
+                    running: root.speedtest-running;
+                    phase: root.speedtest-phase;
+                    result: root.speedtest-result;
+                    download: root.speedtest-download;
+                    upload: root.speedtest-upload;
+                    latency: root.speedtest-latency;
+                    busy: root.tools-busy || root.busy;
+                    status: root.tools-status;
+                    ports: root.port-labels;
+                    winnat: root.winnat-supported;
+                    start => { root.start-speedtest(); }
+                    cancel => { root.cancel-speedtest(); }
+                    refresh => { root.refresh-ports(); }
+                    stop(index, force) => { root.stop-port(index, force); }
+                    restart => { root.restart-winnat(); }
                 }
                 DocumentationPage {
                     x: 24px;
@@ -519,6 +559,12 @@ export component AppWindow inherits Window {
                         x: 1px;
                         y: 1px;
                     }
+                }
+                NavDropdownItem {
+                    label: root.language == "id" ? "Alat Jaringan" : "Network Tools";
+                    selected: root.page == 6;
+                    clicked => { root.navigate(6); }
+                    IconDisplay { icon: IconSet.List; size: 16px; stroke: Theme.accent; }
                 }
                 NavDropdownItem {
                     label: root.language == "id" ? "Panduan & FAQ" : "Guide & FAQ";

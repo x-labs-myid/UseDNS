@@ -1,7 +1,6 @@
-use std::{
-    net::IpAddr,
-    time::{Duration, Instant},
-};
+use std::net::IpAddr;
+#[cfg(windows)]
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -80,6 +79,7 @@ fn hidden_output_with_timeout(
 #[cfg(windows)]
 #[derive(serde::Serialize, serde::Deserialize)]
 enum ElevatedDnsOperation {
+    RestartWinNat,
     Apply {
         adapter: String,
         addresses: Vec<String>,
@@ -168,6 +168,7 @@ fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), Str
         core::PCWSTR,
     };
 
+    let is_winnat = matches!(operation, ElevatedDnsOperation::RestartWinNat);
     let payload = serde_json::to_vec(&operation)
         .map(|bytes| BASE64.encode(bytes))
         .map_err(|error| format!("Could not prepare the DNS operation: {error}"))?;
@@ -206,7 +207,11 @@ fn run_elevated_dns_operation(operation: ElevatedDnsOperation) -> Result<(), Str
 
         ShellExecuteExW(&mut info).map_err(|error| {
             if error.code().0 as u32 == 0x8007_04c7 {
-                "Administrator permission was cancelled. DNS was not changed.".to_string()
+                if is_winnat {
+                    "Administrator permission was cancelled. WinNAT was not restarted.".to_string()
+                } else {
+                    "Administrator permission was cancelled. DNS was not changed.".to_string()
+                }
             } else {
                 "Could not request Administrator access: ".to_owned() + &error.to_string()
             }
@@ -258,6 +263,7 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
         })
         .and_then(|operation| {
             let script = match operation {
+                ElevatedDnsOperation::RestartWinNat => "Stop-Service -Name winnat -ErrorAction Stop; try { Start-Service -Name winnat -ErrorAction Stop } catch { Start-Service -Name winnat -ErrorAction SilentlyContinue; throw }".to_string(),
                 ElevatedDnsOperation::Apply {
                     adapter,
                     addresses,
@@ -335,45 +341,12 @@ pub fn run_dns_helper_if_requested() -> Option<i32> {
 
 #[cfg(windows)]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    let script = r"$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -ExpandProperty InterfaceIndex -First 1); $profiles=@{}; Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { $profiles[[int]$_.InterfaceIndex]=$_.Name }; $dns=@{}; Get-DnsClientServerAddress -ErrorAction SilentlyContinue | Group-Object InterfaceIndex | ForEach-Object { $dns[[int]$_.Name]=(($_.Group.ServerAddresses | Where-Object { $_ }) -join ', ') }; Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object { if ($_.ifIndex -eq $gw) { 0 } elseif ($_.InterfaceDescription -match 'Virtual|Hyper-V|vEthernet|Loopback|TAP|VPN') { 2 } else { 1 } } | ForEach-Object { $n=$_.Name; $i=[int]$_.ifIndex; $p=$profiles[$i]; $l=if ($p) { $n + ' — ' + $p } else { $n }; $g=$_.InterfaceGuid; $v4=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $v6=(Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters\Interfaces\' + $g) -Name NameServer -ErrorAction SilentlyContinue).NameServer; $auto=[string]::IsNullOrWhiteSpace([string]$v4) -and [string]::IsNullOrWhiteSpace([string]$v6); $dr='HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\InterfaceSpecificParameters\' + $g; $flags=Get-ChildItem -LiteralPath ($dr + '\DohInterfaceSettings') -Recurse -ErrorAction SilentlyContinue | ForEach-Object { (Get-ItemProperty -LiteralPath $_.PSPath -Name DohFlags -ErrorAction SilentlyContinue).DohFlags }; $enc=$flags -contains 17; Write-Output ($n + [char]9 + $l + [char]9 + $dns[$i] + [char]9 + $i + [char]9 + $(if ($auto) { '1' } else { '0' }) + [char]9 + $(if ($enc) { '1' } else { '0' })) }";
-    let output = powershell(script)?;
-    let adapters = output
-        .lines()
-        .filter_map(|line| {
-            let mut fields = line.split('\t');
-            let name = fields.next()?;
-            let label = fields.next()?;
-            let dns = fields.next()?;
-            let interface_index = fields.next()?.parse().ok()?;
-            let dns_automatic = fields.next() == Some("1");
-            let dns_encrypted = fields.next() == Some("1");
-            Some(AdapterInfo {
-                name: name.into(),
-                label: label.into(),
-                dns: dns.into(),
-                interface_index,
-                dns_automatic,
-                dns_encrypted,
-            })
-        })
-        .collect::<Vec<_>>();
-    if adapters.is_empty() {
-        Err("No active network adapter was found.".into())
-    } else {
-        Ok(adapters)
-    }
+    crate::windows_adapters::active_adapters()
 }
 
 #[cfg(not(windows))]
 pub fn active_adapters() -> Result<Vec<AdapterInfo>, String> {
-    Ok(vec![AdapterInfo {
-        name: "Default network".into(),
-        label: "Default network".into(),
-        dns: "System managed".into(),
-        interface_index: 0,
-        dns_automatic: true,
-        dns_encrypted: false,
-    }])
+    crate::unix_dns::adapters()
 }
 
 #[cfg(windows)]
@@ -429,11 +402,11 @@ pub fn apply_dns(
 
 #[cfg(not(windows))]
 pub fn apply_dns(
-    _adapter: &str,
-    _addresses: &[String],
-    _doh_template: Option<&str>,
+    adapter: &str,
+    addresses: &[String],
+    doh_template: Option<&str>,
 ) -> Result<(), String> {
-    Err("Changing DNS is currently supported on Windows only.".into())
+    crate::unix_dns::apply(adapter, addresses, doh_template)
 }
 
 #[cfg(windows)]
@@ -444,8 +417,19 @@ pub fn reset_dns(adapter: &str) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-pub fn reset_dns(_adapter: &str) -> Result<(), String> {
-    Err("Changing DNS is currently supported on Windows only.".into())
+pub fn reset_dns(adapter: &str) -> Result<(), String> {
+    crate::unix_dns::reset(adapter)
+}
+
+pub fn restart_winnat() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        run_elevated_dns_operation(ElevatedDnsOperation::RestartWinNat)
+    }
+    #[cfg(not(windows))]
+    {
+        Err("WinNAT is only available on Windows.".into())
+    }
 }
 
 pub fn check_connection(target: &str) -> Result<u128, String> {

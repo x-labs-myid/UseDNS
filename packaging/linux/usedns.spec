@@ -6,6 +6,12 @@ License:        MIT
 URL:            https://github.com/x-labs-myid/UseDNS
 BuildArch:      x86_64
 
+Requires:       curl
+Requires:       libcurl
+Requires:       openssl-libs
+Requires:       lsof
+Requires:       NetworkManager
+Requires:       polkit
 Requires:       fontconfig
 Requires:       freetype
 Requires:       libxkbcommon
@@ -13,8 +19,8 @@ Requires:       libxcb
 
 %description
 UseDNS is a lightweight desktop application for comparing public DNS
-providers. Changing system DNS is currently supported on Windows only;
-the Linux package provides the application UI.
+providers. DNS changes use NetworkManager. Network Tools include
+speedtest and local port inspection with process termination.
 
 %install
 rm -rf %{buildroot}

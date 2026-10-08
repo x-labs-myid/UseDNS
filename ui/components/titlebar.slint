@@ -87,6 +87,7 @@ export component Titlebar inherits Rectangle {
         page == 1 ? (language == "id" ? "Daftar DNS" : "DNS Providers") :
         page == 2 ? (language == "id" ? "DNS kustom" : "Custom DNS") :
         page == 3 ? (language == "id" ? "Kebijakan" : "Policy") :
+        page == 6 ? (language == "id" ? "Alat Jaringan" : "Network Tools") :
         page == 4 ? (language == "id" ? "Pengaturan" : "Settings") :
         (language == "id" ? "Panduan & FAQ" : "Guide & FAQ");
 
@@ -176,6 +177,11 @@ export component Titlebar inherits Rectangle {
                             }
                             if page == 5: IconDisplay {
                                 icon: IconSet.Info;
+                                size: 16px;
+                                stroke: Theme.accent;
+                            }
+                            if page == 6: IconDisplay {
+                                icon: IconSet.List;
                                 size: 16px;
                                 stroke: Theme.accent;
                             }
