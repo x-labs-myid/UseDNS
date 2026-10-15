@@ -15,6 +15,7 @@ export component HomePage inherits VerticalLayout {
     in-out property <int> adapter-index;
     in property <string> active-provider: "System / DHCP";
     in property <string> active-provider-id: "system";
+    in property <image> active-provider-icon;
     in property <string> current-dns: "—";
     in property <string> connection-state: "Checking...";
     in property <string> latency: "—";
@@ -160,6 +161,7 @@ export component HomePage inherits VerticalLayout {
                 VerticalLayout {
                     alignment: center;
                     ProviderIcon {
+                        icon: root.active-provider-icon;
                         provider-id: root.active-provider-id;
                         active: true;
                         size: 48px;

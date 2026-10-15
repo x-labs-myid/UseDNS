@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod booster;
+mod dns_loader;
 #[cfg(any(windows, test))]
 mod hover;
 mod metrics;
@@ -23,7 +24,7 @@ mod windows_ports;
 
 use metrics::format_speed;
 use models::DnsProvider;
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -112,7 +113,7 @@ fn resolve_active_provider(
     providers: &[DnsProvider],
     current_dns: &str,
     language: &str,
-) -> (String, String) {
+) -> (String, String, String) {
     for provider in providers {
         if !provider_is_active(provider, current_dns) {
             continue;
@@ -143,7 +144,7 @@ fn resolve_active_provider(
         } else {
             provider.name.clone()
         };
-        return (provider.id.clone(), title);
+        return (provider.id.clone(), title, provider.icon.clone());
     }
     (
         "system".into(),
@@ -152,6 +153,7 @@ fn resolve_active_provider(
         } else {
             "System / DHCP".into()
         },
+        "".into(),
     )
 }
 
@@ -161,9 +163,20 @@ fn apply_active_provider_state(
     current_dns: &str,
     language: &str,
 ) {
-    let (id, title) = resolve_active_provider(providers, current_dns, language);
+    let (id, title, icon_path) = resolve_active_provider(providers, current_dns, language);
     window.set_active_provider_id(id.into());
     window.set_active_provider(title.into());
+
+    let icon = if !icon_path.is_empty() {
+        if let Some(data) = crate::dns_loader::DnsLoader::load_icon(&icon_path) {
+            slint::Image::load_from_svg_data(&data).unwrap_or_default()
+        } else {
+            slint::Image::default()
+        }
+    } else {
+        slint::Image::default()
+    };
+    window.set_active_provider_icon(icon);
 }
 
 fn provider_is_active(provider: &DnsProvider, current_dns: &str) -> bool {
@@ -194,6 +207,12 @@ fn row(
 
     let profile_count = provider.get_profiles().len() as i32;
 
+    let icon = if let Some(data) = crate::dns_loader::DnsLoader::load_icon(&provider.icon) {
+        slint::Image::load_from_svg_data(&data).unwrap_or_default()
+    } else {
+        slint::Image::default()
+    };
+
     ProviderRow {
         id: provider.id.as_str().into(),
         name: provider.name.as_str().into(),
@@ -222,6 +241,7 @@ fn row(
         active: is_active,
         tag: provider_tag(provider, language).into(),
         profile_count,
+        icon,
     }
 }
 
@@ -614,7 +634,7 @@ fn main() -> Result<(), slint::PlatformError> {
         show_latency: settings.tray_show_latency,
     }));
 
-    let mut initial = models::default_providers();
+    let mut initial = dns_loader::DnsLoader::load();
     for mut provider in settings.custom_providers {
         if provider.validate().is_ok()
             && !provider.id.is_empty()
@@ -1292,6 +1312,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     provider.name.clone()
                 };
                 let active_provider_id = provider.id.clone();
+                let active_provider_icon_path = provider.icon.clone();
 
                 let providers_snapshot = providers.borrow().clone();
                 let (query, category) = provider_filter.borrow().clone();
@@ -1318,6 +1339,18 @@ fn main() -> Result<(), slint::PlatformError> {
                                     window.set_profile_popup_open(false);
                                     window.set_active_provider_id(active_provider_id.into());
                                     window.set_active_provider(active_title.into());
+
+                                    let icon = if let Some(data) =
+                                        crate::dns_loader::DnsLoader::load_icon(
+                                            &active_provider_icon_path,
+                                        )
+                                    {
+                                        slint::Image::load_from_svg_data(&data).unwrap_or_default()
+                                    } else {
+                                        slint::Image::default()
+                                    };
+                                    window.set_active_provider_icon(icon);
+
                                     window.set_current_dns(addresses.join(", ").into());
                                     window.invoke_check_connection();
                                     set_filtered_provider_model(
@@ -1412,6 +1445,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let weak = weak.clone();
             let provider_name = provider.name.clone();
             let provider_id = provider.id.clone();
+            let provider_icon_path = provider.icon.clone();
             let language_value = language.borrow().clone();
             let adapter_state = adapters.clone();
             std::thread::spawn(move || {
@@ -1431,6 +1465,16 @@ fn main() -> Result<(), slint::PlatformError> {
                                 }
                                 window.set_active_provider_id(provider_id.into());
                                 window.set_active_provider(provider_name.clone().into());
+
+                                let icon = if let Some(data) =
+                                    crate::dns_loader::DnsLoader::load_icon(&provider_icon_path)
+                                {
+                                    slint::Image::load_from_svg_data(&data).unwrap_or_default()
+                                } else {
+                                    slint::Image::default()
+                                };
+                                window.set_active_provider_icon(icon);
+
                                 window.set_current_dns(addresses.join(", ").into());
                                 window.invoke_check_connection();
                                 show_message(
@@ -1493,6 +1537,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     }
                                     .into(),
                                 );
+                                window.set_active_provider_icon(slint::Image::default());
                                 window.invoke_refresh();
                                 show_message(
                                     &window,

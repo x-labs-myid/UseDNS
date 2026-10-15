@@ -20,6 +20,7 @@ pub struct DnsProfile {
 pub struct DnsProvider {
     pub id: String,
     pub name: String,
+    pub owner: String,
     pub ipv4_primary: String,
     pub ipv4_secondary: String,
     pub ipv6_primary: String,
@@ -32,6 +33,7 @@ pub struct DnsProvider {
     pub pros_id: String,
     pub cons_en: String,
     pub cons_id: String,
+    pub icon: String,
     #[serde(default)]
     pub custom: bool,
     #[serde(default)]
@@ -99,6 +101,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "cloudflare".into(),
             name: "Cloudflare".into(),
+            owner: "Cloudflare, Inc.".into(),
             ipv4_primary: "1.1.1.1".into(),
             ipv4_secondary: "1.0.0.1".into(),
             ipv6_primary: "2606:4700:4700::1111".into(),
@@ -110,6 +113,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Cepat, mengutamakan privasi, jaringan global luas".into(),
             cons_en: "Does not block ads or adult content by default".into(),
             cons_id: "Tidak memblokir iklan atau konten dewasa secara bawaan".into(),
+            icon: "icons/cloudflare.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -156,6 +160,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "google".into(),
             name: "Google Public DNS".into(),
+            owner: "Google LLC".into(),
             ipv4_primary: "8.8.8.8".into(),
             ipv4_secondary: "8.8.4.4".into(),
             ipv6_primary: "2001:4860:4860::8888".into(),
@@ -167,6 +172,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Ketersediaan tinggi, andal, didukung secara luas".into(),
             cons_en: "Some users may prefer a provider outside Google's ecosystem".into(),
             cons_id: "Sebagian pengguna mungkin memilih penyedia di luar ekosistem Google".into(),
+            icon: "icons/google.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -187,6 +193,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "quad9".into(),
             name: "Quad9".into(),
+            owner: "Quad9 Foundation".into(),
             ipv4_primary: "9.9.9.9".into(),
             ipv4_secondary: "149.112.112.112".into(),
             ipv6_primary: "2620:fe::fe".into(),
@@ -198,6 +205,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Perlindungan malware dan phishing, dikelola organisasi nirlaba".into(),
             cons_en: "Threat filtering can occasionally block a wanted domain".into(),
             cons_id: "Penyaringan ancaman terkadang dapat memblokir domain yang diinginkan".into(),
+            icon: "icons/quad9.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -244,6 +252,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "adguard".into(),
             name: "AdGuard DNS".into(),
+            owner: "AdGuard Software Ltd".into(),
             ipv4_primary: "94.140.14.14".into(),
             ipv4_secondary: "94.140.15.15".into(),
             ipv6_primary: "2a10:50c0::ad1:ff".into(),
@@ -255,6 +264,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Pemblokiran iklan dan pelacak untuk seluruh jaringan".into(),
             cons_en: "Filtering can affect sites that depend on ad or tracking domains".into(),
             cons_id: "Penyaringan dapat memengaruhi situs yang bergantung pada domain iklan".into(),
+            icon: "icons/adguard.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -301,6 +311,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "cleanbrowsing".into(),
             name: "CleanBrowsing".into(),
+            owner: "CleanBrowsing".into(),
             ipv4_primary: "185.228.168.168".into(),
             ipv4_secondary: "185.228.169.168".into(),
             ipv6_primary: "2a0d:2a00:1::".into(),
@@ -312,6 +323,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Aman untuk keluarga dan anak, memblokir konten berbahaya".into(),
             cons_en: "May restrict access to mixed-content or false-positive domains".into(),
             cons_id: "Dapat membatasi akses ke domain berkonten campuran".into(),
+            icon: "icons/cleanbrowsing.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -358,6 +370,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "control-d".into(),
             name: "Control D".into(),
+            owner: "Windscribe Limited".into(),
             ipv4_primary: "76.76.2.2".into(),
             ipv4_secondary: "76.76.10.2".into(),
             ipv6_primary: "2606:1a40::2".into(),
@@ -369,6 +382,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Jaringan Anycast cepat, pemblokir malware & iklan bawaan".into(),
             cons_en: "Custom profile features require an online Control D account".into(),
             cons_id: "Fitur kustomisasi profil lanjutan membutuhkan akun Control D".into(),
+            icon: "icons/control-d.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -441,6 +455,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "nextdns".into(),
             name: "NextDNS".into(),
+            owner: "NextDNS Inc.".into(),
             ipv4_primary: "45.90.28.0".into(),
             ipv4_secondary: "45.90.30.0".into(),
             ipv6_primary: "2a07:a8c0::".into(),
@@ -452,6 +467,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Analitik andal, filter privasi dan keamanan terperinci".into(),
             cons_en: "Custom blocking rules require linking an account profile ID".into(),
             cons_id: "Aturan pemblokiran kustom memerlukan penautan profil akun".into(),
+            icon: "icons/nextdns.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
@@ -472,6 +488,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
         DnsProvider {
             id: "opendns".into(),
             name: "OpenDNS".into(),
+            owner: "Cisco Systems, Inc.".into(),
             ipv4_primary: "208.67.222.222".into(),
             ipv4_secondary: "208.67.220.220".into(),
             ipv6_primary: "2620:119:35::35".into(),
@@ -483,6 +500,7 @@ pub fn default_providers() -> Vec<DnsProvider> {
             pros_id: "Didukung infrastruktur Cisco, uptime 100%, lookup cepat".into(),
             cons_en: "May redirect NXDOMAIN errors to search suggestions page".into(),
             cons_id: "Dapat mengarahkan error NXDOMAIN ke halaman saran pencarian".into(),
+            icon: "icons/opendns.svg".into(),
             custom: false,
             profiles: vec![
                 DnsProfile {
