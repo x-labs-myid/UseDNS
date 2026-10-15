@@ -24,7 +24,7 @@ mod windows_ports;
 
 use metrics::format_speed;
 use models::DnsProvider;
-use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -1694,6 +1694,8 @@ fn main() -> Result<(), slint::PlatformError> {
             let provider = DnsProvider {
                 id: generated_id.clone(),
                 name: name.trim().into(),
+                owner: String::new(),
+                icon: String::new(),
                 ipv4_primary: v4a.trim().into(),
                 ipv4_secondary: v4b.trim().into(),
                 ipv6_primary: v6a.trim().into(),

@@ -1,7 +1,6 @@
 use crate::models::DnsProvider;
 use curl::easy::Easy;
 use std::fs;
-use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 

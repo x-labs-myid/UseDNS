@@ -376,14 +376,12 @@ export component ProviderIcon inherits Rectangle {
             size: root.size * 0.46;
             stroke: white;
             x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
         }
         if root.provider-id != "" && root.provider-id != "system": IconDisplay {
             icon: IconSet.Globe;
             size: root.size * 0.42;
             stroke: root.active ? Theme.cyan : Theme.accent;
             x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
         }
     }
 }
