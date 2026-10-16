@@ -23,7 +23,7 @@ mod windows_adapters;
 mod windows_ports;
 
 use metrics::format_speed;
-use models::DnsProvider;
+use models::{DnsProfile, DnsProvider};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::RefCell,
@@ -264,12 +264,25 @@ fn doh_template(provider_id: &str, profile_id: &str) -> &'static str {
         ("control-d", "malware") => "https://freedns.controld.com/p1",
         ("control-d", "ads-malware") => "https://freedns.controld.com/p2",
         ("control-d", "family" | "social") => "https://freedns.controld.com/p3",
+        ("libredns", "standard") => "https://doh.libredns.gr/dns-query",
+        ("libredns", "noads") => "https://doh.libredns.gr/noads",
         // NextDNS DoH requires an account-specific configuration ID. The generic
         // IPv4 addresses cannot be registered as a Windows DoH server pair.
         ("nextdns", _) => "",
         ("opendns", "standard") => "https://doh.opendns.com/dns-query",
         ("opendns", "familyshield") => "https://doh.familyshield.opendns.com/dns-query",
         _ => "",
+    }
+}
+
+/// Prefer the template published in the registry so that encrypted-only
+/// providers can be added without shipping a new build, then fall back to the
+/// built-in table.
+fn profile_doh_template(provider_id: &str, profile: &DnsProfile) -> String {
+    if profile.doh_template.trim().is_empty() {
+        doh_template(provider_id, &profile.id).to_string()
+    } else {
+        profile.doh_template.clone()
     }
 }
 
@@ -1180,7 +1193,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         ipv4: format_pair(&p.ipv4_primary, &p.ipv4_secondary).into(),
                         ipv6: format_pair(&p.ipv6_primary, &p.ipv6_secondary).into(),
                         doh_template: if cfg!(windows) {
-                            doh_template(&provider.id, &p.id).into()
+                            profile_doh_template(&provider.id, p).into()
                         } else {
                             "".into()
                         },
@@ -2122,7 +2135,8 @@ fn main() -> Result<(), slint::PlatformError> {
                     } else {
                         provider.name.clone()
                     };
-                    let template = doh_template(&provider.id, &profile.id);
+                    let template = profile_doh_template(&provider.id, profile);
+                    let encrypted = !template.is_empty();
                     let providers_snapshot = tray_providers.borrow().clone();
                     let (query, category) = tray_filter.borrow().clone();
                     if let Some(app) = app_weak.upgrade() {
@@ -2136,7 +2150,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         let result = system::apply_dns(
                             &adapter.name,
                             &addresses,
-                            (!template.is_empty()).then_some(template),
+                            encrypted.then_some(template.as_str()),
                         );
                         let _ = slint::invoke_from_event_loop(move || {
                             let Some(app) = weak.upgrade() else {
@@ -2151,7 +2165,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     {
                                         item.dns = addresses.join(", ");
                                         item.dns_automatic = false;
-                                        item.dns_encrypted = !template.is_empty();
+                                        item.dns_encrypted = encrypted;
                                     }
                                     app.set_active_provider_id(active_provider_id.into());
                                     app.set_active_provider(active_title.clone().into());

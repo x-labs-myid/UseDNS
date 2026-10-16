@@ -423,5 +423,85 @@
         "ipv6_secondary": "2620:119:53::123"
       }
     ]
+  },
+  {
+    "id": "libredns",
+    "name": "LibreDNS",
+    "owner": "LibreOps",
+    "ipv4_primary": "116.202.176.26",
+    "ipv4_secondary": "",
+    "ipv6_primary": "2a01:4f8:1c0c:8274::1",
+    "ipv6_secondary": "",
+    "summary_en": "No-log encrypted resolver run by the LibreOps collective.",
+    "summary_id": "Resolver terenkripsi tanpa log yang dikelola kolektif LibreOps.",
+    "purpose": "privacy",
+    "pros_en": "Strict no-log policy, encrypted DNS, resistant to censorship",
+    "pros_id": "Kebijakan tanpa log, DNS terenkripsi, tahan terhadap sensor",
+    "cons_en": "Encrypted DNS only, so it cannot be reached over plain DNS; no DNSSEC validation",
+    "cons_id": "Hanya DNS terenkripsi, tidak bisa diakses lewat DNS biasa; tanpa validasi DNSSEC",
+    "icon": "icons/libredns.svg",
+    "profiles": [
+      {
+        "id": "standard",
+        "name_en": "Standard (No Filter)",
+        "name_id": "Standar (Tanpa Filter)",
+        "description_en": "LibreDNS public resolver that answers every domain without content filtering.",
+        "description_id": "Resolver publik LibreDNS yang menjawab semua domain tanpa pemfilteran konten.",
+        "tag_en": "NO FILTER",
+        "tag_id": "TANPA FILTER",
+        "ipv4_primary": "116.202.176.26",
+        "ipv4_secondary": "",
+        "ipv6_primary": "2a01:4f8:1c0c:8274::1",
+        "ipv6_secondary": "",
+        "doh_template": "https://doh.libredns.gr/dns-query"
+      },
+      {
+        "id": "noads",
+        "name_en": "Ads & Tracker Blocking",
+        "name_id": "Blokir Iklan & Pelacak",
+        "description_en": "Filters advertisement and tracking domains using StevenBlack's crowdsourced list.",
+        "description_id": "Menyaring domain iklan dan pelacak memakai daftar crowdsourced StevenBlack.",
+        "tag_en": "AD BLOCKING",
+        "tag_id": "BEBAS IKLAN",
+        "ipv4_primary": "116.202.176.26",
+        "ipv4_secondary": "",
+        "ipv6_primary": "2a01:4f8:1c0c:8274::1",
+        "ipv6_secondary": "",
+        "doh_template": "https://doh.libredns.gr/noads"
+      }
+    ]
+  },
+  {
+    "id": "tiarap",
+    "name": "Tiarap",
+    "owner": "Tiarap",
+    "ipv4_primary": "174.138.21.128",
+    "ipv4_secondary": "188.166.206.224",
+    "ipv6_primary": "2400:6180:0:d0::5f6e:4001",
+    "ipv6_secondary": "",
+    "summary_en": "Privacy-first resolver that blocks ads, trackers, malware, and phishing.",
+    "summary_id": "Resolver yang mengutamakan privasi serta memblokir iklan, pelacak, malware, dan phishing.",
+    "purpose": "ad-blocking",
+    "pros_en": "Blocks over 3.2M ad, tracking, and malware domains; no logging, no ECS, DNSSEC validation",
+    "pros_id": "Memblokir lebih dari 3,2 juta domain iklan, pelacak, dan malware; tanpa log, tanpa ECS, dengan validasi DNSSEC",
+    "cons_en": "Filtering is always on, so there is no unfiltered profile; the network is smaller than the big public resolvers",
+    "cons_id": "Penyaringan selalu aktif sehingga tidak ada profil tanpa filter; jaringannya lebih kecil dibanding resolver publik besar",
+    "icon": "icons/tiarapdns.svg",
+    "profiles": [
+      {
+        "id": "default",
+        "name_en": "Standard (Ad & Malware Block)",
+        "name_id": "Standar (Blokir Iklan & Malware)",
+        "description_en": "Filters ads, trackers, malware, scams, and phishing while validating DNSSEC.",
+        "description_id": "Menyaring iklan, pelacak, malware, penipuan, dan phishing sekaligus memvalidasi DNSSEC.",
+        "tag_en": "AD BLOCKING",
+        "tag_id": "BEBAS IKLAN",
+        "ipv4_primary": "174.138.21.128",
+        "ipv4_secondary": "188.166.206.224",
+        "ipv6_primary": "2400:6180:0:d0::5f6e:4001",
+        "ipv6_secondary": "",
+        "doh_template": "https://doh.tiar.app/dns-query"
+      }
+    ]
   }
 ]

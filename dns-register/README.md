@@ -57,7 +57,8 @@ Add a new entry to the array in `dns.json`. Follow this structure:
       "ipv4_primary": "1.1.1.1",
       "ipv4_secondary": "1.0.0.1",
       "ipv6_primary": "2606:4700:4700::1111",
-      "ipv6_secondary": "2606:4700:4700::1001"
+      "ipv6_secondary": "2606:4700:4700::1001",
+      "doh_template": "https://doh.example.com/dns-query"
     }
   ]
 }
@@ -70,6 +71,7 @@ Add a new entry to the array in `dns.json`. Follow this structure:
 - **ID**: Use lowercase letters, numbers, and hyphens only.
 - **Purpose**: Choose one that fits best: `general`, `privacy`, `security`, or `ad-blocking`.
 - **Profiles**: If the provider offers different filters (e.g., family vs. security), list them all.
+- **DoH template**: `doh_template` is optional and may be left out. Add it when the resolver does not answer plain DNS on port 53 (LibreDNS, for example, only speaks DoH and DoT), otherwise it must start with `https://`.
 
 ## How Data is Loaded
 
@@ -145,7 +147,8 @@ Tambahkan entri baru ke dalam array di `dns.json`. Gunakan struktur berikut:
       "ipv4_primary": "1.1.1.1",
       "ipv4_secondary": "1.0.0.1",
       "ipv6_primary": "2606:4700:4700::1111",
-      "ipv6_secondary": "2606:4700:4700::1001"
+      "ipv6_secondary": "2606:4700:4700::1001",
+      "doh_template": "https://doh.example.com/dns-query"
     }
   ]
 }
@@ -158,6 +161,7 @@ Tambahkan entri baru ke dalam array di `dns.json`. Gunakan struktur berikut:
 - **ID**: Gunakan huruf kecil, angka, dan tanda hubung saja.
 - **Purpose**: Pilih yang paling sesuai: `general`, `privacy`, `security`, atau `ad-blocking`.
 - **Profiles**: Jika provider punya beberapa filter (misal: untuk keluarga vs keamanan), masukkan semuanya di sini.
+- **DoH template**: `doh_template` bersifat opsional dan boleh tidak ditulis. Isi hanya jika resolver tidak melayani DNS biasa di port 53 (contohnya LibreDNS yang hanya menyediakan DoH dan DoT), dan nilainya wajib diawali `https://`.
 
 ## Mekanisme Pemuatan Data
 
